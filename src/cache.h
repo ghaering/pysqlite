@@ -1,4 +1,4 @@
-/* module.h - definitions for the module
+/* cache.h - definitions for the LRU cache
  *
  * Copyright (C) 2004 Gerhard Häring <gh@ghaering.de>
  *
@@ -21,30 +21,38 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#ifndef PYSQLITE_MODULE_H
-#define PYSQLITE_MODULE_H
+#ifndef PYSQLITE_CACHE_H
+#define PYSQLITE_CACHE_H
 #include "Python.h"
 
-/**
- * Exception objects
- */
-PyObject* sqlite_Error;
-PyObject* sqlite_Warning;
-PyObject* sqlite_InterfaceError;
-PyObject* sqlite_DatabaseError;
-PyObject* sqlite_InternalError;
-PyObject* sqlite_OperationalError;
-PyObject* sqlite_ProgrammingError;
-PyObject* sqlite_IntegrityError;
-PyObject* sqlite_DataError;
-PyObject* sqlite_NotSupportedError;
+typedef struct _Node
+{
+    PyObject_HEAD
+    PyObject* key;
+    PyObject* data;
+    long count;
+    struct _Node* prev;
+    struct _Node* next;
+} Node;
 
-/**
- * Type objects
- */
-PyObject* sqlite_STRING;
-PyObject* sqlite_BINARY;
-PyObject* sqlite_NUMBER;
-PyObject* sqlite_DATETIME;
-PyObject* sqlite_ROWID;
+typedef struct
+{
+    PyObject_HEAD
+    int size;
+    PyObject* mapping;
+    PyObject* factory;
+    Node* first;
+    Node* last;
+} Cache;
+
+extern PyTypeObject NodeType;
+extern PyTypeObject CacheType;
+
+int node_init(Node* self, PyObject* args, PyObject* kwargs);
+void node_dealloc(Node* self);
+
+int cache_init(Cache* self, PyObject* args, PyObject* kwargs);
+void cache_dealloc(Cache* self);
+PyObject* cache_get(Cache* self, PyObject* args);
+
 #endif

@@ -24,6 +24,7 @@
 #include "module.h"
 #include "connection.h"
 #include "cursor.h"
+#include "cache.h"
 
 static PyMethodDef module_methods[] = {
     {NULL, NULL}
@@ -37,6 +38,16 @@ PyMODINIT_FUNC init_sqlite(void)
 
     ConnectionType.tp_new = PyType_GenericNew;
     CursorType.tp_new = PyType_GenericNew;
+    NodeType.tp_new = PyType_GenericNew;
+    CacheType.tp_new = PyType_GenericNew;
+    if (PyType_Ready(&NodeType) < 0) {
+        printf("node not ready\n");
+        return;
+    }
+    if (PyType_Ready(&CacheType) < 0) {
+        printf("cache not ready\n");
+        return;
+    }
     if (PyType_Ready(&ConnectionType) < 0) {
         printf("connection not ready\n");
         return;
@@ -50,6 +61,8 @@ PyMODINIT_FUNC init_sqlite(void)
     PyModule_AddObject(module, "connect", (PyObject*) &ConnectionType);
     Py_INCREF(&CursorType);
     PyModule_AddObject(module, "Cursor", (PyObject*) &CursorType);
+    Py_INCREF(&CacheType);
+    PyModule_AddObject(module, "Cache", (PyObject*) &CacheType);
 
     if (!(dict = PyModule_GetDict(module)))
     {
