@@ -25,6 +25,7 @@
 #include "module.h"
 #include "microprotocols.h"
 #include "microprotocols_proto.h"
+#include "prepare_protocol.h"
 
 /* used to decide wether to call PyInt_FromLong or PyLong_FromLongLong */
 #define INT32_MIN (-2147483647 - 1)
@@ -216,7 +217,7 @@ PyObject* cursor_execute(Cursor* self, PyObject* args)
             current_param = PySequence_GetItem(parameters, i);
 
             Py_INCREF(current_param);
-            adapted = microprotocols_adapt(current_param, (PyObject*)self->connection->SQLitePrepareProtocol, NULL);
+            adapted = microprotocols_adapt(current_param, (PyObject*)self->connection->prepareProtocol, NULL);
             Py_DECREF(current_param);
             if (adapted) {
             } else {
