@@ -9,7 +9,7 @@ from distutils.extension import Extension
 __version__ = "1.9.0"
 
 sqlite = "sqlite"
-sources = ["module.c"]
+sources = ["src/module.c", "src/connection.c", "src/cursor.c"]
 macros = []
 
 # Hard-coded for now in this project phase:
