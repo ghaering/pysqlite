@@ -32,29 +32,32 @@
 typedef struct
 {
     PyObject_HEAD
-    char* dbname;       // name of database file
     sqlite3* db;
-} PySQLite_Connection;
+    int inTransaction;
+} Connection;
 
 typedef struct
 {
     PyObject_HEAD
-    PySQLite_Connection* connection;
+    Connection* connection;
     PyObject* typecasters;
     sqlite3_stmt* statement;
 
     /* return code of the last call to sqlite3_step */
     int step_rc;
-} PySQLite_Cursor;
+} Cursor;
+
+typedef enum {STATEMENT_INVALID, STATEMENT_INSERT, STATEMENT_DELETE,
+    STATEMENT_UPDATE, STATEMENT_SELECT, STATEMENT_OTHER};
 
 // XXX: possible to get rid of "statichere"?
-statichere PyTypeObject PySQLite_CursorType;
+statichere PyTypeObject CursorType;
 
 static PyObject* connection_alloc(PyTypeObject* type, int aware)
 {
     PyObject *self;
 
-    self = (PyObject*)PyObject_MALLOC(sizeof(PySQLite_Connection));
+    self = (PyObject*)PyObject_MALLOC(sizeof(Connection));
     if (self == NULL)
         return (PyObject *)PyErr_NoMemory();
     PyObject_INIT(self, type);
@@ -62,7 +65,7 @@ static PyObject* connection_alloc(PyTypeObject* type, int aware)
     return self;
 }
 
-static PyObject* connection_repr(PySQLite_Connection* self)
+static PyObject* connection_repr(Connection* self)
 {
     return PyString_FromString("<connection>");
 }
@@ -86,16 +89,16 @@ static PyObject* sqlite_NotSupportedError;
 static char connection_doc[] =
 PyDoc_STR("<missing docstring>");
 
-static void connection_dealloc(PySQLite_Connection* self)
+static void connection_dealloc(Connection* self)
 {
     self->ob_type->tp_free((PyObject*)self);
 }
 
-static PyObject* connection_cursor(PySQLite_Connection* self, PyObject* args)
+static PyObject* connection_cursor(Connection* self, PyObject* args)
 {
-    PySQLite_Cursor* cursor = NULL;
+    Cursor* cursor = NULL;
 
-    cursor = (PySQLite_Cursor*) (PySQLite_CursorType.tp_alloc(&PySQLite_CursorType, 0));
+    cursor = (Cursor*) (CursorType.tp_alloc(&CursorType, 0));
     cursor->connection = self;
     cursor->statement = NULL;
     cursor->step_rc = UNKNOWN;
@@ -106,25 +109,89 @@ static PyObject* connection_cursor(PySQLite_Connection* self, PyObject* args)
     return (PyObject*)cursor;
 }
 
-static PyObject* connection_close(PyObject* args)
+static PyObject* connection_close(Connection* self, PyObject* args)
 {
     Py_INCREF(Py_None);
     return Py_None;
 }
 
-static PyObject* connection_commit(PyObject* args)
+static PyObject* connection_commit(Connection* self, PyObject* args)
 {
+    int rc;
+    const char* tail;
+    sqlite3_stmt* statement;
+
+    rc = sqlite3_prepare(self->db, "COMMIT", -1, &statement, &tail);
+    if (rc != SQLITE_OK) {
+        PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
+        return NULL;
+    }
+
+    rc = sqlite3_step(statement);
+    if (rc != SQLITE_DONE) {
+        PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
+        return NULL;
+    }
+
+    rc = sqlite3_finalize(statement);
+    if (rc != SQLITE_OK) {
+        PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
+        return NULL;
+    }
+
+    self->inTransaction = 0;
+
     Py_INCREF(Py_None);
     return Py_None;
 }
 
-static PyObject* connection_rollback(PyObject* args)
+static PyObject* connection_rollback(Connection* self, PyObject* args)
 {
+    int rc;
+    const char* tail;
+    sqlite3_stmt* statement;
+
+    rc = sqlite3_prepare(self->db, "ROLLBACK", -1, &statement, &tail);
+    if (rc != SQLITE_OK) {
+        PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
+        return NULL;
+    }
+
+    rc = sqlite3_step(statement);
+    if (rc != SQLITE_DONE) {
+        PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
+        return NULL;
+    }
+
+    rc = sqlite3_finalize(statement);
+    if (rc != SQLITE_OK) {
+        PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
+        return NULL;
+    }
+
+    self->inTransaction = 0;
+
     Py_INCREF(Py_None);
     return Py_None;
 }
 
-static PyObject* cursor_execute(PySQLite_Cursor* self, PyObject* args)
+static PyObject* cursor_iternext(Cursor *self);
+
+/*
+static StatementType detect_statement_type(char* statement)
+{
+    char* p;
+
+    // skip over whitepace
+    while (*p == '\r' || *p == '\n' || *p == ' ' || *p == '\t') {
+        p++;
+    }
+
+    if (*p == 0)
+}
+*/
+
+static PyObject* cursor_execute(Cursor* self, PyObject* args)
 {
     PyObject* operation;
     char* operation_cstr;
@@ -176,51 +243,107 @@ static PyObject* cursor_execute(PySQLite_Cursor* self, PyObject* args)
     return Py_None;
 }
 
-static PyObject* cursor_fetchone(PySQLite_Cursor* self, PyObject* args)
+static PyObject* cursor_executemany(Cursor* self, PyObject* args)
 {
-    int i, numcols;
-    PyObject* row;
-    PyObject* item;
-    char* c_item;
+    PyObject* operation;
+    char* operation_cstr;
+    PyObject* parameterParam;
+    PyObject* parameterIter;
+    PyObject* parameters;
+    PyObject* func_args;
+    int num_params;
+    const char* tail;
+    int i;
+    int rc;
 
-    if (self->statement == NULL) {
-        PyErr_SetString(sqlite_ProgrammingError, "no compiled statement");
+    if (!PyArg_ParseTuple(args, "SO", &operation, &parameterParam))
+    {
+        return NULL; 
+    }
+
+    if (PyCallable_Check(parameterParam)) {
+        /* generator */
+        func_args = PyTuple_New(0);
+        parameterIter = PyObject_CallObject(parameterParam, func_args);
+        Py_DECREF(func_args);
+        if (!parameterIter) {
+            return NULL;
+        }
+    } else {
+        if (PyIter_Check(parameterParam)) {
+            /* iterator */
+            Py_INCREF(parameterParam);
+            parameterIter = parameterParam;
+        } else {
+            /* sequence */
+            parameterIter = PyObject_GetIter(parameterParam);
+            if (PyErr_Occurred())
+            {
+                return NULL;
+            }
+        }
+    }
+
+    operation_cstr = PyString_AsString(operation);
+
+    if (self->statement != NULL) {
+        /* There is an active statement */
+        if (sqlite3_finalize(self->statement) != SQLITE_OK) {
+            PyErr_SetString(sqlite_DatabaseError, "error finalizing virtual machine");
+            return NULL;
+        }
+    }
+
+    rc = sqlite3_prepare(self->connection->db,
+                         operation_cstr,
+                         0,
+                         &self->statement,
+                         &tail);
+    if (rc != SQLITE_OK) {
+        PyErr_SetString(sqlite_DatabaseError, "error preparing statement");
         return NULL;
     }
 
-    // TODO: handling of step_rc here. it would be nicer if the hack with
-    //       UNKNOWN were not necessary
-    if (self->step_rc == UNKNOWN) {
-        self->step_rc = sqlite3_step(self->statement);
+    while (1) {
+        parameters = PyIter_Next(parameterIter);
+        if (!parameters) {
+            if (PyErr_Occurred()) {
+                return NULL;
+            } else {
+                break;
+            }
+        }
+
+        num_params = PySequence_Length(parameters);
+        for (i = 0; i < num_params; i++) {
+            rc = sqlite3_bind_text(self->statement, i + 1, PyString_AsString(PyObject_Str(PySequence_GetItem(parameters, i))), -1, SQLITE_TRANSIENT);
+        }
+
+        rc = sqlite3_step(self->statement);
+        if (rc != SQLITE_DONE) {
+            printf("rc=%i\n", rc);
+            PyErr_SetString(sqlite_DatabaseError, "unexpected rc");
+            return NULL;
+        }
+
+        rc = sqlite3_reset(self->statement);
     }
 
-    if (self->step_rc == SQLITE_DONE) {
+    Py_DECREF(parameterIter);
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+static PyObject* cursor_fetchone(Cursor* self, PyObject* args)
+{
+    PyObject* row;
+
+    row = cursor_iternext(self);
+    if (!row && !PyErr_Occurred()) {
         Py_INCREF(Py_None);
         return Py_None;
-    } else if (self->step_rc != SQLITE_ROW) {
-        PyErr_SetString(sqlite_DatabaseError, "wrong return code :-S");
-        return NULL;
     }
-
-    numcols = sqlite3_data_count(self->statement);
-    row = PyTuple_New(numcols);
-
-    for (i = 0; i < numcols; i++) {
-        c_item = sqlite3_column_text(self->statement, i);
-        if (c_item) {
-            item = PyString_FromString(c_item);
-        } else {
-            Py_INCREF(Py_None);
-            item = Py_None;
-        }
-        PyTuple_SetItem(row, i, item);
-    }
-
-    self->step_rc = UNKNOWN;
-
-    Py_DECREF(self->typecasters);
-    Py_INCREF(Py_None);
-    self->typecasters = Py_None;
 
     return row;
 }
@@ -233,14 +356,14 @@ static PyGetSetDef connection_getset[] = {
 
 static PyObject* connection_new(PyTypeObject* type, PyObject* args, PyObject* kw)
 {
-    PySQLite_Connection* self = NULL;
+    Connection* self = NULL;
 
-    self = (PySQLite_Connection*) (type->tp_alloc(type, 0));
+    self = (Connection*) (type->tp_alloc(type, 0));
 
     return (PyObject*)self;
 }
 
-static int connection_init(PySQLite_Connection* self, PyObject* args, PyObject* kwargs)
+static int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
 {
     static char *kwlist[] = {"database", NULL};
     char* database;
@@ -256,11 +379,12 @@ static int connection_init(PySQLite_Connection* self, PyObject* args, PyObject* 
         return -1;
     }
 
+    self->inTransaction = 0;
 
     return 0;
 }
 
-static int cursor_init(PySQLite_Cursor* self, PyObject* args, PyObject* kwargs)
+static int cursor_init(Cursor* self, PyObject* args, PyObject* kwargs)
 {
     //static char *kwlist[] = {"connection", NULL};
     static char *kwlist[] = {NULL};
@@ -274,6 +398,73 @@ static int cursor_init(PySQLite_Cursor* self, PyObject* args, PyObject* kwargs)
 
     printf("foo3\n");
     return 0;
+}
+
+static PyObject* cursor_getiter(Cursor *self)
+{
+    Py_INCREF(self);
+    return (PyObject*)self;
+}
+
+static PyObject* cursor_iternext(Cursor *self)
+{
+    int i, numcols;
+    PyObject* row;
+    PyObject* item = NULL;
+    int coltype;
+
+    if (self->statement == NULL) {
+        PyErr_SetString(sqlite_ProgrammingError, "no compiled statement");
+        return NULL;
+    }
+
+    // TODO: handling of step_rc here. it would be nicer if the hack with
+    //       UNKNOWN were not necessary
+    if (self->step_rc == UNKNOWN) {
+        self->step_rc = sqlite3_step(self->statement);
+    }
+
+    if (self->step_rc == SQLITE_DONE) {
+        return NULL;
+    } else if (self->step_rc != SQLITE_ROW) {
+        PyErr_SetString(sqlite_DatabaseError, "wrong return code :-S");
+        return NULL;
+    }
+
+    numcols = sqlite3_data_count(self->statement);
+    row = PyTuple_New(numcols);
+
+    for (i = 0; i < numcols; i++) {
+        coltype = sqlite3_column_type(self->statement, i);
+        if (coltype == SQLITE_NULL) {
+            Py_INCREF(Py_None);
+            item = Py_None;
+        } else {
+            /* TODO: use typecasters if available */
+            if (coltype == SQLITE_INTEGER) {
+                item = PyInt_FromLong((long)sqlite3_column_int(self->statement, i));
+            } else if (coltype == SQLITE_FLOAT) {
+                item = PyFloat_FromDouble(sqlite3_column_double(self->statement, i));
+            } else if (coltype == SQLITE_TEXT) {
+                /* TODO: Unicode */
+                item = PyString_FromString(sqlite3_column_text(self->statement, i));
+            } else {
+                /* TODO: BLOB */
+                assert(0);
+            }
+        }
+        PyTuple_SetItem(row, i, item);
+    }
+
+    self->step_rc = UNKNOWN;
+
+    /* TODO: that's wrong here, perhaps we need to have a ->typecasters and a
+     * ->current_typecasters */
+    Py_DECREF(self->typecasters);
+    Py_INCREF(Py_None);
+    self->typecasters = Py_None;
+
+    return row;
 }
 
 static PyMethodDef connection_methods[] = {
@@ -292,17 +483,19 @@ static PyMethodDef connection_methods[] = {
 static PyMethodDef cursor_methods[] = {
     {"execute", (PyCFunction)cursor_execute, METH_VARARGS,
         PyDoc_STR("Executes a SQL statement.")},
+    {"executemany", (PyCFunction)cursor_executemany, METH_VARARGS,
+        PyDoc_STR("Repeatedly executes a SQL statement.")},
     {"fetchone", (PyCFunction)cursor_fetchone, METH_NOARGS,
         PyDoc_STR("Fetches one row from the resultset.")},
     {NULL, NULL}
 };
 
 
-statichere PyTypeObject PySQLite_ConnectionType = {
+statichere PyTypeObject ConnectionType = {
         PyObject_HEAD_INIT(NULL)
         0,                                        /* ob_size */
         "sqlite.Connection",                      /* tp_name */
-        sizeof(PySQLite_Connection),              /* tp_basicsize */
+        sizeof(Connection),              /* tp_basicsize */
         0,                                        /* tp_itemsize */
         0, // (destructor)connection_dealloc,     /* tp_dealloc */
         0,                                        /* tp_print */
@@ -330,7 +523,7 @@ statichere PyTypeObject PySQLite_ConnectionType = {
         connection_methods,                       /* tp_methods */
         0,                                        /* tp_members */
         0, // connection_getset,                  /* tp_getset */
-        0, // &PySQLite_ConnectionType,           /* tp_base */
+        0, // &ConnectionType,           /* tp_base */
         0,                                        /* tp_dict */
         0,                                        /* tp_descr_get */
         0,                                        /* tp_descr_set */
@@ -343,11 +536,11 @@ statichere PyTypeObject PySQLite_ConnectionType = {
 #endif
 };
 
-statichere PyTypeObject PySQLite_CursorType = {
+statichere PyTypeObject CursorType = {
         PyObject_HEAD_INIT(NULL)
         0,                                        /* ob_size */
         "sqlite.Cursor",                          /* tp_name */
-        sizeof(PySQLite_Cursor),                  /* tp_basicsize */
+        sizeof(Cursor),                  /* tp_basicsize */
         0,                                        /* tp_itemsize */
         0, // (destructor)connection_dealloc,     /* tp_dealloc */
         0,                                        /* tp_print */
@@ -370,12 +563,12 @@ statichere PyTypeObject PySQLite_CursorType = {
         0,                                        /* tp_clear */
         0,                                        /* tp_richcompare */
         0,                                        /* tp_weaklistoffset */
-        0,                                        /* tp_iter */
-        0,                                        /* tp_iternext */
+        (getiterfunc)cursor_getiter,              /* tp_iter */
+        (iternextfunc)cursor_iternext,            /* tp_iternext */
         cursor_methods,                           /* tp_methods */
         0,                                        /* tp_members */
         0, // connection_getset,                  /* tp_getset */
-        0, // &PySQLite_ConnectionType,           /* tp_base */
+        0, // &ConnectionType,           /* tp_base */
         0,                                        /* tp_dict */
         0,                                        /* tp_descr_get */
         0,                                        /* tp_descr_set */
@@ -406,24 +599,24 @@ PyMODINIT_FUNC initsqlite(void)
     // pysqlc_Type.ob_type = &PyType_Type;
     // pysqlrs_Type.ob_type = &PyType_Type;
 
-    module = Py_InitModule("sqlite", module_methods);
+    module = Py_InitModule("_sqlite", module_methods);
 
-    PySQLite_ConnectionType.tp_new = PyType_GenericNew;
-    PySQLite_CursorType.tp_new = PyType_GenericNew;
-    if (PyType_Ready(&PySQLite_ConnectionType) < 0) {
+    ConnectionType.tp_new = PyType_GenericNew;
+    CursorType.tp_new = PyType_GenericNew;
+    if (PyType_Ready(&ConnectionType) < 0) {
         printf("connection not ready\n");
         return;
     }
-    if (PyType_Ready(&PySQLite_CursorType) < 0) {
+    if (PyType_Ready(&CursorType) < 0) {
         printf("cursor not ready\n");
         return;
     }
 
 
-    Py_INCREF(&PySQLite_ConnectionType);
-    PyModule_AddObject(module, "connect", (PyObject*) &PySQLite_ConnectionType);
-    Py_INCREF(&PySQLite_CursorType);
-    PyModule_AddObject(module, "Cursor", (PyObject*) &PySQLite_CursorType);
+    Py_INCREF(&ConnectionType);
+    PyModule_AddObject(module, "connect", (PyObject*) &ConnectionType);
+    Py_INCREF(&CursorType);
+    PyModule_AddObject(module, "Cursor", (PyObject*) &CursorType);
 
     if (!(dict = PyModule_GetDict(module)))
     {
