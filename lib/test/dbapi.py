@@ -99,6 +99,10 @@ class CursorTests(unittest.TestCase):
         self.cu.execute("create table test(id integer primary key, name text, income number)")
         self.cu.execute("insert into test(name) values (?)", ("foo",))
 
+    def tearDown(self):
+        self.cu.close()
+        self.cx.close()
+
     def CheckExecuteNoArgs(self):
         self.cu.execute("delete from test")
 
@@ -179,11 +183,75 @@ class CursorTests(unittest.TestCase):
     def CheckSetoutputsizeNoColumn(self):
         self.cu.setoutputsize(42)
 
+class TypeTests(unittest.TestCase):
+    def setUp(self):
+        self.cx = sqlite.connect(":memory:")
+        self.cu = self.cx.cursor()
+        self.cu.execute("create table test(id integer primary key, name text, bin binary, ratio number, ts timestamp)")
+
+    def tearDown(self):
+        self.cu.close()
+        self.cx.close()
+
+    def CheckROWID(self):
+        self.cu.execute("insert into test(name) values (?)", ("foo",))
+        self.cu.execute("select id from test")
+        res = self.cu.fetchone()
+        self.failUnlessEqual(self.cu.description[0][1], sqlite.ROWID)
+
+    def CheckSTRING(self):
+        self.cu.execute("insert into test(name) values (?)", ("foo",))
+        self.cu.execute("select name from test")
+        res = self.cu.fetchone()
+        self.failUnlessEqual(self.cu.description[0][1], sqlite.STRING)
+
+    def CheckBINARY(self):
+        # if we want to get binary data back from SQLite by default for a
+        # column, we must make sure that we insert a binary value. To do so,
+        # we would need a different binary constructor, and intercept the type
+        # at the _pysqlite side, then use sqlite3_result_blob() to set it.
+        pass
+
+    def CheckNUMBER(self):
+        self.cu.execute("insert into test(ratio) values (?)", (3.14,))
+        self.cu.execute("select ratio from test")
+        res = self.cu.fetchone()
+        self.failUnlessEqual(self.cu.description[0][1], sqlite.NUMBER)
+
+    def CheckDATETIME(self):
+        # SQLite does not know about date/time objects internally, so we cannot
+        # test that.
+        pass
+
+class ConstructorTests(unittest.TestCase):
+    def CheckDate(self):
+        d = sqlite.Date(2004, 10, 28)
+
+    def CheckTime(self):
+        t = sqlite.Time(12, 39, 35)
+
+    def CheckTimestamp(self):
+        ts = sqlite.Timestamp(2004, 10, 28, 12, 39, 35)
+
+    def CheckDateFromTicks(self):
+        d = sqlite.DateFromTicks(42)
+
+    def CheckTimeFromTicks(self):
+        t = sqlite.TimeFromTicks(42)
+
+    def CheckTimestampFromTicks(self):
+        ts = sqlite.TimestampFromTicks(42)
+
+    def CheckBinary(self):
+        b = sqlite.Binary(chr(0) + "'")
+
 def suite():
     module_suite = unittest.makeSuite(ModuleTests, "Check")
     connection_suite = unittest.makeSuite(ConnectionTests, "Check")
     cursor_suite = unittest.makeSuite(CursorTests, "Check")
-    return unittest.TestSuite((module_suite, connection_suite, cursor_suite))
+    type_suite = unittest.makeSuite(TypeTests, "Check")
+    constructor_suite = unittest.makeSuite(ConstructorTests, "Check")
+    return unittest.TestSuite((module_suite, connection_suite, cursor_suite, type_suite, constructor_suite))
 
 def test():
     runner = unittest.TextTestRunner()
