@@ -24,7 +24,7 @@
 #include "cursor.h"
 #include "module.h"
 
-static PyObject* cursor_iternext(Cursor *self);
+PyObject* cursor_iternext(Cursor *self);
 
 static StatementType detect_statement_type(char* statement)
 {

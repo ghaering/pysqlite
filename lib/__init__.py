@@ -32,7 +32,8 @@ apilevel = "2.0"
 # Exception objects
 from _sqlite import Error, Warning, InterfaceError, DatabaseError,\
     InternalError, OperationalError, ProgrammingError, IntegrityError,\
-    DataError, NotSupportedError, STRING, BINARY, NUMBER, DATETIME, ROWID
+    DataError, NotSupportedError, STRING, BINARY, NUMBER, DATETIME, ROWID,\
+    version
 
 import datetime, time
 
@@ -50,5 +51,8 @@ def TimeFromTicks(ticks):
 
 def TimestampFromTicks(ticks):
     return apply(Timestamp,time.localtime(ticks)[:6])
+
+_major, _minor, _micro = version.split(".")
+version_info = (int(_major), int(_minor), _micro)
 
 Binary = str

@@ -114,6 +114,8 @@ PyMODINIT_FUNC init_sqlite(void)
     PyDict_SetItemString(dict, "DATETIME", sqlite_DATETIME);
     PyDict_SetItemString(dict, "ROWID", sqlite_ROWID);
 
+    PyDict_SetItemString(dict, "version", PyString_FromString(PYSQLITE_VERSION));
+
   error:
 
     if (PyErr_Occurred())
