@@ -73,6 +73,8 @@ typedef struct
     PyObject* converters;
     PyObject* expected_types;
     PyObject* command_logfile;
+    PyObject* busy_callback;
+    PyObject* busy_callback_param;
     PyThreadState *tstate;
 } pysqlc;
 
@@ -283,6 +285,12 @@ PyObject* pysqlite_connect(PyObject *self, PyObject *args, PyObject *kwargs)
 
     Py_INCREF(Py_None);
     obj->command_logfile = Py_None;
+
+    Py_INCREF(Py_None);
+    obj->busy_callback = Py_None;
+
+    Py_INCREF(Py_None);
+    obj->busy_callback_param = Py_None;
 
     return (PyObject *) obj;
 }
@@ -601,11 +609,9 @@ Register a busy handler.\n\
 
 static PyObject* _con_sqlite_busy_handler(pysqlc* self, PyObject *args, PyObject* kwargs)
 {
-#if 0
     static char *kwlist[] = {"func", "data", NULL};
     PyObject* func;
     PyObject* data = Py_None;
-    PyObject* userdata;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|O:sqlite_busy_handler",
                                       kwlist, &func, &data))
@@ -613,43 +619,28 @@ static PyObject* _con_sqlite_busy_handler(pysqlc* self, PyObject *args, PyObject
         return NULL;
     }
 
-    if ((userdata = PyTuple_New(3)) == NULL)
-    {
-        return NULL;
-    }
-    Py_INCREF(func); PyTuple_SetItem(userdata, 0, func);
-    Py_INCREF(data); PyTuple_SetItem(userdata, 1, data);
-    Py_INCREF(self); PyTuple_SetItem(userdata, 2, (PyObject*)self);
+    Py_DECREF(self->busy_callback);
+    Py_INCREF(func);
+    self->busy_callback = func;
 
-    sqlite3_busy_handler(self->p_db, &sqlite_busy_handler_callback, userdata);
-#endif
+    Py_DECREF(self->busy_callback_param);
+    Py_INCREF(data);
+    self->busy_callback_param = data;
+
     Py_INCREF(Py_None);
     return Py_None;
 }
 
 static char _con_sqlite_busy_timeout_doc[] =
-"sqlite_busy_timeout(milliseconds)\n\
-Register a busy handler that will wait for a specific time before giving up.\n\
-\n\
-    This is a convenience routine that will install a busy handler (see\n\
-    sqlite_busy_handler) that will sleep for n milliseconds before\n\
-    giving up (i. e. return SQLITE_BUSY/throw OperationalError).";
+"Not supported any longer";
 
 static PyObject* _con_sqlite_busy_timeout(pysqlc* self, PyObject *args, PyObject* kwargs)
 {
-    int timeout;
-    static char *kwlist[] = {"timeout", NULL};
-
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "i:sqlite_busy_timeout",
-                                      kwlist, &timeout))
-    {
-        return NULL;
-    }
-
-    sqlite3_busy_timeout(self->p_db, timeout);
-
-    Py_INCREF(Py_None);
-    return Py_None;
+    PyErr_SetString(_sqlite_InterfaceError,
+        "This method is not supported any longer.\n\
+You will have to write a timeout handler yourself and register it\n\
+with sqlite_busy_handler.");
+    return NULL;
 }
 
 static char _con_create_function_doc[] =
@@ -1084,13 +1075,13 @@ static int _seterror(sqlite3* db)
 }
 
 static int my_sqlite3_exec(
-  sqlite3* db,                  /* An open database */
+  pysqlc* con,                  /* the PySQLite connection object */
   const char *sql,              /* SQL to be executed */
   sqlite3_callback callback,    /* Callback function */
-  void *userdata,               /* 1st argument to callback function */
-  char **errmsg                 /* Error msg written here */
+  void *userdata                /* 1st argument to callback function */
 )
 {
+    sqlite3* db;
     int rc;
     sqlite3_stmt* statement;
     const char* tail;
@@ -1100,10 +1091,57 @@ static int my_sqlite3_exec(
     char** p_col_names;
     int i;
     char* data;
+    int busy_counter;
+    PyObject* cbargs;
+    PyObject* cb_result;
 
+    db = con->p_db;
+    MY_BEGIN_ALLOW_THREADS(con->tstate)
     rc = sqlite3_prepare(db, sql, 0, &statement, &tail);
+    MY_END_ALLOW_THREADS(con->tstate)
 
-    rc = sqlite3_step(statement);
+    busy_counter = 0;
+    while (1)
+    {
+        busy_counter++;
+        MY_BEGIN_ALLOW_THREADS(con->tstate)
+        rc = sqlite3_step(statement);
+        MY_END_ALLOW_THREADS(con->tstate)
+        if (rc != SQLITE_BUSY)
+            break;
+
+        if (con->busy_callback != Py_None)
+        {
+            cbargs = PyTuple_New(3);
+            Py_INCREF(con->busy_callback_param);
+            PyTuple_SetItem(cbargs, 0, con->busy_callback_param);
+            Py_INCREF(Py_None);
+            PyTuple_SetItem(cbargs, 1, Py_None);
+            PyTuple_SetItem(cbargs, 2, PyInt_FromLong((long)busy_counter));
+
+            cb_result = PyObject_CallObject(con->busy_callback, cbargs);
+            Py_DECREF(cbargs);
+
+            if (PyErr_Occurred())
+            {
+                PRINT_OR_CLEAR_ERROR
+                abort = 1;
+            }
+            else
+            {
+                Py_DECREF(cb_result);
+                abort = !PyObject_IsTrue(cb_result);
+            }
+
+            if (abort)
+                break;
+        }
+        else
+        {
+            break;
+        }
+    }
+
     if (rc == SQLITE_ROW)
     {
         num_fields = sqlite3_data_count(statement);
@@ -1127,7 +1165,9 @@ static int my_sqlite3_exec(
             if (abort)
                 break;
 
+            MY_BEGIN_ALLOW_THREADS(con->tstate)
             rc = sqlite3_step(statement);
+            MY_END_ALLOW_THREADS(con->tstate)
             /* TODO: check rc */
             if (rc == SQLITE_DONE)
                 break;
@@ -1135,6 +1175,9 @@ static int my_sqlite3_exec(
 
         free(p_fields);
         free(p_col_names);
+    }
+    else if (rc == SQLITE_BUSY)
+    {
     }
     rc = sqlite3_finalize(statement);
 
@@ -1147,7 +1190,6 @@ static PyObject* _con_execute(pysqlc* self, PyObject *args)
     int record_number;
     char* sql;
     pysqlrs* p_rset;
-    char *errmsg;
     char* buf;
     char* iterator;
     char* token;
@@ -1260,13 +1302,10 @@ static PyObject* _con_execute(pysqlc* self, PyObject *args)
     }
 
     /* Run a query: process_record is called back for each record returned. */
-    MY_BEGIN_ALLOW_THREADS(self->tstate)
-    ret = my_sqlite3_exec( self->p_db,
+    ret = my_sqlite3_exec( self,
                        sql,
                        process_record,
-                       p_rset,
-                       &errmsg);
-    MY_END_ALLOW_THREADS(self->tstate)
+                       p_rset);
 
     Py_DECREF(self->expected_types);
     Py_INCREF(Py_None);
@@ -1316,7 +1355,6 @@ int process_record(void* p_data, int num_fields, char** p_fields, char** p_col_n
     PyObject* callable_args;
 
     p_rset = (pysqlrs*)p_data;
-    MY_END_ALLOW_THREADS(p_rset->con->tstate)
 
     expected_types = p_rset->con->expected_types;
     converters = p_rset->con->converters;
@@ -1352,7 +1390,7 @@ int process_record(void* p_data, int num_fields, char** p_fields, char** p_col_n
             l = strlen(type_name);
 
             /* Convert to uppercase. */
-            for(j=0; j < l; j++)
+            for (j=0; j < l; j++)
             {
                 type_name[j] = toupper(type_name[j]);
             }
@@ -1581,7 +1619,6 @@ int process_record(void* p_data, int num_fields, char** p_fields, char** p_col_n
         Py_DECREF(p_row);
     }
 
-    MY_BEGIN_ALLOW_THREADS(p_rset->con->tstate)
     return 0;
 }
 

@@ -1,7 +1,7 @@
 from __future__ import nested_scopes
 import _sqlite
 
-import copy, new, sys, weakref
+import copy, new, sys, time, weakref
 from types import *
 
 try:
@@ -469,7 +469,19 @@ class Connection:
             register(typename, conv)
 
         if timeout is not None:
-            self.db.sqlite_busy_timeout(timeout)
+            def busy_handler(timeout, table, count):
+                if count == 1:
+                    busy_handler.starttime = time.time()
+                elapsed_time = time.time() - busy_handler.starttime
+                print elapsed_time, timeout
+                if elapsed_time > timeout:
+                    return 0
+                else:
+                    time_to_sleep = 0.01 * (2 << min(5, count))
+                    time.sleep(time_to_sleep)
+                return 1
+
+            self.db.sqlite_busy_handler(busy_handler, timeout/1000.0)
 
         self.db.set_command_logfile(command_logfile)
 
