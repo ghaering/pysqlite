@@ -132,6 +132,53 @@ void build_row_cast_map(Cursor* self)
     }
 }
 
+int _bind_parameter(Cursor* self, int pos, PyObject* parameter)
+{
+    int rc = SQLITE_OK;
+    long longval;
+    const char* buffer;
+    int buflen;
+    PyObject* stringval;
+
+    if (parameter == Py_None) {
+        rc = sqlite3_bind_null(self->statement, pos);
+    } else if (PyInt_Check(parameter)) {
+        longval = PyInt_AsLong(parameter);
+        /* TODO: investigate what to do with range overflows - long vs. long long */
+        rc = sqlite3_bind_int64(self->statement, pos, (long long)longval);
+    } else if (PyFloat_Check(parameter)) {
+        rc = sqlite3_bind_double(self->statement, pos, PyFloat_AsDouble(parameter));
+    } else if (PyBuffer_Check(parameter)) {
+        if (PyObject_AsCharBuffer(parameter, &buffer, &buflen) != 0) {
+            /* TODO: decide what error to raise */
+            PyErr_SetString(PyExc_ValueError, "could not convert BLOB to buffer");
+            return -1;
+        }
+        rc = sqlite3_bind_blob(self->statement, pos, buffer, buflen, SQLITE_TRANSIENT);
+    } else {
+        if (!PyString_Check(parameter)) {
+            PyErr_SetString(InternalError, "Could not convert parameter value to string.");
+        } else {
+            stringval = PyObject_Str(parameter);
+            /*
+            if (PyUnicode_Check(parameter)) {
+                stringval = PyUnicode_AsUTF8String(parameter);
+            } else {
+                stringval = PyObject_Str(parameter);
+            }
+            */
+
+            if (stringval)  {
+                rc = sqlite3_bind_text(self->statement, pos, PyString_AsString(stringval), -1, SQLITE_TRANSIENT);
+            } else {
+                PyErr_SetString(InternalError, "Could not convert parameter value to string.");
+            }
+        }
+    }
+
+    return rc;
+}
+
 PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
 {
     PyObject* operation;
@@ -151,11 +198,9 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
     PyObject* descriptor;
     PyObject* current_param;
     PyObject* adapted;
-    PyObject* stringval;
     PyObject* second_argument = NULL;
-    long longval;
-    const char* buffer;
-    int buflen;
+    int num_params_needed;
+    const char* binding_name;
 
     if (multiple) {
         /* executemany() */
@@ -198,7 +243,7 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
     if (self->statement != NULL) {
         /* There is an active statement */
         if (sqlite3_finalize(self->statement) != SQLITE_OK) {
-            PyErr_SetString(DatabaseError, sqlite3_errmsg(self->connection->db));
+            _seterror(self->connection->db);
             return NULL;
         }
     }
@@ -230,7 +275,7 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
                 func_args = PyTuple_New(0);
                 if (!args)
                     return NULL;
-                result = connection_begin(self->connection, func_args);
+                result = _connection_begin(self->connection, func_args);
                 Py_DECREF(func_args);
                 if (!result) {
                     return NULL;
@@ -247,9 +292,11 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
                          &self->statement,
                          &tail);
     if (rc != SQLITE_OK) {
-        PyErr_SetString(DatabaseError, sqlite3_errmsg(self->connection->db));
+        _seterror(self->connection->db);
         return NULL;
     }
+
+    num_params_needed = sqlite3_bind_parameter_count(self->statement);
 
     while (1) {
         parameters = PyIter_Next(parameters_iter);
@@ -257,59 +304,75 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
             break;
         }
 
+        if (parameters == Py_None && num_params_needed > 0) {
+            PyErr_Format(ProgrammingError, "Incorrect number of bindings supplied.  The current statement uses %d, but there are none supplied.",
+                         num_params_needed);
+            return NULL;
+        }
+
         if (parameters != Py_None) {
-            num_params = PySequence_Length(parameters);
-            for (i = 0; i < num_params; i++) {
-                current_param = PySequence_GetItem(parameters, i);
-
-                Py_INCREF(current_param);
-                adapted = microprotocols_adapt(current_param, (PyObject*)self->connection->prepareProtocol, NULL);
-                Py_DECREF(current_param);
-                if (adapted) {
-                } else {
-                    PyErr_Clear();
-                    adapted = current_param;
-                    Py_INCREF(adapted);
-                }
-
-                if (adapted == Py_None) {
-                    rc = sqlite3_bind_null(self->statement, i + 1);
-                } else if (PyInt_Check(adapted)) {
-                    longval = PyInt_AsLong(adapted);
-                    /* TODO: investigate what to do with range overflows - long vs. long long */
-                    rc = sqlite3_bind_int64(self->statement, i + 1, (long long)longval);
-                } else if (PyFloat_Check(adapted)) {
-                    rc = sqlite3_bind_double(self->statement, i + 1, PyFloat_AsDouble(adapted));
-                } else if (PyBuffer_Check(adapted)) {
-                    if (PyObject_AsCharBuffer(adapted, &buffer, &buflen) != 0) {
-                        /* TODO: decide what error to raise */
-                        PyErr_SetString(PyExc_ValueError, "could not convert BLOB to buffer");
+            if (PyDict_Check(parameters)) {
+                /* parameters passed as dictionary */
+                for (i = 1; i <= num_params_needed; i++) {
+                    binding_name = sqlite3_bind_parameter_name(self->statement, i);
+                    if (!binding_name) {
+                        PyErr_Format(ProgrammingError, "Binding %d has no name, but you supplied a dictionary (which has only names).", i);
                         return NULL;
                     }
-                    rc = sqlite3_bind_blob(self->statement, i + 1, buffer, buflen, SQLITE_TRANSIENT);
-                } else {
-                    if (!PyString_Check(adapted)) {
-                        PyErr_SetString(InternalError, "Could not convert adapted value to string.");
-                    } else {
-                        stringval = PyObject_Str(adapted);
-                        /*
-                        if (PyUnicode_Check(adapted)) {
-                            stringval = PyUnicode_AsUTF8String(adapted);
-                        } else {
-                            stringval = PyObject_Str(adapted);
-                        }
-                        */
 
-                        if (stringval)  {
-                            rc = sqlite3_bind_text(self->statement, i + 1, PyString_AsString(stringval), -1, SQLITE_TRANSIENT);
-                        } else {
-                            PyErr_SetString(InternalError, "Could not convert adapted value to string.");
-                        }
+                    binding_name++; /* skip first char (the colon) */
+                    current_param = PyDict_GetItemString(parameters, binding_name);
+                    if (!current_param) {
+                        PyErr_Format(ProgrammingError, "You did not supply a value for binding %d.", i);
+                        return NULL;
                     }
+
+
+                    Py_INCREF(current_param);
+                    adapted = microprotocols_adapt(current_param, (PyObject*)self->connection->prepareProtocol, NULL);
+                    Py_DECREF(current_param);
+                    if (adapted) {
+                    } else {
+                        PyErr_Clear();
+                        adapted = current_param;
+                        Py_INCREF(adapted);
+                    }
+
+                    rc = _bind_parameter(self, i, adapted);
+                    if (rc != SQLITE_OK) {
+                        /* TODO: fail */
+                    }
+
+                    Py_DECREF(adapted);
                 }
+            } else {
+                /* parameters passed as sequence */
+                num_params = PySequence_Length(parameters);
+                if (num_params != num_params_needed) {
+                    PyErr_Format(ProgrammingError, "Incorrect number of bindings supplied.  The current statement uses %d, and there are %d supplied.",
+                                 num_params_needed, num_params);
+                    return NULL;
+                }
+                for (i = 0; i < num_params; i++) {
+                    current_param = PySequence_GetItem(parameters, i);
 
+                    Py_INCREF(current_param);
+                    adapted = microprotocols_adapt(current_param, (PyObject*)self->connection->prepareProtocol, NULL);
+                    Py_DECREF(current_param);
+                    if (adapted) {
+                    } else {
+                        PyErr_Clear();
+                        adapted = current_param;
+                        Py_INCREF(adapted);
+                    }
 
-                Py_DECREF(adapted);
+                    rc = _bind_parameter(self, i + 1, adapted);
+                    if (rc != SQLITE_OK) {
+                        /* TODO: fail */
+                    }
+
+                    Py_DECREF(adapted);
+                }
             }
         }
 
@@ -321,7 +384,7 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
 
         self->step_rc = _sqlite_step_with_busyhandler(self->statement, self->connection);
         if (self->step_rc != SQLITE_DONE && self->step_rc != SQLITE_ROW) {
-            PyErr_SetString(DatabaseError, sqlite3_errmsg(self->connection->db));
+            _seterror(self->connection->db);
             return NULL;
         }
 
