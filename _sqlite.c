@@ -1034,7 +1034,7 @@ static int _seterror(sqlite3* db)
 static int my_sqlite3_exec(
   pysqlc* con,                  /* the PySQLite connection object */
   const char *sql,              /* SQL to be executed */
-  void *userdata                /* 1st argument to callback function */
+  pysqlrs* p_rset               /* 1st argument to callback function */
 )
 {
     sqlite3* db;
@@ -1056,6 +1056,7 @@ static int my_sqlite3_exec(
     PyObject* stripmethod;
     int remaining_size;
     char* coltype;
+    PyObject* p_col_def;
 
     tail = sql;
     while (1)
@@ -1068,6 +1069,16 @@ static int my_sqlite3_exec(
         if (rc != SQLITE_OK)
         {
             break;
+        }
+
+        /* first try at getting meta data, will be overwritten if we retrieve rows */
+        num_fields = sqlite3_column_count(statement);
+        p_fields = malloc(num_fields * sizeof(char*));
+        p_col_names = malloc(2 * num_fields * sizeof(char*));
+        for (i = 0; i < num_fields; i++)
+        {
+            p_col_names[i] = (char*)sqlite3_column_name(statement, i);
+            p_col_names[num_fields + i] = NULL;
         }
 
         busy_counter = 0;
@@ -1115,6 +1126,8 @@ static int my_sqlite3_exec(
         if (rc == SQLITE_ROW)
         {
             num_fields = sqlite3_data_count(statement);
+            free(p_fields);
+            free(p_col_names);
             p_fields = malloc(num_fields * sizeof(char*));
             p_col_names = malloc(2 * num_fields * sizeof(char*));
             for (i = 0; i < num_fields; i++)
@@ -1156,7 +1169,7 @@ static int my_sqlite3_exec(
                     p_fields[i] = data;
                 }
 
-                abort = process_record(statement, userdata, num_fields, p_fields, p_col_names);
+                abort = process_record(statement, p_rset, num_fields, p_fields, p_col_names);
                 if (abort)
                     break;
 
@@ -1171,8 +1184,42 @@ static int my_sqlite3_exec(
             free(p_fields);
             free(p_col_names);
         }
-        else if (rc == SQLITE_BUSY)
+        else if (rc != SQLITE_BUSY)
         {
+            p_rset->p_col_def_list = PyTuple_New(num_fields);
+            for (i=0; i < num_fields; i++)
+            {
+                p_col_def = PyTuple_New(7);
+
+                /* 1. Column Name */
+                PyTuple_SetItem(p_col_def, 0, Py_BuildValue("s", p_col_names[i]));
+
+                /* 2. Type code */
+                Py_INCREF(Py_None);
+                PyTuple_SetItem(p_col_def, 1, Py_None);
+
+                /* 3. Display Size */
+                Py_INCREF(Py_None);
+                PyTuple_SetItem(p_col_def, 2, Py_None);
+
+                /* 4. Internal Size */
+                Py_INCREF(Py_None);
+                PyTuple_SetItem(p_col_def, 3, Py_None);
+
+                /* 5. Precision */
+                Py_INCREF(Py_None);
+                PyTuple_SetItem(p_col_def, 4, Py_None);
+
+                /* 6. Scale */
+                Py_INCREF(Py_None);
+                PyTuple_SetItem(p_col_def, 5, Py_None);
+
+                /* 7. NULL Okay */
+                Py_INCREF(Py_None);
+                PyTuple_SetItem(p_col_def, 6, Py_None);
+
+                PyTuple_SetItem(p_rset->p_col_def_list, i, p_col_def);
+            }
         }
         rc = sqlite3_finalize(statement);
 

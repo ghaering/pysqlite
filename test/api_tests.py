@@ -126,6 +126,16 @@ class moduleTestCases(unittest.TestCase, testsupport.TestSupport):
         self.assert_(self.cur.description == None,
                      "cur.description should be None at this point, it isn't.")
 
+    def CheckCursorDescriptionNoRow(self):
+        """
+        cursor.description should at least provide the column name(s), even if
+        no row returned.
+        """
+        self.cur.execute("create table test(a, b)")
+        self.cur.execute("select a, b from test")
+        self.assert_(self.cur.description[0][0] == "a")
+        self.assert_(self.cur.description[1][0] == "b")
+
     def CheckCursorRowcount(self):
         self.assert_(self.cur.rowcount == -1,
                      'cur.rowcount is %d, should be -1' % self.cur.rowcount)
