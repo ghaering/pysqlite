@@ -155,10 +155,11 @@ Of course there are more parameters::
     database, and from which encoding to construct Unicode strings.
 
 :timeout:
-    A timeout value in seconds, i. e. timeout=1.5. An SQLite database can be
-    locked by a different connection being in an transaction. The timeout value
-    means how long to wait for the lock to be released. If after /timeout/
-    seconds the lock is still not released, a DatabaseError will be thrown.
+    A timeout value in milliseconds, for example timeout=1500. An SQLite
+    database can be locked by a different connection being in an transaction.
+    The timeout value means how long to wait for the lock to be released. If
+    after /timeout/ milliseconds the lock is still not released, a
+    DatabaseError will be thrown.
 
 :command_logfile:
     A file-like object (anything that has a write method) where all statements
