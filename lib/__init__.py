@@ -1,3 +1,4 @@
+#-*- coding: ISO-8859-1 -*-
 # sqlite/__init__.py: the sqlite package
 #
 # Copyright (C) 2004 Gerhard Häring <gh@ghaering.de>
