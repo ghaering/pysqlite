@@ -6,6 +6,52 @@ TODO list for pysqlite
 Open items:
 -----------
 
+Summary:        cursor_execute vs. cursor_executemany
+Priority:       medium
+Status:
+Description:
+    There is code duplication between cursor_execute and cursor_executemany.
+    But worse, cursor_executemany is out of date.
+
+Summary:        busy/timeout handling
+Priority:       medium
+Status:         in progress
+Description:
+    pysqlite2 needs similar busy/timeout handling like the old one.
+
+Summary:        cursor grows row factory
+Priority:       low
+Status:         open
+Description:
+    /
+
+Summary:        Connection.cursor() grows a factory parameter
+Priority:       low
+Status:         open
+Description:
+    The cursor method of the connection object gets an optional cursor factory
+    parameter for creating nonstandard cursor classes. One use-case is to
+    create cursors where the returned rows are accessible by name instead of
+    index.
+
+-------------
+Closed items:
+-------------
+
+Summary:        package renaming
+Priority:       highest
+Status:         finished 2004-11-26
+Description:
+    "import sqlite2" => "import pysqlite2.dbapi2 as sqlite". This involves many
+    places that need changing.
+
+Summary:        better error messages
+Priority:       medium
+Status:         closed
+Description:
+    sqlite3_errmsg() should to be used in most places where the error message
+    is constant now.
+
 Summary:        handle exceptions in type converters
 Priority:       medium
 Status:
@@ -35,49 +81,10 @@ Description:
     pysqlite2 needs to be able to use Unicode in parameters.
     This one depends on the microprotocols stuff.
 
-Summary:        busy/timeout handling
-Priority:       medium
-Status:         open
-Description:
-    pysqlite2 needs similar busy/timeout handling like the old one.
-
-Summary:        cursor grows row factory
-Priority:       low
-Status:         open
-Description:
-    /
-
-Summary:        Connection.cursor() grows a factory parameter
-Priority:       low
-Status:         open
-Description:
-    The cursor method of the connection object gets an optional cursor factory
-    parameter for creating nonstandard cursor classes. One use-case is to
-    create cursors where the returned rows are accessible by name instead of
-    index.
-
 Summary:        Add support for BLOB
 Priority:       low
 Status:         open
 Description:
     Add BLOB support and make sure it works roundtrip with _bind_blob.
-
--------------
-Closed items:
--------------
-
-Summary:        package renaming
-Priority:       highest
-Status:         finished 2004-11-26
-Description:
-    "import sqlite2" => "import pysqlite2.dbapi2 as sqlite". This involves many
-    places that need changing.
-
-Summary:        better error messages
-Priority:       medium
-Status:         closed
-Description:
-    sqlite3_errmsg() should to be used in most places where the error message
-    is constant now.
 
 
