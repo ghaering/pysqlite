@@ -40,27 +40,29 @@ PyObject* connection_alloc(PyTypeObject* type, int aware)
 
 int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
 {
-    static char *kwlist[] = {"database", "timeout", "more_types", "prepareProtocol", NULL, NULL};
+    static char *kwlist[] = {"database", "timeout", "more_types", "no_implicit_begin", "prepareProtocol", NULL, NULL};
     char* database;
     int more_types = 0;
+    int no_implicit_begin = 0;
     PyObject* prepare_protocol = NULL;
     PyObject* proto_args;
-    double timeout = 0.0;
+    double timeout = 5.0;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|diO", kwlist,
-                                     &database, &timeout, &more_types, &prepare_protocol))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|diiO", kwlist,
+                                     &database, &timeout, &more_types, &no_implicit_begin, &prepare_protocol))
     {
         return -1; 
     }
 
     if (sqlite3_open(database, &self->db) != SQLITE_OK) {
-        PyErr_SetString(DatabaseError, sqlite3_errmsg(self->db));
+        _seterror(self->db);
         return -1;
     }
 
     self->inTransaction = 0;
     self->advancedTypes = more_types;
     self->timeout = timeout;
+    self->no_implicit_begin = no_implicit_begin;
     self->converters = PyDict_New();
 
     if (prepare_protocol == NULL) {
@@ -133,7 +135,7 @@ PyObject* connection_close(Connection* self, PyObject* args)
     if (self->db) {
         rc = sqlite3_close(self->db);
         if (rc != SQLITE_OK) {
-            PyErr_SetString(DatabaseError, sqlite3_errmsg(self->db));
+            _seterror(self->db);
             return NULL;
         } else {
             self->db = NULL;
@@ -144,7 +146,7 @@ PyObject* connection_close(Connection* self, PyObject* args)
     return Py_None;
 }
 
-PyObject* connection_begin(Connection* self, PyObject* args)
+PyObject* _connection_begin(Connection* self, PyObject* args)
 {
     int rc;
     const char* tail;
@@ -152,19 +154,19 @@ PyObject* connection_begin(Connection* self, PyObject* args)
 
     rc = sqlite3_prepare(self->db, "BEGIN", -1, &statement, &tail);
     if (rc != SQLITE_OK) {
-        PyErr_SetString(DatabaseError, sqlite3_errmsg(self->db));
+        _seterror(self->db);
         return NULL;
     }
 
-    rc = sqlite3_step(statement);
+    rc = _sqlite_step_with_busyhandler(statement, self);
     if (rc != SQLITE_DONE) {
-        PyErr_SetString(DatabaseError, sqlite3_errmsg(self->db));
+        _seterror(self->db);
         return NULL;
     }
 
     rc = sqlite3_finalize(statement);
     if (rc != SQLITE_OK) {
-        PyErr_SetString(DatabaseError, sqlite3_errmsg(self->db));
+        _seterror(self->db);
         return NULL;
     }
 
@@ -172,6 +174,17 @@ PyObject* connection_begin(Connection* self, PyObject* args)
 
     Py_INCREF(Py_None);
     return Py_None;
+}
+
+PyObject* connection_begin(Connection* self, PyObject* args)
+{
+    if (!self->no_implicit_begin) {
+        PyErr_SetString(ProgrammingError,
+            "begin() can only be called when the connection was created with the no_implicit_begin parameter set to true.");
+        return NULL;
+    }
+
+    return _connection_begin(self, args);
 }
 
 PyObject* connection_commit(Connection* self, PyObject* args)
@@ -183,20 +196,20 @@ PyObject* connection_commit(Connection* self, PyObject* args)
     if (self->inTransaction) {
         rc = sqlite3_prepare(self->db, "COMMIT", -1, &statement, &tail);
         if (rc != SQLITE_OK) {
-            PyErr_SetString(DatabaseError, sqlite3_errmsg(self->db));
+            _seterror(self->db);
             return NULL;
         }
 
         rc = _sqlite_step_with_busyhandler(statement, self);
 
         if (rc != SQLITE_DONE) {
-            PyErr_SetString(DatabaseError, sqlite3_errmsg(self->db));
+            _seterror(self->db);
             return NULL;
         }
 
         rc = sqlite3_finalize(statement);
         if (rc != SQLITE_OK) {
-            PyErr_SetString(DatabaseError, sqlite3_errmsg(self->db));
+            _seterror(self->db);
             return NULL;
         }
 
@@ -216,19 +229,19 @@ PyObject* connection_rollback(Connection* self, PyObject* args)
     if (self->inTransaction) {
         rc = sqlite3_prepare(self->db, "ROLLBACK", -1, &statement, &tail);
         if (rc != SQLITE_OK) {
-            PyErr_SetString(DatabaseError, sqlite3_errmsg(self->db));
+            _seterror(self->db);
             return NULL;
         }
 
-        rc = sqlite3_step(statement);
+        rc = _sqlite_step_with_busyhandler(statement, self);
         if (rc != SQLITE_DONE) {
-            PyErr_SetString(DatabaseError, sqlite3_errmsg(self->db));
+            _seterror(self->db);
             return NULL;
         }
 
         rc = sqlite3_finalize(statement);
         if (rc != SQLITE_OK) {
-            PyErr_SetString(DatabaseError, sqlite3_errmsg(self->db));
+            _seterror(self->db);
             return NULL;
         }
 
@@ -264,6 +277,8 @@ static PyMethodDef connection_methods[] = {
         PyDoc_STR("Return a cursor for the connection.")},
     {"close", (PyCFunction)connection_close, METH_NOARGS,
         PyDoc_STR("Closes the connection.")},
+    {"begin", (PyCFunction)connection_begin, METH_NOARGS,
+        PyDoc_STR("Starts a new transaction.")},
     {"commit", (PyCFunction)connection_commit, METH_NOARGS,
         PyDoc_STR("Commit the current transaction.")},
     {"rollback", (PyCFunction)connection_rollback, METH_NOARGS,

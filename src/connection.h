@@ -44,6 +44,9 @@ typedef struct
      * first get called with count=0? */
     double timeout_started;
 
+    /* 0: normal mode; 1: "autocommit" mode */
+    int no_implicit_begin;
+
     PyObject* prepareProtocol;
 
     /* A dictionary, mapping colum types (INTEGER, VARCHAR, etc.) to converter
@@ -59,6 +62,7 @@ PyObject* connection_alloc(PyTypeObject* type, int aware);
 void connection_dealloc(Connection* self);
 PyObject* connection_cursor(Connection* self, PyObject* args);
 PyObject* connection_close(Connection* self, PyObject* args);
+PyObject* _connection_begin(Connection* self, PyObject* args);
 PyObject* connection_begin(Connection* self, PyObject* args);
 PyObject* connection_commit(Connection* self, PyObject* args);
 PyObject* connection_rollback(Connection* self, PyObject* args);
