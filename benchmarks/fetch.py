@@ -1,14 +1,15 @@
 import time
 
-from pysqlite2 import dbapi2 as sqlite
-#import sqlite
+#from pysqlite2 import dbapi2 as sqlite
+import sqlite
 
 def create_db():
     if sqlite.version_info > (2, 0):
-        #con = sqlite.connect(":memory:", more_types=True)
-        con = sqlite.connect(":memory:")
+        con = sqlite.connect(":memory:", more_types=True)
+        #con = sqlite.connect(":memory:")
     else:
         con = sqlite.connect(":memory:", rowclass=tuple)
+        #con = sqlite.connect(":memory:")
     cur = con.cursor()
     cur.execute("""
         create table test(v text, f float, i integer)
@@ -36,9 +37,9 @@ def test():
     cur.execute("select count(*) from test")
     print "rows:", cur.fetchone()[0]
 
-    cur.execute("select v, f, i from test")
     starttime = time.time()
-    for i in range(5):
+    for i in range(50):
+        cur.execute("select v, f, i from test")
         l = cur.fetchall()
     endtime = time.time()
 
