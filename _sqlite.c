@@ -65,7 +65,7 @@
 #if defined(__MINGW32__)
 #define mystrdup _strdup
 #else
-#define mymystrdup strdup
+#define mystrdup strdup
 #endif
 
 /*------------------------------------------------------------------------------
@@ -1491,14 +1491,14 @@ int process_record(sqlite3_stmt* statement, void* p_data, int num_fields, char**
             {
                 type_code = tc_INTEGER;
             }
+            else if (strstr(type_name, "UNICODE"))
+            {
+                type_code = tc_UNICODESTRING;
+            }
             else if (strstr(type_name, "CHAR")
                   || strstr(type_name, "TEXT"))
             {
                 type_code = tc_STRING;
-            }
-            else if (strstr(type_name, "UNICODE"))
-            {
-                type_code = tc_UNICODESTRING;
             }
             else if (strstr(type_name, "BINARY")
                   || strstr(type_name, "BLOB"))
