@@ -6,19 +6,6 @@ TODO list for pysqlite
 Open items:
 -----------
 
-Summary:        cursor_execute vs. cursor_executemany
-Priority:       medium
-Status:
-Description:
-    There is code duplication between cursor_execute and cursor_executemany.
-    But worse, cursor_executemany is out of date.
-
-Summary:        busy/timeout handling
-Priority:       medium
-Status:         in progress
-Description:
-    pysqlite2 needs similar busy/timeout handling like the old one.
-
 Summary:        cursor grows row factory
 Priority:       low
 Status:         open
@@ -37,6 +24,28 @@ Description:
 -------------
 Closed items:
 -------------
+
+Summary:        "autocommit" mode
+Priority:       medium
+Status:
+Description:
+    There must be a way to NOT start transactions imlicitly using DML commands.
+    In this mode, there must either exist a .begin() method for connection
+    objects or users call BEGIN/COMMIT/ROLLBACK directly using the .execute
+    method of cursors.
+
+Summary:        busy/timeout handling
+Priority:       medium
+Status:         pysqlite2 has usable timeout handling, not the same as the old one
+Description:
+    pysqlite2 needs similar busy/timeout handling like the old one.
+
+Summary:        cursor_execute vs. cursor_executemany
+Priority:       medium
+Status:
+Description:
+    There is code duplication between cursor_execute and cursor_executemany.
+    But worse, cursor_executemany is out of date.
 
 Summary:        package renaming
 Priority:       highest
