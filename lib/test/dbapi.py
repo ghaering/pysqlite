@@ -138,6 +138,60 @@ class CursorTests(unittest.TestCase):
     def CheckExecuteArgString(self):
         self.cu.execute("insert into test(name) values (?)", ("Hugo",))
 
+    def CheckExecuteWrongNoOfArgs1(self):
+        # too many parameters
+        try:
+            self.cu.execute("insert into test(id) values (?)", (17, "Egon"))
+            self.fail("should have raised ProgrammingError")
+        except sqlite.ProgrammingError:
+            pass
+
+    def CheckExecuteWrongNoOfArgs2(self):
+        # too little parameters
+        try:
+            self.cu.execute("insert into test(id) values (?)")
+            self.fail("should have raised ProgrammingError")
+        except sqlite.ProgrammingError:
+            pass
+
+    def CheckExecuteWrongNoOfArgs3(self):
+        # no parameters, parameters are needed
+        try:
+            self.cu.execute("insert into test(id) values (?)")
+            self.fail("should have raised ProgrammingError")
+        except sqlite.ProgrammingError:
+            pass
+
+    def CheckExecuteDictMapping(self):
+        self.cu.execute("insert into test(name) values ('foo')")
+        self.cu.execute("select name from test where name=:name", {"name": "foo"})
+        row = self.cu.fetchone()
+        self.failUnlessEqual(row[0], "foo")
+
+    def CheckExecuteDictMappingTooLittleArgs(self):
+        self.cu.execute("insert into test(name) values ('foo')")
+        try:
+            self.cu.execute("select name from test where name=:name and id=:id", {"name": "foo"})
+            self.fail("should have raised ProgrammingError")
+        except sqlite.ProgrammingError:
+            pass
+
+    def CheckExecuteDictMappingNoArgs(self):
+        self.cu.execute("insert into test(name) values ('foo')")
+        try:
+            self.cu.execute("select name from test where name=:name")
+            self.fail("should have raised ProgrammingError")
+        except sqlite.ProgrammingError:
+            pass
+
+    def CheckExecuteDictMappingUnnamed(self):
+        self.cu.execute("insert into test(name) values ('foo')")
+        try:
+            self.cu.execute("select name from test where name=?", {"name": "foo"})
+            self.fail("should have raised ProgrammingError")
+        except sqlite.ProgrammingError:
+            pass
+
     def CheckClose(self):
         self.cu.close()
 
@@ -146,7 +200,7 @@ class CursorTests(unittest.TestCase):
     # enhancements in pysqlite.
 
     def CheckExecuteManySequence(self):
-        self.cu.execute("insert into test(income) values (?)", [(x,) for x in range(100, 110)])
+        self.cu.executemany("insert into test(income) values (?)", [(x,) for x in range(100, 110)])
 
     def CheckExecuteManyIterator(self):
         class MyIter:
