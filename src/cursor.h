@@ -38,6 +38,7 @@ typedef struct
     PyObject* next_coltypes;
     PyObject* coltypes;
     int arraysize;
+    PyObject* lastrowid;
     PyObject* rowcount;
     sqlite3_stmt* statement;
 

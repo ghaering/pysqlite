@@ -357,6 +357,14 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
                 self->rowcount = PyInt_FromLong((long)sqlite3_changes(self->connection->db));
         }
 
+        Py_DECREF(self->lastrowid);
+        if (statement_type == STATEMENT_INSERT) {
+            self->lastrowid = PyInt_FromLong((long)sqlite3_last_insert_rowid(self->connection->db));
+        } else {
+            Py_INCREF(Py_None);
+            self->lastrowid = Py_None;
+        }
+
         if (multiple) {
             rc = sqlite3_reset(self->statement);
         }
@@ -595,6 +603,7 @@ static struct PyMemberDef cursor_members[] =
 {
     {"description", T_OBJECT, offsetof(Cursor, description), RO},
     {"arraysize", T_INT, offsetof(Cursor, arraysize), 0},
+    {"lastrowid", T_OBJECT, offsetof(Cursor, lastrowid), RO},
     {"rowcount", T_OBJECT, offsetof(Cursor, rowcount), RO},
     {"coltypes", T_OBJECT, offsetof(Cursor, next_coltypes), 0},
     {NULL}
@@ -603,7 +612,7 @@ static struct PyMemberDef cursor_members[] =
 PyTypeObject CursorType = {
         PyObject_HEAD_INIT(NULL)
         0,                                              /* ob_size */
-        "sqlite.Cursor",                                /* tp_name */
+        "pysqlite2.dbapi2.Cursor",                      /* tp_name */
         sizeof(Cursor),                                 /* tp_basicsize */
         0,                                              /* tp_itemsize */
         (destructor)cursor_dealloc,                     /* tp_dealloc */

@@ -110,6 +110,9 @@ PyObject* connection_cursor(Connection* self, PyObject* args)
     Py_INCREF(Py_None);
     cursor->description = Py_None;
 
+    Py_INCREF(Py_None);
+    cursor->lastrowid= Py_None;
+
     cursor->arraysize = 1;
 
     Py_INCREF(Py_None);
@@ -274,7 +277,7 @@ static PyMethodDef connection_methods[] = {
 PyTypeObject ConnectionType = {
         PyObject_HEAD_INIT(NULL)
         0,                                              /* ob_size */
-        "sqlite.Connection",                            /* tp_name */
+        "pysqlite2.dbapi2.Connection",                  /* tp_name */
         sizeof(Connection),                             /* tp_basicsize */
         0,                                              /* tp_itemsize */
         (destructor)connection_dealloc,                 /* tp_dealloc */

@@ -77,38 +77,38 @@ PyMODINIT_FUNC init_sqlite(void)
 
     /*** Create DB-API Exception hierarchy */
 
-    Error = PyErr_NewException("sqlite.Error", PyExc_StandardError, NULL);
+    Error = PyErr_NewException("pysqlite2.dbapi2.Error", PyExc_StandardError, NULL);
     PyDict_SetItemString(dict, "Error", Error);
 
-    Warning = PyErr_NewException("sqlite.Warning", PyExc_StandardError, NULL);
+    Warning = PyErr_NewException("pysqlite2.dbapi2.Warning", PyExc_StandardError, NULL);
     PyDict_SetItemString(dict, "Warning", Warning);
 
     /* Error subclasses */
 
-    InterfaceError = PyErr_NewException("sqlite.InterfaceError", Error, NULL);
+    InterfaceError = PyErr_NewException("pysqlite2.dbapi2.InterfaceError", Error, NULL);
     PyDict_SetItemString(dict, "InterfaceError", InterfaceError);
 
-    DatabaseError = PyErr_NewException("sqlite.DatabaseError", Error, NULL);
+    DatabaseError = PyErr_NewException("pysqlite2.dbapi2.DatabaseError", Error, NULL);
     PyDict_SetItemString(dict, "DatabaseError", DatabaseError);
 
     /* DatabaseError subclasses */
 
-    InternalError = PyErr_NewException("sqlite.InternalError", DatabaseError, NULL);
+    InternalError = PyErr_NewException("pysqlite2.dbapi2.InternalError", DatabaseError, NULL);
     PyDict_SetItemString(dict, "InternalError", InternalError);
 
-    OperationalError = PyErr_NewException("sqlite.OperationalError", DatabaseError, NULL);
+    OperationalError = PyErr_NewException("pysqlite2.dbapi2.OperationalError", DatabaseError, NULL);
     PyDict_SetItemString(dict, "OperationalError", OperationalError);
 
-    ProgrammingError = PyErr_NewException("sqlite.ProgrammingError", DatabaseError, NULL);
+    ProgrammingError = PyErr_NewException("pysqlite2.dbapi2.ProgrammingError", DatabaseError, NULL);
     PyDict_SetItemString(dict, "ProgrammingError", ProgrammingError);
 
-    IntegrityError = PyErr_NewException("sqlite.IntegrityError", DatabaseError,NULL);
+    IntegrityError = PyErr_NewException("pysqlite2.dbapi2.IntegrityError", DatabaseError,NULL);
     PyDict_SetItemString(dict, "IntegrityError", IntegrityError);
 
-    DataError = PyErr_NewException("sqlite.DataError", DatabaseError, NULL);
+    DataError = PyErr_NewException("pysqlite2.dbapi2.DataError", DatabaseError, NULL);
     PyDict_SetItemString(dict, "DataError", DataError);
 
-    NotSupportedError = PyErr_NewException("sqlite.NotSupportedError", DatabaseError, NULL);
+    NotSupportedError = PyErr_NewException("pysqlite2.dbapi2.NotSupportedError", DatabaseError, NULL);
     PyDict_SetItemString(dict, "NotSupportedError", NotSupportedError);
 
     sqlite_STRING = PyInt_FromLong(1L);
