@@ -565,3 +565,10 @@ class Connection:
             return getattr(_sqlite, key)
         else:
             raise AttributeError, key
+
+    #
+    # MySQLdb compatibility stuff
+    #
+
+    def insert_id(self):
+        return self.db.sqlite_last_insert_rowid()
