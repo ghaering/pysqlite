@@ -164,25 +164,27 @@ static PyObject* connection_commit(Connection* self, PyObject* args)
     const char* tail;
     sqlite3_stmt* statement;
 
-    rc = sqlite3_prepare(self->db, "COMMIT", -1, &statement, &tail);
-    if (rc != SQLITE_OK) {
-        PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
-        return NULL;
-    }
+    if (self->inTransaction) {
+        rc = sqlite3_prepare(self->db, "COMMIT", -1, &statement, &tail);
+        if (rc != SQLITE_OK) {
+            PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
+            return NULL;
+        }
 
-    rc = sqlite3_step(statement);
-    if (rc != SQLITE_DONE) {
-        PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
-        return NULL;
-    }
+        rc = sqlite3_step(statement);
+        if (rc != SQLITE_DONE) {
+            PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
+            return NULL;
+        }
 
-    rc = sqlite3_finalize(statement);
-    if (rc != SQLITE_OK) {
-        PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
-        return NULL;
-    }
+        rc = sqlite3_finalize(statement);
+        if (rc != SQLITE_OK) {
+            PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
+            return NULL;
+        }
 
-    self->inTransaction = 0;
+        self->inTransaction = 0;
+    }
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -194,25 +196,27 @@ static PyObject* connection_rollback(Connection* self, PyObject* args)
     const char* tail;
     sqlite3_stmt* statement;
 
-    rc = sqlite3_prepare(self->db, "ROLLBACK", -1, &statement, &tail);
-    if (rc != SQLITE_OK) {
-        PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
-        return NULL;
-    }
+    if (self->inTransaction) {
+        rc = sqlite3_prepare(self->db, "ROLLBACK", -1, &statement, &tail);
+        if (rc != SQLITE_OK) {
+            PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
+            return NULL;
+        }
 
-    rc = sqlite3_step(statement);
-    if (rc != SQLITE_DONE) {
-        PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
-        return NULL;
-    }
+        rc = sqlite3_step(statement);
+        if (rc != SQLITE_DONE) {
+            PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
+            return NULL;
+        }
 
-    rc = sqlite3_finalize(statement);
-    if (rc != SQLITE_OK) {
-        PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
-        return NULL;
-    }
+        rc = sqlite3_finalize(statement);
+        if (rc != SQLITE_OK) {
+            PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
+            return NULL;
+        }
 
-    self->inTransaction = 0;
+        self->inTransaction = 0;
+    }
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -699,9 +703,9 @@ static PyMethodDef cursor_methods[] = {
     {"close", (PyCFunction)pysqlite_noop, METH_NOARGS,
         PyDoc_STR("Closes the cursor.")},
     {"setinputsizes", (PyCFunction)pysqlite_noop, METH_VARARGS,
-        PyDoc_STR("Does nothing in pysqlite.")},
-    {"setoutputsizes", (PyCFunction)pysqlite_noop, METH_VARARGS,
-        PyDoc_STR("Does nothing in pysqlite.")},
+        PyDoc_STR("Required by DB-API. Does nothing in pysqlite.")},
+    {"setoutputsize", (PyCFunction)pysqlite_noop, METH_VARARGS,
+        PyDoc_STR("Required by DB-API. Does nothing in pysqlite.")},
     {NULL, NULL}
 };
 

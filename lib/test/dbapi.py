@@ -69,14 +69,28 @@ class ConnectionTests(unittest.TestCase):
     def CheckCommit(self):
         self.cx.commit()
 
+    def CheckCommitAfterNoChanges(self):
+        """
+        A commit should also work when no changes were made to the database.
+        """
+        self.cx.commit()
+        self.cx.commit()
+
     def CheckRollback(self):
+        self.cx.rollback()
+
+    def CheckRollbackAfterNoChanges(self):
+        """
+        A rollback should also work when no changes were made to the database.
+        """
+        self.cx.rollback()
         self.cx.rollback()
 
     def CheckCursor(self):
         cu = self.cx.cursor()
 
     def CheckClose(self):
-        self.failUnless(hasattr(self.cx, "close"))
+        self.cx.close()
 
 class CursorTests(unittest.TestCase):
     def setUp(self):
@@ -155,6 +169,15 @@ class CursorTests(unittest.TestCase):
         self.cu.execute("select name from test")
         res = self.cu.fetchall()
         self.failUnlessEqual(len(res), 1)
+
+    def CheckSetinputsizes(self):
+        self.cu.setinputsizes([3, 4, 5])
+
+    def CheckSetoutputsize(self):
+        self.cu.setoutputsize(5, 0)
+
+    def CheckSetoutputsizeNoColumn(self):
+        self.cu.setoutputsize(42)
 
 def suite():
     module_suite = unittest.makeSuite(ModuleTests, "Check")
