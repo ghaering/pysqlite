@@ -25,21 +25,24 @@
 #include "connection.h"
 #include "cursor.h"
 #include "cache.h"
+#include "microprotocols.h"
+#include "microprotocols_proto.h"
 
 static PyMethodDef module_methods[] = {
     {NULL, NULL}
 };
 
-PyMODINIT_FUNC init_sqlite2(void)
+PyMODINIT_FUNC init_sqlite(void)
 {
     PyObject *module, *dict;
 
-    module = Py_InitModule("_sqlite2", module_methods);
+    module = Py_InitModule("pysqlite2._sqlite", module_methods);
 
     ConnectionType.tp_new = PyType_GenericNew;
     CursorType.tp_new = PyType_GenericNew;
     NodeType.tp_new = PyType_GenericNew;
     CacheType.tp_new = PyType_GenericNew;
+    isqlquoteType.ob_type    = &PyType_Type;
     if (PyType_Ready(&NodeType) < 0) {
         return;
     }
@@ -50,6 +53,9 @@ PyMODINIT_FUNC init_sqlite2(void)
         return;
     }
     if (PyType_Ready(&CursorType) < 0) {
+        return;
+    }
+    if (PyType_Ready(&isqlquoteType) == -1) {
         return;
     }
 
@@ -67,39 +73,39 @@ PyMODINIT_FUNC init_sqlite2(void)
 
     /*** Create DB-API Exception hierarchy */
 
-    sqlite_Error = PyErr_NewException("sqlite.Error", PyExc_StandardError, NULL);
-    PyDict_SetItemString(dict, "Error", sqlite_Error);
+    Error = PyErr_NewException("sqlite.Error", PyExc_StandardError, NULL);
+    PyDict_SetItemString(dict, "Error", Error);
 
-    sqlite_Warning = PyErr_NewException("sqlite.Warning", PyExc_StandardError, NULL);
-    PyDict_SetItemString(dict, "Warning", sqlite_Warning);
+    Warning = PyErr_NewException("sqlite.Warning", PyExc_StandardError, NULL);
+    PyDict_SetItemString(dict, "Warning", Warning);
 
     /* Error subclasses */
 
-    sqlite_InterfaceError = PyErr_NewException("sqlite.InterfaceError", sqlite_Error, NULL);
-    PyDict_SetItemString(dict, "InterfaceError", sqlite_InterfaceError);
+    InterfaceError = PyErr_NewException("sqlite.InterfaceError", Error, NULL);
+    PyDict_SetItemString(dict, "InterfaceError", InterfaceError);
 
-    sqlite_DatabaseError = PyErr_NewException("sqlite.DatabaseError", sqlite_Error, NULL);
-    PyDict_SetItemString(dict, "DatabaseError", sqlite_DatabaseError);
+    DatabaseError = PyErr_NewException("sqlite.DatabaseError", Error, NULL);
+    PyDict_SetItemString(dict, "DatabaseError", DatabaseError);
 
     /* DatabaseError subclasses */
 
-    sqlite_InternalError = PyErr_NewException("sqlite.InternalError", sqlite_DatabaseError, NULL);
-    PyDict_SetItemString(dict, "InternalError", sqlite_InternalError);
+    InternalError = PyErr_NewException("sqlite.InternalError", DatabaseError, NULL);
+    PyDict_SetItemString(dict, "InternalError", InternalError);
 
-    sqlite_OperationalError = PyErr_NewException("sqlite.OperationalError", sqlite_DatabaseError, NULL);
-    PyDict_SetItemString(dict, "OperationalError", sqlite_OperationalError);
+    OperationalError = PyErr_NewException("sqlite.OperationalError", DatabaseError, NULL);
+    PyDict_SetItemString(dict, "OperationalError", OperationalError);
 
-    sqlite_ProgrammingError = PyErr_NewException("sqlite.ProgrammingError", sqlite_DatabaseError, NULL);
-    PyDict_SetItemString(dict, "ProgrammingError", sqlite_ProgrammingError);
+    ProgrammingError = PyErr_NewException("sqlite.ProgrammingError", DatabaseError, NULL);
+    PyDict_SetItemString(dict, "ProgrammingError", ProgrammingError);
 
-    sqlite_IntegrityError = PyErr_NewException("sqlite.IntegrityError", sqlite_DatabaseError,NULL);
-    PyDict_SetItemString(dict, "IntegrityError", sqlite_IntegrityError);
+    IntegrityError = PyErr_NewException("sqlite.IntegrityError", DatabaseError,NULL);
+    PyDict_SetItemString(dict, "IntegrityError", IntegrityError);
 
-    sqlite_DataError = PyErr_NewException("sqlite.DataError", sqlite_DatabaseError, NULL);
-    PyDict_SetItemString(dict, "DataError", sqlite_DataError);
+    DataError = PyErr_NewException("sqlite.DataError", DatabaseError, NULL);
+    PyDict_SetItemString(dict, "DataError", DataError);
 
-    sqlite_NotSupportedError = PyErr_NewException("sqlite.NotSupportedError", sqlite_DatabaseError, NULL);
-    PyDict_SetItemString(dict, "NotSupportedError", sqlite_NotSupportedError);
+    NotSupportedError = PyErr_NewException("sqlite.NotSupportedError", DatabaseError, NULL);
+    PyDict_SetItemString(dict, "NotSupportedError", NotSupportedError);
 
     sqlite_STRING = PyInt_FromLong(1L);
     sqlite_BINARY = PyInt_FromLong(2L);
@@ -116,11 +122,15 @@ PyMODINIT_FUNC init_sqlite2(void)
 
     PyDict_SetItemString(dict, "version", PyString_FromString(PYSQLITE_VERSION));
 
+    /* initialize microprotocols layer */
+    microprotocols_init(dict);
+    /* psyco_adapters_init(dict); */
+
   error:
 
     if (PyErr_Occurred())
     {
-        PyErr_SetString(PyExc_ImportError, "sqlite2: init failed");
+        PyErr_SetString(PyExc_ImportError, "pysqlite2._sqlite: init failed");
     }
 }
 

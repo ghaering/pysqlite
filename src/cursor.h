@@ -25,6 +25,7 @@
 #define PYSQLITE_CURSOR_H
 #include "Python.h"
 
+#include "util.h"
 #include "connection.h"
 #include "module.h"
 

@@ -48,7 +48,7 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
     }
 
     if (sqlite3_open(database, &self->db) != SQLITE_OK) {
-        PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
+        PyErr_SetString(DatabaseError, sqlite3_errmsg(self->db));
         return -1;
     }
 
@@ -106,7 +106,7 @@ PyObject* connection_close(Connection* self, PyObject* args)
     if (self->db) {
         rc = sqlite3_close(self->db);
         if (rc != SQLITE_OK) {
-            PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
+            PyErr_SetString(DatabaseError, sqlite3_errmsg(self->db));
             return NULL;
         } else {
             self->db = NULL;
@@ -125,19 +125,19 @@ PyObject* connection_begin(Connection* self, PyObject* args)
 
     rc = sqlite3_prepare(self->db, "BEGIN", -1, &statement, &tail);
     if (rc != SQLITE_OK) {
-        PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
+        PyErr_SetString(DatabaseError, sqlite3_errmsg(self->db));
         return NULL;
     }
 
     rc = sqlite3_step(statement);
     if (rc != SQLITE_DONE) {
-        PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
+        PyErr_SetString(DatabaseError, sqlite3_errmsg(self->db));
         return NULL;
     }
 
     rc = sqlite3_finalize(statement);
     if (rc != SQLITE_OK) {
-        PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
+        PyErr_SetString(DatabaseError, sqlite3_errmsg(self->db));
         return NULL;
     }
 
@@ -156,19 +156,19 @@ PyObject* connection_commit(Connection* self, PyObject* args)
     if (self->inTransaction) {
         rc = sqlite3_prepare(self->db, "COMMIT", -1, &statement, &tail);
         if (rc != SQLITE_OK) {
-            PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
+            PyErr_SetString(DatabaseError, sqlite3_errmsg(self->db));
             return NULL;
         }
 
         rc = sqlite3_step(statement);
         if (rc != SQLITE_DONE) {
-            PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
+            PyErr_SetString(DatabaseError, sqlite3_errmsg(self->db));
             return NULL;
         }
 
         rc = sqlite3_finalize(statement);
         if (rc != SQLITE_OK) {
-            PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
+            PyErr_SetString(DatabaseError, sqlite3_errmsg(self->db));
             return NULL;
         }
 
@@ -188,19 +188,19 @@ PyObject* connection_rollback(Connection* self, PyObject* args)
     if (self->inTransaction) {
         rc = sqlite3_prepare(self->db, "ROLLBACK", -1, &statement, &tail);
         if (rc != SQLITE_OK) {
-            PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
+            PyErr_SetString(DatabaseError, sqlite3_errmsg(self->db));
             return NULL;
         }
 
         rc = sqlite3_step(statement);
         if (rc != SQLITE_DONE) {
-            PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
+            PyErr_SetString(DatabaseError, sqlite3_errmsg(self->db));
             return NULL;
         }
 
         rc = sqlite3_finalize(statement);
         if (rc != SQLITE_OK) {
-            PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
+            PyErr_SetString(DatabaseError, sqlite3_errmsg(self->db));
             return NULL;
         }
 

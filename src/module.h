@@ -25,19 +25,21 @@
 #define PYSQLITE_MODULE_H
 #include "Python.h"
 
+#include "util.h"
+
 /**
  * Exception objects
  */
-PyObject* sqlite_Error;
-PyObject* sqlite_Warning;
-PyObject* sqlite_InterfaceError;
-PyObject* sqlite_DatabaseError;
-PyObject* sqlite_InternalError;
-PyObject* sqlite_OperationalError;
-PyObject* sqlite_ProgrammingError;
-PyObject* sqlite_IntegrityError;
-PyObject* sqlite_DataError;
-PyObject* sqlite_NotSupportedError;
+PyObject* Error;
+PyObject* Warning;
+PyObject* InterfaceError;
+PyObject* DatabaseError;
+PyObject* InternalError;
+PyObject* OperationalError;
+PyObject* ProgrammingError;
+PyObject* IntegrityError;
+PyObject* DataError;
+PyObject* NotSupportedError;
 
 /**
  * Type objects

@@ -26,6 +26,8 @@
 #include "Python.h"
 #include "structmember.h"
 
+#include "util.h"
+
 #include "sqlite3.h"
 
 typedef struct

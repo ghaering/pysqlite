@@ -1,5 +1,5 @@
 #-*- coding: ISO-8859-1 -*-
-# sqlite/test/__init__.py: the package containing the test suite
+# pysqlite2/test/__init__.py: the package containing the test suite
 #
 # Copyright (C) 2004 Gerhard Häring <gh@ghaering.de>
 #
@@ -22,7 +22,7 @@
 # 3. This notice may not be removed or altered from any source distribution.
 
 import unittest
-from sqlite2.test import dbapi
+from pysqlite2.test import dbapi
 
 def suite():
     return unittest.TestSuite(

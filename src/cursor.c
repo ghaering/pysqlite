@@ -23,6 +23,8 @@
 
 #include "cursor.h"
 #include "module.h"
+#include "microprotocols.h"
+#include "microprotocols_proto.h"
 
 PyObject* cursor_iternext(Cursor *self);
 
@@ -101,6 +103,8 @@ PyObject* cursor_execute(Cursor* self, PyObject* args)
     int coltype;
     int statement_type;
     PyObject* descriptor;
+    PyObject* current_param;
+    PyObject* adapted;
 
     if (!PyArg_ParseTuple(args, "S|O", &operation, &parameters))
     {
@@ -110,7 +114,7 @@ PyObject* cursor_execute(Cursor* self, PyObject* args)
     if (self->statement != NULL) {
         /* There is an active statement */
         if (sqlite3_finalize(self->statement) != SQLITE_OK) {
-            PyErr_SetString(sqlite_DatabaseError, "error finalizing virtual machine");
+            PyErr_SetString(DatabaseError, "error finalizing virtual machine");
             return NULL;
         }
     }
@@ -149,20 +153,34 @@ PyObject* cursor_execute(Cursor* self, PyObject* args)
                          &self->statement,
                          &tail);
     if (rc != SQLITE_OK) {
-        PyErr_SetString(sqlite_DatabaseError, "error preparing statement");
+        PyErr_SetString(DatabaseError, "error preparing statement");
         return NULL;
     }
 
     if (parameters != NULL) {
         num_params = PySequence_Length(parameters);
         for (i = 0; i < num_params; i++) {
-            rc = sqlite3_bind_text(self->statement, i + 1, PyString_AsString(PyObject_Str(PySequence_GetItem(parameters, i))), -1, SQLITE_TRANSIENT);
+            current_param = PySequence_GetItem(parameters, i);
+
+            Py_INCREF(current_param);
+            adapted = microprotocols_adapt(current_param, (PyObject*)&isqlquoteType, NULL);
+            Py_DECREF(current_param);
+            if (adapted) {
+            } else {
+                PyErr_Clear();
+                adapted = current_param;
+                Py_INCREF(adapted);
+            }
+
+            rc = sqlite3_bind_text(self->statement, i + 1, PyString_AsString(PyObject_Str(adapted)), -1, SQLITE_TRANSIENT);
+
+            Py_DECREF(adapted);
         }
     }
 
     self->step_rc = sqlite3_step(self->statement);
     if (self->step_rc != SQLITE_DONE && self->step_rc != SQLITE_ROW) {
-        PyErr_SetString(sqlite_DatabaseError, "error executing first sqlite3_step call");
+        PyErr_SetString(DatabaseError, "error executing first sqlite3_step call");
         return NULL;
     }
 
@@ -232,26 +250,16 @@ PyObject* cursor_executemany(Cursor* self, PyObject* args)
         return NULL; 
     }
 
-    if (PyCallable_Check(parameterParam)) {
-        /* generator */
-        func_args = PyTuple_New(0);
-        parameterIter = PyObject_CallObject(parameterParam, func_args);
-        Py_DECREF(func_args);
-        if (!parameterIter) {
-            return NULL;
-        }
+    if (PyIter_Check(parameterParam)) {
+        /* iterator */
+        Py_INCREF(parameterParam);
+        parameterIter = parameterParam;
     } else {
-        if (PyIter_Check(parameterParam)) {
-            /* iterator */
-            Py_INCREF(parameterParam);
-            parameterIter = parameterParam;
-        } else {
-            /* sequence */
-            parameterIter = PyObject_GetIter(parameterParam);
-            if (PyErr_Occurred())
-            {
-                return NULL;
-            }
+        /* sequence */
+        parameterIter = PyObject_GetIter(parameterParam);
+        if (PyErr_Occurred())
+        {
+            return NULL;
         }
     }
 
@@ -260,7 +268,7 @@ PyObject* cursor_executemany(Cursor* self, PyObject* args)
     if (self->statement != NULL) {
         /* There is an active statement */
         if (sqlite3_finalize(self->statement) != SQLITE_OK) {
-            PyErr_SetString(sqlite_DatabaseError, "error finalizing virtual machine");
+            PyErr_SetString(DatabaseError, "error finalizing virtual machine");
             return NULL;
         }
     }
@@ -271,7 +279,7 @@ PyObject* cursor_executemany(Cursor* self, PyObject* args)
                          &self->statement,
                          &tail);
     if (rc != SQLITE_OK) {
-        PyErr_SetString(sqlite_DatabaseError, "error preparing statement");
+        PyErr_SetString(DatabaseError, "error preparing statement");
         return NULL;
     }
 
@@ -292,7 +300,7 @@ PyObject* cursor_executemany(Cursor* self, PyObject* args)
 
         rc = sqlite3_step(self->statement);
         if (rc != SQLITE_DONE) {
-            PyErr_SetString(sqlite_DatabaseError, "unexpected rc");
+            PyErr_SetString(DatabaseError, "unexpected rc");
             return NULL;
         }
 
@@ -324,7 +332,7 @@ PyObject* cursor_iternext(Cursor *self)
     int coltype;
 
     if (self->statement == NULL) {
-        PyErr_SetString(sqlite_ProgrammingError, "no compiled statement");
+        PyErr_SetString(ProgrammingError, "no compiled statement");
         return NULL;
     }
 
@@ -338,7 +346,7 @@ PyObject* cursor_iternext(Cursor *self)
     if (self->step_rc == SQLITE_DONE) {
         return NULL;
     } else if (self->step_rc != SQLITE_ROW) {
-        PyErr_SetString(sqlite_DatabaseError, "wrong return code :-S");
+        PyErr_SetString(DatabaseError, "wrong return code :-S");
         return NULL;
     }
 

@@ -30,7 +30,9 @@ from distutils.extension import Extension
 PYSQLITE_VERSION = "2.0.alpha1"
 
 sqlite = "sqlite"
-sources = ["src/module.c", "src/connection.c", "src/cursor.c", "src/cache.c"]
+
+sources = ["src/module.c", "src/connection.c", "src/cursor.c", "src/cache.c",
+           "src/microprotocols.c", "src/microprotocols_proto.c"]
 
 include_dirs = []
 library_dirs = []
@@ -67,11 +69,11 @@ def main():
             url = "http://initd.org/svn/initd/pysqlite/trunk/",
 
             # Description of the modules and packages in the distribution
-            package_dir = {"sqlite2": "lib"},
-            packages = ["sqlite2", "sqlite2.test"],
+            package_dir = {"pysqlite2": "lib"},
+            packages = ["pysqlite2", "pysqlite2.test"],
             scripts=["scripts/test-pysqlite"],
 
-            ext_modules = [Extension( name="_sqlite2",
+            ext_modules = [Extension( name="pysqlite2._sqlite",
                                       sources=sources,
                                       include_dirs=include_dirs,
                                       library_dirs=library_dirs,
