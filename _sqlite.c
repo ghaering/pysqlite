@@ -58,6 +58,16 @@
 #  define MY_END_ALLOW_THREADS(st)      { st = NULL; }
 #endif
 
+/* Workaround for mingw32 + Python 2.4: if we don't do this, mystrdup is used
+ * from msvcrt60.dll and the buffer is then free()-ed from msvcr71.dll, which
+ * results in a crash.
+ */
+#if defined(__MINGW32__)
+#define mystrdup _strdup
+#else
+#define mymystrdup strdup
+#endif
+
 /*------------------------------------------------------------------------------
 ** Object Declarations
 **------------------------------------------------------------------------------
@@ -262,7 +272,7 @@ PyObject* pysqlite_connect(PyObject *self, PyObject *args, PyObject *kwargs)
 
 
     /* Assign the database name */
-    if ((obj->database_name = strdup(db_name)) == NULL)
+    if ((obj->database_name = mystrdup(db_name)) == NULL)
     {
         PyErr_SetString(PyExc_MemoryError, "Cannot allocate memory for database name.");
         return NULL;
@@ -1282,7 +1292,7 @@ static PyObject* _con_execute(pysqlc* self, PyObject *args)
     }
 
     /* Save SQL statement */
-    self->sql = strdup(sql);
+    self->sql = mystrdup(sql);
 
     /* Log SQL statement */
     if (self->command_logfile != Py_None)
@@ -1334,7 +1344,7 @@ static PyObject* _con_execute(pysqlc* self, PyObject *args)
             return NULL;
         }
 
-        if ((buf = strdup(sql)) == NULL)
+        if ((buf = mystrdup(sql)) == NULL)
         {
             PyErr_SetString(PyExc_MemoryError, "Cannot allocate buffer for copying SQL statement!");
             return NULL;
@@ -1841,7 +1851,7 @@ static PyObject* sqlite_version_info(PyObject* self, PyObject* args)
         return NULL;
     }
 
-    buf = strdup(sqlite3_libversion());
+    buf = mystrdup(sqlite3_libversion());
     iterator = buf;
 
     vi_list = PyList_New(0);
