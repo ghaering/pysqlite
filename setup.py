@@ -4,9 +4,9 @@ import os, sys
 from distutils.core import setup
 from distutils.extension import Extension
 
-__version__ = "1.0"
+__version__ = "1.1.0"
 
-sqlite = "sqlite"
+sqlite = "sqlite3"
 sources = ["_sqlite.c", "encode.c", "port/strsep.c"]
 macros = []
 
@@ -29,7 +29,7 @@ elif sys.platform in ("freebsd4", "freebsd5", "openbsd2", "cygwin", "darwin"):
 elif sys.platform == "win32":
     include_dirs = [r'..\sqlite']
     library_dirs = [r'..\sqlite']
-    libraries = ["sqlite"]
+    libraries = [sqlite]
     runtime_library_dirs = []
     extra_objects = []
 elif os.name == "posix": # most Unixish platforms
@@ -59,13 +59,13 @@ unique features of SQLite.
 
 def main():
     py_modules = ["sqlite.main"]
-                          
+
     # patch distutils if it can't cope with the "classifiers" keyword
     if sys.version < '2.2.3':
         from distutils.dist import DistributionMetadata
         DistributionMetadata.classifiers = None
         DistributionMetadata.download_url = None
-    
+
     setup ( # Distribution meta-data
             name = "pysqlite",
             version = __version__,

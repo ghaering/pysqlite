@@ -5,12 +5,14 @@
                      | .__/ \__, |___/\__, |_|_|\__\___|
                      |_|    |___/        |_|
 
-               A DB API v2.0 compatible interface to SQLite
+             A DB API v2.0 compatible interface to SQLite 3.0
                        Embedded Relational Database.
                           Copyright (c) 2001-2003
                    Michael Owens <mike@mikesclutter.com>
                       Gerhard Häring <gh@ghaering.de>
 
+Python versions supported: Python 2.1 or later
+SQLite version required:   SQLite 3.0 or later
 
 Overview:
 
