@@ -6,13 +6,6 @@ TODO list for pysqlite
 Open items:
 -----------
 
-Summary:        package renaming
-Priority:       highest
-Status:         open
-Description:
-    "import sqlite2" => "import pysqlite2.dbapi2 as sqlite". This involves many
-    places that need changing.
-
 Summary:        import microprotocols from psycopg
 Priority:       high
 Status:         integrated, needs bugfixing and tests
@@ -35,13 +28,24 @@ Status:         open
 Description:
     /
 
+Summary:        Connection.cursor() grows a factory parameter
+Priority:       low
+Status:         open
+Description:
+    The cursor method of the connection object gets an optional cursor factory
+    parameter for creating nonstandard cursor classes. One use-case is to
+    create cursors where the returned rows are accessible by name instead of
+    index.
+
 -------------
 Closed items:
 -------------
 
-Summary:
-Priority:
-Status: Finished 200x-xx-xx
-Status: Finished 200x-xx-xx
+Summary:        package renaming
+Priority:       highest
+Status:         finished 2004-11-26
 Description:
-    bla bla bla
+    "import sqlite2" => "import pysqlite2.dbapi2 as sqlite". This involves many
+    places that need changing.
+
+
