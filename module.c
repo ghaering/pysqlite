@@ -41,6 +41,7 @@ typedef struct
     PyObject_HEAD
     Connection* connection;
     PyObject* typecasters;
+    PyObject* description;
     sqlite3_stmt* statement;
 
     /* return code of the last call to sqlite3_step */
@@ -48,7 +49,7 @@ typedef struct
 } Cursor;
 
 typedef enum {STATEMENT_INVALID, STATEMENT_INSERT, STATEMENT_DELETE,
-    STATEMENT_UPDATE, STATEMENT_SELECT, STATEMENT_OTHER};
+    STATEMENT_UPDATE, STATEMENT_SELECT, STATEMENT_OTHER} StatementType;
 
 // XXX: possible to get rid of "statichere"?
 statichere PyTypeObject CursorType;
@@ -106,11 +107,43 @@ static PyObject* connection_cursor(Connection* self, PyObject* args)
     Py_INCREF(Py_None);
     cursor->typecasters = Py_None;
 
+    cursor->description = PyString_FromString("fucking retard :-P\n");
+
     return (PyObject*)cursor;
 }
 
 static PyObject* connection_close(Connection* self, PyObject* args)
 {
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+static PyObject* connection_begin(Connection* self, PyObject* args)
+{
+    int rc;
+    const char* tail;
+    sqlite3_stmt* statement;
+
+    rc = sqlite3_prepare(self->db, "BEGIN", -1, &statement, &tail);
+    if (rc != SQLITE_OK) {
+        PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
+        return NULL;
+    }
+
+    rc = sqlite3_step(statement);
+    if (rc != SQLITE_DONE) {
+        PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
+        return NULL;
+    }
+
+    rc = sqlite3_finalize(statement);
+    if (rc != SQLITE_OK) {
+        PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
+        return NULL;
+    }
+
+    self->inTransaction = 1;
+
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -177,19 +210,56 @@ static PyObject* connection_rollback(Connection* self, PyObject* args)
 
 static PyObject* cursor_iternext(Cursor *self);
 
-/*
 static StatementType detect_statement_type(char* statement)
 {
-    char* p;
+    char buf[20];
+    char* src;
+    char* dst;
 
-    // skip over whitepace
-    while (*p == '\r' || *p == '\n' || *p == ' ' || *p == '\t') {
-        p++;
+    src = statement;
+    /* skip over whitepace */
+    while (*src == '\r' || *src == '\n' || *src == ' ' || *src == '\t') {
+        src++;
     }
 
-    if (*p == 0)
+    if (*src == 0)
+        return STATEMENT_INVALID;
+
+    dst = buf;
+    *dst = 0;
+    while (isalpha(*src) && dst - buf < sizeof(buf) - 2) {
+        *dst++ = tolower(*src++);
+    }
+
+    *dst = 0;
+
+    if (!strcmp(buf, "select")) {
+        return STATEMENT_SELECT;
+    } else if (!strcmp(buf, "insert")) {
+        return STATEMENT_INSERT;
+    } else if (!strcmp(buf, "update")) {
+        return STATEMENT_UPDATE;
+    } else if (!strcmp(buf, "delete")) {
+        return STATEMENT_DELETE;
+    } else {
+        return STATEMENT_OTHER;
+    }
 }
-*/
+static struct memberlist cursor_members[];
+static PyMethodDef cursor_methods[];
+
+static PyObject* cursor_getattr(Cursor* self, char* attr)
+{
+    PyObject* item;
+
+    item = Py_FindMethod(cursor_methods, (PyObject*)self, attr);
+    if (item) {
+        return item;
+    } else {
+        PyErr_Clear();
+        return PyMember_Get((char*)self, cursor_members, attr);
+    }
+}
 
 static PyObject* cursor_execute(Cursor* self, PyObject* args)
 {
@@ -200,19 +270,45 @@ static PyObject* cursor_execute(Cursor* self, PyObject* args)
     const char* tail;
     int i;
     int rc;
+    PyObject* func_args;
+    PyObject* result;
+    int numcols;
+    PyObject* descriptor;
 
     if (!PyArg_ParseTuple(args, "S|O", &operation, &parameters))
     {
         return NULL; 
     }
 
-    operation_cstr = PyString_AsString(operation);
-
     if (self->statement != NULL) {
         /* There is an active statement */
         if (sqlite3_finalize(self->statement) != SQLITE_OK) {
             PyErr_SetString(sqlite_DatabaseError, "error finalizing virtual machine");
             return NULL;
+        }
+    }
+
+    operation_cstr = PyString_AsString(operation);
+
+    /* reset cursor.description */
+    Py_DECREF(self->description);
+    Py_INCREF(Py_None);
+    self->description = Py_None;
+
+
+    if (!self->connection->inTransaction) {
+        switch (detect_statement_type(operation_cstr)) {
+            case STATEMENT_UPDATE:
+            case STATEMENT_DELETE:
+            case STATEMENT_INSERT:
+                func_args = PyTuple_New(0);
+                if (!args)
+                    return NULL;
+                result = connection_begin(self->connection, func_args);
+                Py_DECREF(func_args);
+                if (!result) {
+                    return NULL;
+                }
         }
     }
 
@@ -237,6 +333,26 @@ static PyObject* cursor_execute(Cursor* self, PyObject* args)
     if (self->step_rc != SQLITE_DONE && self->step_rc != SQLITE_ROW) {
         PyErr_SetString(sqlite_DatabaseError, "error executing first sqlite3_step call");
         return NULL;
+    }
+
+    if (self->step_rc == SQLITE_ROW) {
+        numcols = sqlite3_data_count(self->statement);
+
+        if (self->description == Py_None) {
+            Py_DECREF(self->description);
+            self->description = PyTuple_New(numcols);
+            for (i = 0; i < numcols; i++) {
+                descriptor = PyTuple_New(7);
+                PyTuple_SetItem(descriptor, 0, PyString_FromString(sqlite3_column_name(self->statement, i)));
+                PyTuple_SetItem(descriptor, 1, PyInt_FromLong(-1));
+                Py_INCREF(Py_None); PyTuple_SetItem(descriptor, 2, Py_None);
+                Py_INCREF(Py_None); PyTuple_SetItem(descriptor, 3, Py_None);
+                Py_INCREF(Py_None); PyTuple_SetItem(descriptor, 4, Py_None);
+                Py_INCREF(Py_None); PyTuple_SetItem(descriptor, 5, Py_None);
+                Py_INCREF(Py_None); PyTuple_SetItem(descriptor, 6, Py_None);
+                PyTuple_SetItem(self->description, i, descriptor);
+            }
+        }
     }
 
     Py_INCREF(Py_None);
@@ -321,7 +437,6 @@ static PyObject* cursor_executemany(Cursor* self, PyObject* args)
 
         rc = sqlite3_step(self->statement);
         if (rc != SQLITE_DONE) {
-            printf("rc=%i\n", rc);
             PyErr_SetString(sqlite_DatabaseError, "unexpected rc");
             return NULL;
         }
@@ -346,6 +461,12 @@ static PyObject* cursor_fetchone(Cursor* self, PyObject* args)
     }
 
     return row;
+}
+
+static PyObject* cursor_close(Connection* self, PyObject* args)
+{
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 
 static PyGetSetDef connection_getset[] = {
@@ -389,14 +510,11 @@ static int cursor_init(Cursor* self, PyObject* args, PyObject* kwargs)
     //static char *kwlist[] = {"connection", NULL};
     static char *kwlist[] = {NULL};
 
-    printf("foo1\n");
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "", kwlist))
     {
-        printf("foo2\n");
         return -1; 
     }
 
-    printf("foo3\n");
     return 0;
 }
 
@@ -432,6 +550,7 @@ static PyObject* cursor_iternext(Cursor *self)
     }
 
     numcols = sqlite3_data_count(self->statement);
+
     row = PyTuple_New(numcols);
 
     for (i = 0; i < numcols; i++) {
@@ -487,9 +606,16 @@ static PyMethodDef cursor_methods[] = {
         PyDoc_STR("Repeatedly executes a SQL statement.")},
     {"fetchone", (PyCFunction)cursor_fetchone, METH_NOARGS,
         PyDoc_STR("Fetches one row from the resultset.")},
+    {"close", (PyCFunction)cursor_close, METH_NOARGS,
+        PyDoc_STR("Closes the cursor.")},
     {NULL, NULL}
 };
 
+static struct memberlist cursor_members[] =
+{
+    {"description", T_OBJECT, offsetof(Cursor, description), RO},
+    {NULL}
+};
 
 statichere PyTypeObject ConnectionType = {
         PyObject_HEAD_INIT(NULL)
@@ -532,8 +658,6 @@ statichere PyTypeObject ConnectionType = {
         0, // connection_alloc,                   /* tp_alloc */
         0, // connection_new,                     /* tp_new */
         0                                         /* tp_free */
-#if 0
-#endif
 };
 
 statichere PyTypeObject CursorType = {
@@ -544,7 +668,7 @@ statichere PyTypeObject CursorType = {
         0,                                        /* tp_itemsize */
         0, // (destructor)connection_dealloc,     /* tp_dealloc */
         0,                                        /* tp_print */
-        0,                                        /* tp_getattr */
+        0,                                      /* tp_getattr */
         0,                                        /* tp_setattr */
         0,                                        /* tp_compare */
         0, // (reprfunc)connection_repr,          /* tp_repr */
@@ -554,10 +678,10 @@ statichere PyTypeObject CursorType = {
         0,                                        /* tp_hash */
         0,                                        /* tp_call */
         0,                                        /* tp_str */
-        0, // PyObject_GenericGetAttr,            /* tp_getattro */
+        PyObject_GenericGetAttr,                  /* tp_getattro */
         0,                                        /* tp_setattro */
         0,                                        /* tp_as_buffer */
-        Py_TPFLAGS_DEFAULT,                       /* tp_flags */
+        Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_ITER|Py_TPFLAGS_BASETYPE,                       /* tp_flags */
         0, // connection_doc,                     /* tp_doc */
         0,                                        /* tp_traverse */
         0,                                        /* tp_clear */
@@ -566,7 +690,7 @@ statichere PyTypeObject CursorType = {
         (getiterfunc)cursor_getiter,              /* tp_iter */
         (iternextfunc)cursor_iternext,            /* tp_iternext */
         cursor_methods,                           /* tp_methods */
-        0,                                        /* tp_members */
+        cursor_members,                           /* tp_members */
         0, // connection_getset,                  /* tp_getset */
         0, // &ConnectionType,           /* tp_base */
         0,                                        /* tp_dict */
@@ -577,10 +701,7 @@ statichere PyTypeObject CursorType = {
         0, // connection_alloc,                   /* tp_alloc */
         0, // connection_new,                     /* tp_new */
         0                                         /* tp_free */
-#if 0
-#endif
 };
-
 
 static PyMethodDef module_methods[] = {
     {NULL, NULL}
@@ -589,7 +710,7 @@ static PyMethodDef module_methods[] = {
 
 // PyMODINIT_FUNC(initsqlite);
 
-PyMODINIT_FUNC initsqlite(void)
+PyMODINIT_FUNC init_sqlite(void)
 {
     PyObject *module, *dict;
     //PyObject* sqlite_version;

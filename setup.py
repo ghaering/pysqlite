@@ -9,7 +9,7 @@ from distutils.extension import Extension
 __version__ = "1.9.0"
 
 sqlite = "sqlite"
-sources = ["sqlite.c"]
+sources = ["module.c"]
 macros = []
 
 # Hard-coded for now in this project phase:
@@ -27,7 +27,7 @@ It will be fully compliant with Python database API version 2.0 while also
 exploiting the unique features of SQLite."""
 
 def main():
-    py_modules = []
+    py_modules = ["sqlite"]
     setup ( # Distribution meta-data
             name = "pysqlite",
             version = __version__,
@@ -40,9 +40,11 @@ def main():
             url = "http://initd.org/svn/initd/pysqlite/trunk/",
 
             # Description of the modules and packages in the distribution
-            py_modules = py_modules,
+            package_dir = {"sqlite": "lib"},
+            packages = ["sqlite", "sqlite.test"],
+            scripts=["scripts/test-pysqlite"],
 
-            ext_modules = [Extension( name="sqlite",
+            ext_modules = [Extension( name="_sqlite",
                                       sources=sources,
                                       include_dirs=include_dirs,
                                       library_dirs=library_dirs,
