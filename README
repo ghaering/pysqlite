@@ -5,7 +5,7 @@
                      | .__/ \__, |___/\__, |_|_|\__\___|
                      |_|    |___/        |_|
 
-               A DB API v2.0 compatible interface to SQLite
+           A DB API v2.0 compatible interface to the SQLite 2.x
                        Embedded Relational Database.
                           Copyright (c) 2001-2003
                    Michael Owens <mike@mikesclutter.com>

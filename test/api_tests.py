@@ -365,6 +365,9 @@ class moduleTestCases(unittest.TestCase, testsupport.TestSupport):
         self.failUnlessEqual(self.cur.lastrowid, 1,
             "lastrowid should be 1, is %i" % self.cur.lastrowid)
 
+        # Test MySQLdb compatibility function
+        self.failUnlessEqual(self.cur.lastrowid, self.cnx.insert_id())
+
         self.cur.execute("insert into test(name) values ('foo')")
         self.failUnlessEqual(self.cur.lastrowid, 2,
             "lastrowid should be 2, is %i" % self.cur.lastrowid)
