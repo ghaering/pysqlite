@@ -42,6 +42,8 @@ typedef struct
     Connection* connection;
     PyObject* typecasters;
     PyObject* description;
+    int arraysize;
+    PyObject* rowcount;
     sqlite3_stmt* statement;
 
     /* return code of the last call to sqlite3_step */
@@ -107,7 +109,15 @@ static PyObject* connection_cursor(Connection* self, PyObject* args)
     Py_INCREF(Py_None);
     cursor->typecasters = Py_None;
 
-    cursor->description = PyString_FromString("fucking retard :-P\n");
+    Py_INCREF(Py_None);
+    cursor->description = Py_None;
+
+    cursor->arraysize = 1;
+    Py_INCREF(Py_None);
+    cursor->arraysize = Py_None;
+
+    Py_INCREF(Py_None);
+    cursor->rowcount = Py_None;
 
     return (PyObject*)cursor;
 }
@@ -245,7 +255,7 @@ static StatementType detect_statement_type(char* statement)
         return STATEMENT_OTHER;
     }
 }
-static struct memberlist cursor_members[];
+static struct PyMemberDef cursor_members[];
 static PyMethodDef cursor_methods[];
 
 static PyObject* cursor_getattr(Cursor* self, char* attr)
@@ -273,6 +283,7 @@ static PyObject* cursor_execute(Cursor* self, PyObject* args)
     PyObject* func_args;
     PyObject* result;
     int numcols;
+    int statement_type;
     PyObject* descriptor;
 
     if (!PyArg_ParseTuple(args, "S|O", &operation, &parameters))
@@ -290,14 +301,18 @@ static PyObject* cursor_execute(Cursor* self, PyObject* args)
 
     operation_cstr = PyString_AsString(operation);
 
-    /* reset cursor.description */
+    /* reset description and rowcount */
     Py_DECREF(self->description);
     Py_INCREF(Py_None);
     self->description = Py_None;
 
+    Py_DECREF(self->rowcount);
+    Py_INCREF(Py_None);
+    self->rowcount = Py_None;
 
+    statement_type = detect_statement_type(operation_cstr);
     if (!self->connection->inTransaction) {
-        switch (detect_statement_type(operation_cstr)) {
+        switch (statement_type) {
             case STATEMENT_UPDATE:
             case STATEMENT_DELETE:
             case STATEMENT_INSERT:
@@ -355,6 +370,14 @@ static PyObject* cursor_execute(Cursor* self, PyObject* args)
         }
     }
 
+    switch (statement_type) {
+        case STATEMENT_UPDATE:
+        case STATEMENT_DELETE:
+        case STATEMENT_INSERT:
+            Py_DECREF(self->rowcount);
+            self->rowcount = PyInt_FromLong((long)sqlite3_changes(self->connection->db));
+    }
+
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -371,6 +394,7 @@ static PyObject* cursor_executemany(Cursor* self, PyObject* args)
     const char* tail;
     int i;
     int rc;
+    int rowcount = 0;
 
     if (!PyArg_ParseTuple(args, "SO", &operation, &parameterParam))
     {
@@ -442,9 +466,14 @@ static PyObject* cursor_executemany(Cursor* self, PyObject* args)
         }
 
         rc = sqlite3_reset(self->statement);
+
+        rowcount += sqlite3_changes(self->connection->db);
     }
 
     Py_DECREF(parameterIter);
+
+    Py_DECREF(self->rowcount);
+    self->rowcount = PyInt_FromLong((long)rowcount);
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -461,6 +490,63 @@ static PyObject* cursor_fetchone(Cursor* self, PyObject* args)
     }
 
     return row;
+}
+
+static PyObject* cursor_fetchmany(Cursor* self, PyObject* args)
+{
+    PyObject* row;
+    PyObject* list;
+    int maxrows = self->arraysize;
+    int counter = 0;
+
+    if (!PyArg_ParseTuple(args, "|i", &maxrows)) {
+        return NULL; 
+    }
+
+    list = PyList_New(0);
+
+    /* just make sure we enter the loop */
+    row = (PyObject*)1;
+
+    while (row) {
+        row = cursor_iternext(self);
+        if (row) {
+            PyList_Append(list, row);
+        }
+
+        if (++counter == maxrows) {
+            break;
+        }
+    }
+
+    return list;
+}
+
+static PyObject* cursor_fetchall(Cursor* self, PyObject* args)
+{
+    PyObject* row;
+    PyObject* list;
+
+    list = PyList_New(0);
+
+    /* just make sure we enter the loop */
+    row = (PyObject*)1;
+
+    while (row) {
+        row = cursor_iternext(self);
+        if (row) {
+            PyList_Append(list, row);
+        }
+    }
+
+    return list;
+}
+
+static PyObject* pysqlite_noop(Connection* self, PyObject* args)
+{
+    /* don't care, return None */
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 
 static PyObject* cursor_close(Connection* self, PyObject* args)
@@ -605,15 +691,25 @@ static PyMethodDef cursor_methods[] = {
     {"executemany", (PyCFunction)cursor_executemany, METH_VARARGS,
         PyDoc_STR("Repeatedly executes a SQL statement.")},
     {"fetchone", (PyCFunction)cursor_fetchone, METH_NOARGS,
+        PyDoc_STR("Fetches several rows from the resultset.")},
+    {"fetchmany", (PyCFunction)cursor_fetchmany, METH_VARARGS,
+        PyDoc_STR("Fetches all rows from the resultset.")},
+    {"fetchall", (PyCFunction)cursor_fetchall, METH_NOARGS,
         PyDoc_STR("Fetches one row from the resultset.")},
-    {"close", (PyCFunction)cursor_close, METH_NOARGS,
+    {"close", (PyCFunction)pysqlite_noop, METH_NOARGS,
         PyDoc_STR("Closes the cursor.")},
+    {"setinputsizes", (PyCFunction)pysqlite_noop, METH_VARARGS,
+        PyDoc_STR("Does nothing in pysqlite.")},
+    {"setoutputsizes", (PyCFunction)pysqlite_noop, METH_VARARGS,
+        PyDoc_STR("Does nothing in pysqlite.")},
     {NULL, NULL}
 };
 
-static struct memberlist cursor_members[] =
+static struct PyMemberDef cursor_members[] =
 {
     {"description", T_OBJECT, offsetof(Cursor, description), RO},
+    {"arraysize", T_INT, offsetof(Cursor, arraysize), 0},
+    {"rowcount", T_OBJECT, offsetof(Cursor, rowcount), RO},
     {NULL}
 };
 
@@ -732,7 +828,6 @@ PyMODINIT_FUNC init_sqlite(void)
         printf("cursor not ready\n");
         return;
     }
-
 
     Py_INCREF(&ConnectionType);
     PyModule_AddObject(module, "connect", (PyObject*) &ConnectionType);
