@@ -160,14 +160,14 @@ class CursorTests(unittest.TestCase):
                     self.value += 1
                     return (self.value,)
 
-        self.cu.execute("insert into test(income) values (?)", MyIter())
+        self.cu.executemany("insert into test(income) values (?)", MyIter())
 
     def CheckExecuteManyGenerator(self):
         def mygen():
             for i in range(5):
                 yield (i,)
 
-        self.cu.execute("insert into test(income) values (?)", mygen())
+        self.cu.executemany("insert into test(income) values (?)", mygen())
 
     def CheckFetchIter(self):
         self.cu.execute("delete from test")
@@ -215,36 +215,6 @@ class TypeTests(unittest.TestCase):
     def tearDown(self):
         self.cu.close()
         self.cx.close()
-
-    def CheckROWID(self):
-        self.cu.execute("insert into test(name) values (?)", ("foo",))
-        self.cu.execute("select id from test")
-        res = self.cu.fetchone()
-        self.failUnlessEqual(self.cu.description[0][1], sqlite.ROWID)
-
-    def CheckSTRING(self):
-        self.cu.execute("insert into test(name) values (?)", ("foo",))
-        self.cu.execute("select name from test")
-        res = self.cu.fetchone()
-        self.failUnlessEqual(self.cu.description[0][1], sqlite.STRING)
-
-    def CheckBINARY(self):
-        # if we want to get binary data back from SQLite by default for a
-        # column, we must make sure that we insert a binary value. To do so,
-        # we would need a different binary constructor, and intercept the type
-        # at the _pysqlite side, then use sqlite3_result_blob() to set it.
-        pass
-
-    def CheckNUMBER(self):
-        self.cu.execute("insert into test(ratio) values (?)", (3.14,))
-        self.cu.execute("select ratio from test")
-        res = self.cu.fetchone()
-        self.failUnlessEqual(self.cu.description[0][1], sqlite.NUMBER)
-
-    def CheckDATETIME(self):
-        # SQLite does not know about date/time objects internally, so we cannot
-        # test that.
-        pass
 
 class ConstructorTests(unittest.TestCase):
     def CheckDate(self):

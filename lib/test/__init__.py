@@ -22,11 +22,12 @@
 # 3. This notice may not be removed or altered from any source distribution.
 
 import unittest
-from pysqlite2.test import dbapi
+from pysqlite2.test import dbapi, types
 
 def suite():
     return unittest.TestSuite(
-        (dbapi.suite(),))
+        (dbapi.suite(), types.suite()))
+
 def test():
     runner = unittest.TextTestRunner()
     runner.run(suite())
