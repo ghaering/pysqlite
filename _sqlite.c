@@ -236,8 +236,8 @@ PyObject* pysqlite_connect(PyObject *self, PyObject *args, PyObject *kwargs)
 {
     const char* db_name = 0;
     int mode = 0777;
-
     pysqlc* obj;
+    int rc;
 
     static char *kwlist[] = { "filename", "mode", NULL };
 
@@ -253,7 +253,7 @@ PyObject* pysqlite_connect(PyObject *self, PyObject *args, PyObject *kwargs)
     }
 
     /* Open the database */
-    int rc = sqlite3_open(db_name, &obj->p_db);
+    rc = sqlite3_open(db_name, &obj->p_db);
     if (rc != SQLITE_OK)
     {
         PyErr_SetString(_sqlite_DatabaseError, sqlite3_errmsg(obj->p_db));
