@@ -378,7 +378,7 @@ PyObject* cursor_executemany(Cursor* self, PyObject* args)
             rc = sqlite3_bind_text(self->statement, i + 1, PyString_AsString(PyObject_Str(PySequence_GetItem(parameters, i))), -1, SQLITE_TRANSIENT);
         }
 
-        rc = sqlite3_step(self->statement);
+        rc = _sqlite_step_with_busyhandler(self->statement, self->connection);
         if (rc == SQLITE_ROW) {
             PyErr_SetString(ProgrammingError, "executemany() is only for DML statements");
             return NULL;
@@ -426,7 +426,7 @@ PyObject* cursor_iternext(Cursor *self)
              UNKNOWN were not necessary
     */
     if (self->step_rc == UNKNOWN) {
-        self->step_rc = sqlite3_step(self->statement);
+        self->step_rc = _sqlite_step_with_busyhandler(self->statement, self->connection);
     }
 
     if (self->step_rc == SQLITE_DONE) {
