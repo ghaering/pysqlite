@@ -1,4 +1,4 @@
-/* util.h - various utility functions
+/* util.c - various utility functions
  *
  * Copyright (C) 2004 Gerhard Häring <gh@ghaering.de>
  *
@@ -21,9 +21,23 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#ifndef PYSQLITE_UTIL_H
-#define PYSQLITE_UTIL_H
-#include "Python.h"
+#include "util.h"
 
-void pysqlite_sleep(float seconds);
-#endif
+/*
+ * it's not so trivial to write a portable sleep in C. For now, the simplest
+ * solution is to just use Python's sleep().
+ */
+void pysqlite_sleep(float seconds)
+{
+    PyObject* timeModule;
+    PyObject* sleepFunc;
+    PyObject* ret;
+
+    timeModule = PyImport_AddModule("time");
+    sleepFunc = PyObject_GetAttrString(timeModule, "sleep");
+    ret = PyObject_CallFunction(sleepFunc, "f", seconds);
+    Py_DECREF(ret);
+
+    Py_DECREF(sleepFunc);
+    Py_DECREF(timeModule);
+}

@@ -36,6 +36,14 @@ typedef struct
     sqlite3* db;
     int inTransaction;
     int advancedTypes;
+
+    /* the timeout value in seconds for database locks */
+    double timeout;
+
+    /* for internal use in the timeout handler: when did the timeout handler
+     * first get called with count=0? */
+    double timeout_started;
+
     PyObject* prepareProtocol;
 
     /* A dictionary, mapping colum types (INTEGER, VARCHAR, etc.) to converter

@@ -36,15 +36,22 @@ void prepare_protocol_dealloc(SQLitePrepareProtocol* self)
 PyObject* prepare_protocol_adapt(SQLitePrepareProtocol* self, PyObject* args, PyObject* kwargs)
 {
     PyObject* obj;
+    PyObject* ret;
 
     if (!PyArg_ParseTuple(args, "O", &obj)) {
         return NULL;
     }
 
-    /* default implementation: just return the object itself */
+    /* Unicode strings need to be converted to utf-8 encoded bytestrings. */
+    if (PyUnicode_Check(obj)) {
+        ret = PyUnicode_AsUTF8String(obj);
+    } else {
+        /* Strings, floats, ints and None can be returned as-is. */
+        Py_INCREF(obj);
+        ret = obj;
+    }
 
-    Py_INCREF(obj);
-    return obj;
+    return ret;
 }
 
 static PyMethodDef prepare_protocol_methods[] = {

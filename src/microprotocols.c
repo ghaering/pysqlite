@@ -58,8 +58,10 @@ microprotocols_add(PyTypeObject *type, PyObject *proto, PyObject *cast)
 {
     if (proto == NULL) proto = (PyObject*)&isqlquoteType;
 
+    /*
     Dprintf("microprotocols_add: cast %p for (%s, ?)",
             cast, type->tp_name);
+    */
 
     PyDict_SetItem(psyco_adapters,
                    Py_BuildValue("(OO)", (PyObject*)type, proto),

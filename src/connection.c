@@ -24,6 +24,7 @@
 #include "connection.h"
 #include "cursor.h"
 #include "prepare_protocol.h"
+#include "util.h"
 
 PyObject* connection_alloc(PyTypeObject* type, int aware)
 {
@@ -39,14 +40,15 @@ PyObject* connection_alloc(PyTypeObject* type, int aware)
 
 int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
 {
-    static char *kwlist[] = {"database", "more_types", "prepareProtocol", NULL, NULL};
+    static char *kwlist[] = {"database", "timeout", "more_types", "prepareProtocol", NULL, NULL};
     char* database;
     int more_types = 0;
     PyObject* prepare_protocol = NULL;
     PyObject* proto_args;
+    double timeout = 0.0;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|iO", kwlist,
-                                     &database, &more_types, &prepare_protocol))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|diO", kwlist,
+                                     &database, &timeout, &more_types, &prepare_protocol))
     {
         return -1; 
     }
@@ -58,6 +60,7 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
 
     self->inTransaction = 0;
     self->advancedTypes = more_types;
+    self->timeout = timeout;
     self->converters = PyDict_New();
 
     if (prepare_protocol == NULL) {
@@ -236,25 +239,14 @@ PyObject* connection_register_converter(Connection* self, PyObject* args)
 {
     PyObject* name;
     PyObject* func;
-    PyObject* typecode = NULL;
-    PyObject* value;
 
-    if (!PyArg_ParseTuple(args, "OO|O", &name, &func, &typecode)) {
+    if (!PyArg_ParseTuple(args, "OO", &name, &func)) {
         return NULL;
-    }
-
-    if (!typecode) {
-        Py_INCREF(Py_None);
-        typecode = Py_None;
     }
 
     Py_INCREF(name);
     Py_INCREF(func);
-    Py_INCREF(typecode);
-    value = PyTuple_New(2);
-    PyTuple_SetItem(value, 0, func);
-    PyTuple_SetItem(value, 1, typecode);
-    PyDict_SetItem(self->converters, name, value);
+    PyDict_SetItem(self->converters, name, func);
 
     Py_INCREF(Py_None);
     return Py_None;

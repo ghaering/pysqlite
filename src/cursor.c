@@ -242,16 +242,23 @@ PyObject* cursor_execute(Cursor* self, PyObject* args)
                 }
                 rc = sqlite3_bind_blob(self->statement, i + 1, buffer, buflen, SQLITE_TRANSIENT);
             } else {
-                if (PyUnicode_Check(adapted)) {
-                    stringval = PyUnicode_AsUTF8String(adapted);
+                if (!PyString_Check(adapted)) {
+                    PyErr_SetString(InternalError, "Could not convert adapted value to string.");
                 } else {
                     stringval = PyObject_Str(adapted);
-                }
+                    /*
+                    if (PyUnicode_Check(adapted)) {
+                        stringval = PyUnicode_AsUTF8String(adapted);
+                    } else {
+                        stringval = PyObject_Str(adapted);
+                    }
+                    */
 
-                if (stringval)  {
-                    rc = sqlite3_bind_text(self->statement, i + 1, PyString_AsString(stringval), -1, SQLITE_TRANSIENT);
-                } else {
-                    PyErr_SetString(InternalError, "Could not convert adapted value to string.");
+                    if (stringval)  {
+                        rc = sqlite3_bind_text(self->statement, i + 1, PyString_AsString(stringval), -1, SQLITE_TRANSIENT);
+                    } else {
+                        PyErr_SetString(InternalError, "Could not convert adapted value to string.");
+                    }
                 }
             }
 
@@ -281,24 +288,6 @@ PyObject* cursor_execute(Cursor* self, PyObject* args)
             for (i = 0; i < numcols; i++) {
                 descriptor = PyTuple_New(7);
                 PyTuple_SetItem(descriptor, 0, PyString_FromString(sqlite3_column_name(self->statement, i)));
-#if 0
-                /* cannot reliably detect column type */
-                coltype = sqlite3_column_type(self->statement, i);
-                if (coltype == SQLITE_INTEGER || coltype == SQLITE_FLOAT) {
-                    Py_INCREF(sqlite_NUMBER);
-                    PyTuple_SetItem(descriptor, 1, sqlite_NUMBER);
-                } else if (coltype == SQLITE_TEXT) {
-                    Py_INCREF(sqlite_STRING);
-                    PyTuple_SetItem(descriptor, 1, sqlite_STRING);
-                } else if (coltype == SQLITE_BLOB) {
-                    Py_INCREF(sqlite_BINARY);
-                    PyTuple_SetItem(descriptor, 1, sqlite_BINARY);
-                } else {
-                    /* SQLITE_NULL, cannot know type */
-                    Py_INCREF(Py_None);
-                    PyTuple_SetItem(descriptor, 1, Py_None);
-                }
-#endif
                 Py_INCREF(Py_None); PyTuple_SetItem(descriptor, 1, Py_None);
                 Py_INCREF(Py_None); PyTuple_SetItem(descriptor, 2, Py_None);
                 Py_INCREF(Py_None); PyTuple_SetItem(descriptor, 3, Py_None);
@@ -421,9 +410,7 @@ PyObject* cursor_iternext(Cursor *self)
     PyObject* item = NULL;
     int coltype;
     long long intval;
-    PyObject* converter_tuple;
     PyObject* converter;
-    PyObject* typecode;
     PyObject* converted;
     int nbytes;
     PyObject* buffer;
@@ -493,38 +480,28 @@ PyObject* cursor_iternext(Cursor *self)
                 Py_INCREF(Py_None);
                 converted = Py_None;
             } else {
-                converter_tuple = PyList_GetItem(self->row_cast_map, i);
-                if (!converter_tuple) {
-                    PyErr_SetString(InternalError, "no converter tuple found");
+                converter = PyList_GetItem(self->row_cast_map, i);
+                if (!converter) {
+                    PyErr_SetString(InternalError, "no converter found");
                     return NULL;
                 }
 
-                if (converter_tuple == Py_None) {
+                if (converter == Py_None) {
                     converted = PyString_FromString(sqlite3_column_text(self->statement, i));
                 } else {
-                    converter = PyTuple_GetItem(converter_tuple, 0);
-                    typecode = PyTuple_GetItem(converter_tuple, 1);
                     item = PyString_FromString(sqlite3_column_text(self->statement, i));
                     converted = PyObject_CallFunction(converter, "O", item);
+                    if (!converted) {
+                        /* TODO: have a way to log these errors */
+                        Py_INCREF(Py_None);
+                        converted = Py_None;
+                        PyErr_Clear();
+                    }
                     Py_DECREF(item);
                 }
             }
         }
 
-#if 0
-            /* TODO: use typecasters if available */
-            if (coltype == SQLITE_INTEGER) {
-                item = PyInt_FromLong((long)sqlite3_column_int(self->statement, i));
-            } else if (coltype == SQLITE_FLOAT) {
-                item = PyFloat_FromDouble(sqlite3_column_double(self->statement, i));
-            } else if (coltype == SQLITE_TEXT) {
-                /* TODO: Unicode */
-                item = PyString_FromString(sqlite3_column_text(self->statement, i));
-            } else {
-                /* TODO: BLOB */
-                assert(0);
-            }
-#endif
         PyTuple_SetItem(row, i, converted);
     }
 
