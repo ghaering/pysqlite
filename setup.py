@@ -4,7 +4,7 @@ import os, sys
 from distutils.core import setup
 from distutils.extension import Extension
 
-__version__ = "1.1.2"
+__version__ = "1.1.3"
 
 sqlite = "sqlite3"
 sources = ["_sqlite.c", "encode.c", "port/strsep.c"]
