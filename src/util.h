@@ -29,4 +29,10 @@
 void pysqlite_sleep(float seconds);
 
 int _sqlite_step_with_busyhandler(sqlite3_stmt* statement, void* connection);
+
+/**
+ *  * Checks the SQLite error code and sets the appropriate DB-API exception.
+ *   * Returns the error code (0 means no error occured).
+ *    */
+int _seterror(sqlite3* db);
 #endif
