@@ -258,7 +258,8 @@ class Cursor:
         self.current_recnum = 0
 
         self.rowcount, self._real_rowcount = [len(self.rs.row_list)] * 2
-        if self.rowcount == 0:
+        if self.rowcount == 0 and \
+         SQL.lstrip()[:6].upper() in ("INSERT", "UPDATE", "DELETE"):
             self.rowcount = self.con.db.sqlite_changes()
 
         self.description = self.rs.col_defs
