@@ -63,6 +63,9 @@ int cache_init(Cache* self, PyObject* args, PyObject* kwargs)
         return -1; 
     }
 
+    if (size < 5) {
+        size = 5;
+    }
     self->size = size;
     self->first = NULL;
     self->last = NULL;
@@ -176,9 +179,9 @@ PyObject* cache_display(Cache* self, PyObject* args)
     Node* ptr;
     PyObject* prevkey;
     PyObject* nextkey;
-    PyObject* s1;
-    PyObject* s2;
-    PyObject* s3;
+    PyObject* fmt_args;
+    PyObject* template;
+    PyObject* display_str;
 
     ptr = self->first;
 
@@ -197,13 +200,13 @@ PyObject* cache_display(Cache* self, PyObject* args)
         }
         Py_INCREF(nextkey);
 
-        s1 = PyObject_Str(prevkey);
-        s2 = PyObject_Str(ptr->key);
-        s3 = PyObject_Str(nextkey);
-        printf("%s <- %s -> %s\n", PyString_AsString(s1), PyString_AsString(s2), PyString_AsString(s3));
-        Py_DECREF(s3);
-        Py_DECREF(s2);
-        Py_DECREF(s1);
+        fmt_args = Py_BuildValue("OOO", prevkey, ptr->key, nextkey);
+        template = PyString_FromString("%s <- %s ->%s\n");
+        display_str = PyString_Format(template, fmt_args);
+        Py_DECREF(template);
+        Py_DECREF(fmt_args);
+        PyObject_Print(display_str, stdout, Py_PRINT_RAW);
+        Py_DECREF(display_str);
 
         Py_DECREF(prevkey);
         Py_DECREF(nextkey);

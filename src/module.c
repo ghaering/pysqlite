@@ -41,19 +41,15 @@ PyMODINIT_FUNC init_sqlite(void)
     NodeType.tp_new = PyType_GenericNew;
     CacheType.tp_new = PyType_GenericNew;
     if (PyType_Ready(&NodeType) < 0) {
-        printf("node not ready\n");
         return;
     }
     if (PyType_Ready(&CacheType) < 0) {
-        printf("cache not ready\n");
         return;
     }
     if (PyType_Ready(&ConnectionType) < 0) {
-        printf("connection not ready\n");
         return;
     }
     if (PyType_Ready(&CursorType) < 0) {
-        printf("cursor not ready\n");
         return;
     }
 

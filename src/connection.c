@@ -48,7 +48,7 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
     }
 
     if (sqlite3_open(database, &self->db) != SQLITE_OK) {
-        printf("error opening file\n");
+        PyErr_SetString(sqlite_DatabaseError, sqlite3_errmsg(self->db));
         return -1;
     }
 
