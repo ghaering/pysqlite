@@ -1,0 +1,134 @@
+---------------------------------------------------
+pysqlite: powerful embedded SQL database for Python
+---------------------------------------------------
+
+(c) 2004-2005 Gerhard Häring
+
+===========
+0. Abstract
+===========
+
+Blatantly copied from Wikipedia:
+
+SQLite is a relatively small C library, which provides services of an SQL
+database engine. Its creator is D. Richard Hipp and the software is in the
+public domain.
+
+Unlike the usual client-server paradigm, the SQLite engine is not a standalone
+process with which the program communicates, but is linked in and thus becomes
+an integral part of the program. Therefore the primary communication protocol
+are direct API calls within the programming language. This can have a positive
+impact on the amount of overhead, latency times and overall simplicity. The
+database is stored as a standard file.
+
+The library implements most of SQL 92 standard, including transactions,
+triggers and (most) complex queries.
+
+Several processes or threads may access the same database without problems.
+Several read accesses can be satisfied in parallel. A write access can only be
+satisfied if no other accesses are currently being serviced; otherwise the
+write access fails with an error code (or can automatically be retried until a
+configurable timeout expires).
+
+pysqlite makes this powerful yet small database engine available to Python
+developers.
+
+===============================================
+1. Using SQLite through the Python database API
+===============================================
+
+1.1 The Python database API
+---------------------------
+
+Python has a standard for database interface modules: the Python Database API
+Specification v2.0, defined in PEP 249 (http://python.org/peps/pep-0249.html).
+
+This API has been defined to encourage similarity between the Python
+modules that are used to access databases.
+
+In itself, the API is no solution for writing Python code that works across
+multiple databases, but it's a start. And people don't need to learn n ways to
+access the database for n databases.
+
+1.2 DB-API concepts
+-------------------
+
+In the DB-API, there are two entities
+
+    - the connection
+    - the cursor
+
+Now, the connection object is not too surprising, it wraps a connection to the
+database, that you can
+
+    - .commit() transactions on
+    - .rollback() transactions on
+    - create .cursor()s from
+    - .close()
+
+Transactions are *started* automatically for you. If after some changes you
+have your data in a consistent state, then you need to .commit() on the
+connection object, to make these changes permanent. To discard changes until
+the last transaction start, use .rollback() on the connection object.
+
+The cursor object is for executing statements and retrieving the results of
+them. Which cursor objects, you can:
+
+    - .execute() statements
+    - execute bulk INSERT/UPDATE/DELETE statements with .executemany()
+    - retrieve a single result row with .fetchone()
+    - retrieve all result rows with .fetchall()
+    - retrieve a bunch of result rows with .fetchmany()
+    - .close() the cursor
+
+What's pretty stupid is that the term 'cursor' in the DB-API doesn't quite
+correspond to the concept of database-side cursors. DB-API cursors are not the
+result of a statement, but they encapsulate the statement itself, and the
+results: .execute()/.executemany() and the fetchXXX() methods. Also, you can
+reuse DB-API cursors and execute multiple statements on them, then retrieve the
+results after each .execute().
+
+1.3 Importing the module
+------------------------
+
+To use pysqlite, you must first import the module. The DB-API interface is in
+the module "pysqlite2.dbapi2". This might seem a long name, compared to just
+"sqlite" in pysqlite 0.x/1.x, but this scheme avoids potential namespace
+conflicts now and in the future.
+
+I recommend the following construct for importing the module, I use it myself
+throughout my code::
+
+    import pysqlite2.dbapi2 as sqlite
+
+
+1.4 Opening a connection
+------------------------
+
+The first thing you need to do is to open the database connection. The first
+(and at the moment) only parameter to the .connect() function is the database
+name. You can put relative or absolute pathes there. There's also a special
+name ':memory:' that will open an in-memory database.
+
+    .. include:: code/opencon1.py
+        :literal:
+
+1.5 Creating some test data
+---------------------------
+
+Now let's create some test data. You don't need to understand this code at the
+moment.
+
+    .. include:: code/testdata1.py
+        :literal:
+
+1.6 Executing a simple query
+----------------------------
+
+Now let's get going. Let's execute a simple query that will retrieve all rows
+from the PERSON table:
+
+    .. include:: code/simplequery1.py
+        :literal:
+
+
