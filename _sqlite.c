@@ -1190,9 +1190,6 @@ static int my_sqlite3_exec(
                 if (rc == SQLITE_DONE)
                     break;
             }
-
-            free(p_fields);
-            free(p_col_names);
         }
         else if (rc != SQLITE_BUSY)
         {
@@ -1231,6 +1228,10 @@ static int my_sqlite3_exec(
                 PyTuple_SetItem(p_rset->p_col_def_list, i, p_col_def);
             }
         }
+
+        free(p_fields);
+        free(p_col_names);
+
         rc = sqlite3_finalize(statement);
 
         /* Because it worked for older PySQLite versions, we allow here to
