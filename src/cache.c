@@ -96,8 +96,7 @@ PyObject* cache_get(Cache* self, PyObject* args)
     PyObject* key;
     Node* node;
     Node* ptr;
-    PyObject* obj;
-    PyObject* factory_args;
+    PyObject* data;
 
     if (!PyArg_ParseTuple(args, "O", &key))
     {
@@ -148,21 +147,16 @@ PyObject* cache_get(Cache* self, PyObject* args)
             }
         }
 
-        factory_args = PyTuple_New(1);
-        Py_INCREF(key);
-        PyTuple_SetItem(factory_args, 0, key);
-        obj = PyObject_CallObject(self->factory, factory_args);
-        Py_DECREF(factory_args);
+        data = PyObject_CallFunction(self->factory, "O", key);
 
-        if (!obj) {
-            /* TODO: clean up */
+        if (!data) {
             return NULL;
         }
 
-        node = new_node(key, obj);
+        node = new_node(key, data);
         node->prev = self->last;
 
-        Py_DECREF(obj);
+        Py_DECREF(data);
 
         if (self->last) {
             self->last->next = node;
