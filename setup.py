@@ -9,15 +9,16 @@ from distutils.extension import Extension
 __version__ = "1.9.0"
 
 sqlite = "sqlite"
-sources = ["src/module.c", "src/connection.c", "src/cursor.c"]
+sources = ["src/module.c", "src/connection.c", "src/cursor.c", "src/cache.c"]
 macros = []
 
 # Hard-coded for now in this project phase:
 include_dirs = ["../sqlite"]
 library_dirs = ["../sqlite"]
 libraries = ["sqlite3"]
+libraries = []
 runtime_library_dirs = []
-extra_objects = []
+extra_objects = ["/usr/local/lib/libsqlite3.a"]
 
 long_description = \
 """Python interface to SQLite 3.x
