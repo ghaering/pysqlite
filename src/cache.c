@@ -23,20 +23,33 @@
 
 #include "cache.h"
 
-int node_init(Node* self, PyObject* args, PyObject* kwargs)
+/* only used internally */
+Node* new_node(PyObject* key, PyObject* data)
 {
-    static char *kwlist[] = {NULL};
+    Node* node;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "", kwlist))
-    {
-        return -1; 
+    node = (Node*) (NodeType.tp_alloc(&NodeType, 0));
+    /*node = PyObject_New(Node, &NodeType);*/
+    if (!node) {
+        return NULL;
     }
 
-    return 0;
+    Py_INCREF(key);
+    node->key = key;
+
+    Py_INCREF(data);
+    node->data = data;
+
+    node->prev = NULL;
+    node->next = NULL;
+
+    return node;
 }
 
 void node_dealloc(Node* self)
 {
+    Py_DECREF(self->key);
+    Py_DECREF(self->data);
     self->ob_type->tp_free((PyObject*)self);
 }
 
@@ -62,6 +75,19 @@ int cache_init(Cache* self, PyObject* args, PyObject* kwargs)
 
 void cache_dealloc(Cache* self)
 {
+    Node* node;
+    Node* delete_node;
+
+    node = self->first;
+    while (node) {
+        delete_node = node;
+        node = node->next;
+        /*node_dealloc(delete_node);*/
+        Py_DECREF(delete_node);
+    }
+
+    Py_DECREF(self->factory);
+    Py_DECREF(self->mapping);
     self->ob_type->tp_free((PyObject*)self);
 }
 
@@ -133,12 +159,11 @@ PyObject* cache_get(Cache* self, PyObject* args)
             return NULL;
         }
 
-        node = (Node*) (NodeType.tp_alloc(&NodeType, 0));
-        Py_INCREF(key);
-        node->key = key;
-        node->data = obj;
+        node = new_node(key, obj);
         node->prev = self->last;
-        node->next = NULL;
+
+        Py_DECREF(obj);
+
         if (self->last) {
             self->last->next = node;
         } else {
@@ -157,6 +182,9 @@ PyObject* cache_display(Cache* self, PyObject* args)
     Node* ptr;
     PyObject* prevkey;
     PyObject* nextkey;
+    PyObject* s1;
+    PyObject* s2;
+    PyObject* s3;
 
     ptr = self->first;
 
@@ -175,7 +203,16 @@ PyObject* cache_display(Cache* self, PyObject* args)
         }
         Py_INCREF(nextkey);
 
-        printf("%s <- %s -> %s\n", PyString_AsString(PyObject_Str(prevkey)), PyString_AsString(PyObject_Str(ptr->key)), PyString_AsString(PyObject_Str(nextkey)));
+        s1 = PyObject_Str(prevkey);
+        s2 = PyObject_Str(ptr->key);
+        s3 = PyObject_Str(nextkey);
+        printf("%s <- %s -> %s\n", PyString_AsString(s1), PyString_AsString(s2), PyString_AsString(s3));
+        Py_DECREF(s3);
+        Py_DECREF(s2);
+        Py_DECREF(s1);
+
+        Py_DECREF(prevkey);
+        Py_DECREF(nextkey);
 
         ptr = ptr->next;
     }
@@ -188,7 +225,7 @@ static PyMethodDef cache_methods[] = {
     {"get", (PyCFunction)cache_get, METH_VARARGS,
         PyDoc_STR("Gets an entry from the cache.")},
     {"display", (PyCFunction)cache_display, METH_NOARGS,
-        PyDoc_STR("For debugginFor debuggingg.")},
+        PyDoc_STR("For debugging only.")},
     {NULL, NULL}
 };
 
@@ -229,7 +266,7 @@ PyTypeObject NodeType = {
         0,                                              /* tp_descr_get */
         0,                                              /* tp_descr_set */
         0,                                              /* tp_dictoffset */
-        (initproc)node_init,                            /* tp_init */
+        (initproc)0,                                    /* tp_init */
         0,                                              /* tp_alloc */
         0,                                              /* tp_new */
         0                                               /* tp_free */
