@@ -1099,6 +1099,7 @@ static int my_sqlite3_exec(
     PyObject* func_args;
     PyObject* stripmethod;
     int remaining_size;
+    char* coltype;
 
     tail = sql;
     while (1)
@@ -1158,7 +1159,25 @@ static int my_sqlite3_exec(
             for (i = 0; i < num_fields; i++)
             {
                 p_col_names[i] = (char*)sqlite3_column_name(statement, i);
-                p_col_names[num_fields + i] = (char*)sqlite3_column_decltype(statement, i);
+                coltype = (char*)sqlite3_column_decltype(statement, i);
+                if (!coltype)
+                {
+                    switch (sqlite3_column_type(statement, i))
+                    {
+                        case SQLITE_INTEGER:
+                            coltype = "INTEGER";
+                            break;
+                        case SQLITE_FLOAT:
+                            coltype = "FLOAT";
+                            break;
+                        case SQLITE_BLOB:
+                            coltype = "BINARY";
+                        case SQLITE_TEXT:
+                        default:
+                            coltype = "TEXT";
+                    }
+                }
+                p_col_names[num_fields + i] = coltype;
             }
 
             for (;;)

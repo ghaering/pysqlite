@@ -231,7 +231,7 @@ class moduleTestCases(unittest.TestCase, testsupport.TestSupport):
 
 
         self.failUnless(self.cur.description[0][0] == "max(3,4)"    and
-                        self.cur.description[0][1] == sqlite.STRING and
+                        self.cur.description[0][1] == sqlite.NUMBER and
                         self.cur.description[0][2] == None          and
                         self.cur.description[0][3] == None          and
                         self.cur.description[0][4] == None          and

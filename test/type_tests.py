@@ -118,7 +118,7 @@ class ExpectedTypes(unittest.TestCase, testsupport.TestSupport):
 
     def CheckResetExpectedTypes(self):
         self.cur.execute("create table test (a)")
-        self.cur.execute("insert into test(a) values (5)")
+        self.cur.execute("insert into test(a) values ('5')")
         self.cur.execute("-- types int")
         self.cur.execute("select a from test")
         self.cur.execute("select a from test")
