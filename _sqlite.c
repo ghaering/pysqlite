@@ -125,7 +125,7 @@ static PyObject* tc_BINARY;
 **------------------------------------------------------------------------------
 */
 
-static int process_record(void* p_data, int num_fields, char** p_fields, char** p_col_names);
+static int process_record(sqlite3_stmt* statement, void* p_data, int num_fields, char** p_fields, char** p_col_names);
 
 PySQLite_DECLARE_MODINIT_FUNC(init_sqlite);
 static int _seterror(sqlite3* db);
@@ -538,49 +538,6 @@ error:
     Py_XDECREF(*aggregate_instance);
 
     MY_BEGIN_ALLOW_THREADS(con->tstate)
-}
-
-static int sqlite_busy_handler_callback(void* void_data, const char* tablename, int num_busy)
-{
-    PyObject* data;
-    PyObject* func;
-    PyObject* userdata;
-    PyObject* args;
-    PyObject* function_result;
-    pysqlc* con;
-    int result_int;
-
-    data = (PyObject*)void_data;
-
-    func = PyTuple_GetItem(data, 0);
-    userdata = PyTuple_GetItem(data, 1);
-    con = (pysqlc*)PyTuple_GetItem(data, 2);
-
-    MY_END_ALLOW_THREADS(con->tstate)
-
-    args = PyTuple_New(3);
-    Py_INCREF(userdata);
-    PyTuple_SetItem(args, 0, userdata);
-    PyTuple_SetItem(args, 1, PyString_FromString(tablename));
-    PyTuple_SetItem(args, 2, PyInt_FromLong((long)num_busy));
-
-    function_result = PyObject_CallObject(func, args);
-    Py_DECREF(args);
-
-    if (PyErr_Occurred())
-    {
-        PRINT_OR_CLEAR_ERROR
-        MY_BEGIN_ALLOW_THREADS(con->tstate)
-        return 0;
-    }
-
-    result_int = PyObject_IsTrue(function_result);
-
-    Py_DECREF(function_result);
-
-    MY_BEGIN_ALLOW_THREADS(con->tstate)
-
-    return result_int;
 }
 
 static char _con_sqlite_busy_handler_doc[] =
@@ -1077,7 +1034,6 @@ static int _seterror(sqlite3* db)
 static int my_sqlite3_exec(
   pysqlc* con,                  /* the PySQLite connection object */
   const char *sql,              /* SQL to be executed */
-  sqlite3_callback callback,    /* Callback function */
   void *userdata                /* 1st argument to callback function */
 )
 {
@@ -1108,6 +1064,11 @@ static int my_sqlite3_exec(
         MY_BEGIN_ALLOW_THREADS(con->tstate)
         rc = sqlite3_prepare(db, tail, 0, &statement, &tail);
         MY_END_ALLOW_THREADS(con->tstate)
+
+        if (rc != SQLITE_OK)
+        {
+            break;
+        }
 
         busy_counter = 0;
         while (1)
@@ -1162,19 +1123,26 @@ static int my_sqlite3_exec(
                 coltype = (char*)sqlite3_column_decltype(statement, i);
                 if (!coltype)
                 {
-                    switch (sqlite3_column_type(statement, i))
+                    if (sqlite3_column_text(statement, i) != NULL)
                     {
-                        case SQLITE_INTEGER:
-                            coltype = "INTEGER";
-                            break;
-                        case SQLITE_FLOAT:
-                            coltype = "FLOAT";
-                            break;
-                        case SQLITE_BLOB:
-                            coltype = "BINARY";
-                        case SQLITE_TEXT:
-                        default:
-                            coltype = "TEXT";
+                        switch (sqlite3_column_type(statement, i))
+                        {
+                            case SQLITE_INTEGER:
+                                coltype = "INTEGER";
+                                break;
+                            case SQLITE_FLOAT:
+                                coltype = "FLOAT";
+                                break;
+                            case SQLITE_BLOB:
+                                coltype = "BINARY";
+                            case SQLITE_TEXT:
+                            default:
+                                coltype = "TEXT";
+                        }
+                    }
+                    else
+                    {
+                        coltype = NULL;
                     }
                 }
                 p_col_names[num_fields + i] = coltype;
@@ -1188,7 +1156,7 @@ static int my_sqlite3_exec(
                     p_fields[i] = data;
                 }
 
-                abort = process_record(userdata, num_fields, p_fields, p_col_names);
+                abort = process_record(statement, userdata, num_fields, p_fields, p_col_names);
                 if (abort)
                     break;
 
@@ -1353,8 +1321,13 @@ static PyObject* _con_execute(pysqlc* self, PyObject *args)
     /* Run a query: process_record is called back for each record returned. */
     ret = my_sqlite3_exec( self,
                        sql,
-                       process_record,
                        p_rset);
+
+    if (0 && ret)
+    {
+        PyErr_SetString(_sqlite_DatabaseError, sqlite3_errmsg(self->p_db));
+        return NULL;
+    }
 
     Py_DECREF(self->expected_types);
     Py_INCREF(Py_None);
@@ -1385,7 +1358,7 @@ static PyObject* _con_execute(pysqlc* self, PyObject *args)
     return (PyObject*)p_rset;
 }
 
-int process_record(void* p_data, int num_fields, char** p_fields, char** p_col_names)
+int process_record(sqlite3_stmt* statement, void* p_data, int num_fields, char** p_fields, char** p_col_names)
 {
     int i;
     pysqlrs* p_rset;
@@ -1428,7 +1401,7 @@ int process_record(void* p_data, int num_fields, char** p_fields, char** p_col_n
             /* Make a copy of column type. */
             if (p_col_names[num_fields + i] == NULL)
             {
-                strcpy(type_name, "TEXT");
+                strcpy(type_name, "");
             }
             else
             {
@@ -1448,7 +1421,12 @@ int process_record(void* p_data, int num_fields, char** p_fields, char** p_col_n
             type_code = NULL;
 
             /* Try to determine column type. */
-            if (strstr(type_name, "INTERVAL"))
+            if (strcmp(type_name, "") == 0)
+            {
+                Py_INCREF(Py_None);
+                type_code = Py_None;
+            }
+            else if (strstr(type_name, "INTERVAL"))
             {
                 type_code = tc_INTERVAL;
             }
@@ -1490,10 +1468,6 @@ int process_record(void* p_data, int num_fields, char** p_fields, char** p_col_n
             else if (strstr(type_name, "TIME"))
             {
                 type_code = tc_TIME;
-            }
-            else if (type_code == NULL)
-            {
-                type_code = Py_None;
             }
 
             /* Assign type. */
@@ -1651,9 +1625,29 @@ int process_record(void* p_data, int num_fields, char** p_fields, char** p_col_n
 
                     Py_DECREF(expected_type_name);
                 }
-                else
+                else if (type_code == tc_STRING)
                 {
                     PyTuple_SetItem(p_row, i, Py_BuildValue("s", p_fields[i]));
+                }
+                else
+                {
+                    /* type_code == None */
+                    switch (sqlite3_column_type(statement, i))
+                    {
+                        case SQLITE_INTEGER:
+                            PyTuple_SetItem(p_row, i, PyInt_FromLong((long)sqlite3_column_int(statement, i)));
+
+                            break;
+                        case SQLITE_FLOAT:
+                            PyTuple_SetItem(p_row, i, PyFloat_FromDouble(sqlite3_column_double(statement, i)));
+                            break;
+                        case SQLITE_NULL:
+                            Py_INCREF(Py_None);
+                            PyTuple_SetItem(p_row, i, Py_None);
+                            break;
+                        default:
+                            PyTuple_SetItem(p_row, i, PyString_FromString(sqlite3_column_text(statement, i)));
+                    }
                 }
             }
             else
