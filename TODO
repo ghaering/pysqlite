@@ -1,0 +1,47 @@
+======================
+TODO list for pysqlite
+======================
+
+-----------
+Open items:
+-----------
+
+Summary:        package renaming
+Priority:       highest
+Status:         open
+Description:
+    "import sqlite2" => "import pysqlite2.dbapi2 as sqlite". This involves many
+    places that need changing.
+
+Summary:        import microprotocols from psycopg
+Priority:       high
+Status:         integrated, needs bugfixing and tests
+Description:
+    fog allowed me to reuse his microprotocols code from psycopg. He'll also
+    relicense it under the zlib license so pysqlite can use it. This solves the
+    conversion problem Python => SQLite
+
+Summary:        .converters attribute of cursor
+Priority:       high
+Status:         open
+Description:
+    Type conversion SQLite => Pyhton. If pysqlite cannot detect the type, the
+    user must tell it which type it is. Also if pysqlite would guess wrong, the
+    user can force a certain typecast.
+
+Summary:        cursor grows row factory
+Priority:       low
+Status:         open
+Description:
+    /
+
+-------------
+Closed items:
+-------------
+
+Summary:
+Priority:
+Status: Finished 200x-xx-xx
+Status: Finished 200x-xx-xx
+Description:
+    bla bla bla
