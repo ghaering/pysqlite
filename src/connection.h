@@ -35,6 +35,13 @@ typedef struct
     PyObject_HEAD
     sqlite3* db;
     int inTransaction;
+    int advancedTypes;
+
+    /* A dictionary, mapping colum types (INTEGER, VARCHAR, etc.) to converter
+     * functions, that convert the SQL value to the appropriate Python value.
+     * The key is uppercase.
+     */
+    PyObject* converters;
 } Connection;
 
 extern PyTypeObject ConnectionType;

@@ -65,6 +65,8 @@ PyMODINIT_FUNC init_sqlite(void)
     PyModule_AddObject(module, "Cursor", (PyObject*) &CursorType);
     Py_INCREF(&CacheType);
     PyModule_AddObject(module, "Cache", (PyObject*) &CacheType);
+    Py_INCREF(&isqlquoteType);
+    PyModule_AddObject(module, "ISQLQuote", (PyObject*) &isqlquoteType);
 
     if (!(dict = PyModule_GetDict(module)))
     {
@@ -121,6 +123,7 @@ PyMODINIT_FUNC init_sqlite(void)
     PyDict_SetItemString(dict, "ROWID", sqlite_ROWID);
 
     PyDict_SetItemString(dict, "version", PyString_FromString(PYSQLITE_VERSION));
+    PyDict_SetItemString(dict, "sqlite_version", PyString_FromString(sqlite3_libversion()));
 
     /* initialize microprotocols layer */
     microprotocols_init(dict);

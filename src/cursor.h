@@ -33,8 +33,10 @@ typedef struct
 {
     PyObject_HEAD
     Connection* connection;
-    PyObject* typecasters;
     PyObject* description;
+    PyObject* row_cast_map;
+    PyObject* next_coltypes;
+    PyObject* coltypes;
     int arraysize;
     PyObject* rowcount;
     sqlite3_stmt* statement;

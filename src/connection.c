@@ -38,11 +38,12 @@ PyObject* connection_alloc(PyTypeObject* type, int aware)
 
 int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
 {
-    static char *kwlist[] = {"database", NULL};
+    static char *kwlist[] = {"database", "more_types", NULL, NULL};
     char* database;
+    int more_types = 0;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s", kwlist,
-                                     &database))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|i", kwlist,
+                                     &database, &more_types))
     {
         return -1; 
     }
@@ -53,6 +54,8 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
     }
 
     self->inTransaction = 0;
+    self->advancedTypes = more_types;
+    self->converters = PyDict_New();
 
     return 0;
 }
@@ -73,6 +76,8 @@ void connection_dealloc(Connection* self)
         sqlite3_close(self->db);
     }
 
+    Py_XDECREF(self->converters);
+
     self->ob_type->tp_free((PyObject*)self);
 }
 
@@ -84,9 +89,7 @@ PyObject* connection_cursor(Connection* self, PyObject* args)
     cursor->connection = self;
     cursor->statement = NULL;
     cursor->step_rc = UNKNOWN;
-
-    Py_INCREF(Py_None);
-    cursor->typecasters = Py_None;
+    cursor->row_cast_map = PyList_New(0);
 
     Py_INCREF(Py_None);
     cursor->description = Py_None;
@@ -95,6 +98,11 @@ PyObject* connection_cursor(Connection* self, PyObject* args)
 
     Py_INCREF(Py_None);
     cursor->rowcount = Py_None;
+
+    Py_INCREF(Py_None);
+    cursor->coltypes = Py_None;
+    Py_INCREF(Py_None);
+    cursor->next_coltypes = Py_None;
 
     return (PyObject*)cursor;
 }
@@ -211,6 +219,34 @@ PyObject* connection_rollback(Connection* self, PyObject* args)
     return Py_None;
 }
 
+PyObject* connection_register_converter(Connection* self, PyObject* args)
+{
+    PyObject* name;
+    PyObject* func;
+    PyObject* typecode = NULL;
+    PyObject* value;
+
+    if (!PyArg_ParseTuple(args, "OO|O", &name, &func, &typecode)) {
+        return NULL;
+    }
+
+    if (!typecode) {
+        Py_INCREF(Py_None);
+        typecode = Py_None;
+    }
+
+    Py_INCREF(name);
+    Py_INCREF(func);
+    Py_INCREF(typecode);
+    value = PyTuple_New(2);
+    PyTuple_SetItem(value, 0, func);
+    PyTuple_SetItem(value, 1, typecode);
+    PyDict_SetItem(self->converters, name, value);
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
 static char connection_doc[] =
 PyDoc_STR("<missing docstring>");
 
@@ -223,6 +259,8 @@ static PyMethodDef connection_methods[] = {
         PyDoc_STR("Commit the current transaction.")},
     {"rollback", (PyCFunction)connection_rollback, METH_NOARGS,
         PyDoc_STR("Roll back the current transaction.")},
+    {"register_converter", (PyCFunction)connection_register_converter, METH_VARARGS,
+        PyDoc_STR("Registers a new type converter.")},
 
     {NULL, NULL}
 };

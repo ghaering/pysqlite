@@ -1,4 +1,4 @@
-/* connection.c - the cursor type
+/* cursor.c - the cursor type
  *
  * Copyright (C) 2004 Gerhard Häring <gh@ghaering.de>
  *
@@ -25,6 +25,10 @@
 #include "module.h"
 #include "microprotocols.h"
 #include "microprotocols_proto.h"
+
+/* used to decide wether to call PyInt_FromLong or PyLong_FromLongLong */
+#define INT32_MIN (-2147483647 - 1)
+#define INT32_MAX 2147483647
 
 PyObject* cursor_iternext(Cursor *self);
 
@@ -68,10 +72,14 @@ int cursor_init(Cursor* self, PyObject* args, PyObject* kwargs)
 {
     static char *kwlist[] = {NULL};
 
+    printf("cursor init\n");
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "", kwlist))
     {
         return -1; 
     }
+
+    printf("initializing\n");
+    self->row_cast_map = PyList_New(0);
 
     return 0;
 }
@@ -88,6 +96,40 @@ void cursor_dealloc(Cursor* self)
     self->ob_type->tp_free((PyObject*)self);
 }
 
+void build_row_cast_map(Cursor* self)
+{
+    int i;
+    const unsigned char* colname;
+    const unsigned char* decltype;
+    PyObject* converter = NULL;
+    PyObject* typename;
+
+    Py_DECREF(self->row_cast_map);
+    self->row_cast_map = PyList_New(0);
+
+    for (i = 0; i < sqlite3_column_count(self->statement); i++) {
+        colname = sqlite3_column_name(self->statement, i);
+        /* TODO: toupper() */
+        typename = PyDict_GetItemString(self->coltypes, colname);
+        if (typename) {
+            converter = PyDict_GetItem(self->connection->converters, typename);
+        } else {
+            decltype = sqlite3_column_decltype(self->statement, i);
+            if (decltype) {
+                converter = PyDict_GetItemString(self->connection->converters, decltype);
+            }
+        }
+
+        if (converter) {
+            Py_INCREF(converter);
+            PyList_Append(self->row_cast_map, converter);
+        } else {
+            Py_INCREF(Py_None);
+            PyList_Append(self->row_cast_map, Py_None);
+        }
+    }
+}
+
 PyObject* cursor_execute(Cursor* self, PyObject* args)
 {
     PyObject* operation;
@@ -100,11 +142,15 @@ PyObject* cursor_execute(Cursor* self, PyObject* args)
     PyObject* func_args;
     PyObject* result;
     int numcols;
-    int coltype;
+    /*int coltype;*/
     int statement_type;
     PyObject* descriptor;
     PyObject* current_param;
     PyObject* adapted;
+    PyObject* stringval;
+    long longval;
+    const char* buffer;
+    int buflen;
 
     if (!PyArg_ParseTuple(args, "S|O", &operation, &parameters))
     {
@@ -114,7 +160,7 @@ PyObject* cursor_execute(Cursor* self, PyObject* args)
     if (self->statement != NULL) {
         /* There is an active statement */
         if (sqlite3_finalize(self->statement) != SQLITE_OK) {
-            PyErr_SetString(DatabaseError, "error finalizing virtual machine");
+            PyErr_SetString(DatabaseError, sqlite3_errmsg(self->connection->db));
             return NULL;
         }
     }
@@ -129,6 +175,13 @@ PyObject* cursor_execute(Cursor* self, PyObject* args)
     Py_DECREF(self->rowcount);
     Py_INCREF(Py_None);
     self->rowcount = Py_None;
+
+    Py_DECREF(self->coltypes);
+    self->coltypes = self->next_coltypes;
+    Py_INCREF(self->coltypes);
+    Py_DECREF(self->next_coltypes);
+    Py_INCREF(Py_None);
+    self->next_coltypes = Py_None;
 
     statement_type = detect_statement_type(operation_cstr);
     if (!self->connection->inTransaction) {
@@ -153,7 +206,7 @@ PyObject* cursor_execute(Cursor* self, PyObject* args)
                          &self->statement,
                          &tail);
     if (rc != SQLITE_OK) {
-        PyErr_SetString(DatabaseError, "error preparing statement");
+        PyErr_SetString(DatabaseError, sqlite3_errmsg(self->connection->db));
         return NULL;
     }
 
@@ -172,15 +225,49 @@ PyObject* cursor_execute(Cursor* self, PyObject* args)
                 Py_INCREF(adapted);
             }
 
-            rc = sqlite3_bind_text(self->statement, i + 1, PyString_AsString(PyObject_Str(adapted)), -1, SQLITE_TRANSIENT);
+            if (adapted == Py_None) {
+                rc = sqlite3_bind_null(self->statement, i + 1);
+            } else if (PyInt_Check(adapted)) {
+                longval = PyInt_AsLong(adapted);
+                /* TODO: investigate what to do with range overflows - long vs. long long */
+                rc = sqlite3_bind_int64(self->statement, i + 1, (long long)longval);
+            } else if (PyFloat_Check(adapted)) {
+                rc = sqlite3_bind_double(self->statement, i + 1, PyFloat_AsDouble(adapted));
+            } else if (PyBuffer_Check(adapted)) {
+                if (PyObject_AsCharBuffer(adapted, &buffer, &buflen) != 0) {
+                    /* TODO: decide what error to raise */
+                    PyErr_SetString(PyExc_ValueError, "could not convert BLOB to buffer");
+                    return NULL;
+                }
+                rc = sqlite3_bind_blob(self->statement, i + 1, buffer, buflen, SQLITE_TRANSIENT);
+            } else {
+                if (PyUnicode_Check(adapted)) {
+                    stringval = PyUnicode_AsUTF8String(adapted);
+                } else {
+                    stringval = PyObject_Str(adapted);
+                }
+
+                if (stringval)  {
+                    rc = sqlite3_bind_text(self->statement, i + 1, PyString_AsString(stringval), -1, SQLITE_TRANSIENT);
+                } else {
+                    PyErr_SetString(InternalError, "Could not convert adapted value to string.");
+                }
+            }
+
 
             Py_DECREF(adapted);
         }
     }
 
+    if (PyErr_Occurred()) {
+        return NULL;
+    }
+
+    build_row_cast_map(self);
+
     self->step_rc = sqlite3_step(self->statement);
     if (self->step_rc != SQLITE_DONE && self->step_rc != SQLITE_ROW) {
-        PyErr_SetString(DatabaseError, "error executing first sqlite3_step call");
+        PyErr_SetString(DatabaseError, sqlite3_errmsg(self->connection->db));
         return NULL;
     }
 
@@ -192,8 +279,10 @@ PyObject* cursor_execute(Cursor* self, PyObject* args)
             self->description = PyTuple_New(numcols);
             for (i = 0; i < numcols; i++) {
                 descriptor = PyTuple_New(7);
-                coltype = sqlite3_column_type(self->statement, i);
                 PyTuple_SetItem(descriptor, 0, PyString_FromString(sqlite3_column_name(self->statement, i)));
+#if 0
+                /* cannot reliably detect column type */
+                coltype = sqlite3_column_type(self->statement, i);
                 if (coltype == SQLITE_INTEGER || coltype == SQLITE_FLOAT) {
                     Py_INCREF(sqlite_NUMBER);
                     PyTuple_SetItem(descriptor, 1, sqlite_NUMBER);
@@ -208,7 +297,8 @@ PyObject* cursor_execute(Cursor* self, PyObject* args)
                     Py_INCREF(Py_None);
                     PyTuple_SetItem(descriptor, 1, Py_None);
                 }
-
+#endif
+                Py_INCREF(Py_None); PyTuple_SetItem(descriptor, 1, Py_None);
                 Py_INCREF(Py_None); PyTuple_SetItem(descriptor, 2, Py_None);
                 Py_INCREF(Py_None); PyTuple_SetItem(descriptor, 3, Py_None);
                 Py_INCREF(Py_None); PyTuple_SetItem(descriptor, 4, Py_None);
@@ -238,7 +328,6 @@ PyObject* cursor_executemany(Cursor* self, PyObject* args)
     PyObject* parameterParam;
     PyObject* parameterIter;
     PyObject* parameters;
-    PyObject* func_args;
     int num_params;
     const char* tail;
     int i;
@@ -268,7 +357,7 @@ PyObject* cursor_executemany(Cursor* self, PyObject* args)
     if (self->statement != NULL) {
         /* There is an active statement */
         if (sqlite3_finalize(self->statement) != SQLITE_OK) {
-            PyErr_SetString(DatabaseError, "error finalizing virtual machine");
+            PyErr_SetString(DatabaseError, sqlite3_errmsg(self->connection->db));
             return NULL;
         }
     }
@@ -279,7 +368,7 @@ PyObject* cursor_executemany(Cursor* self, PyObject* args)
                          &self->statement,
                          &tail);
     if (rc != SQLITE_OK) {
-        PyErr_SetString(DatabaseError, "error preparing statement");
+        PyErr_SetString(DatabaseError, sqlite3_errmsg(self->connection->db));
         return NULL;
     }
 
@@ -299,8 +388,8 @@ PyObject* cursor_executemany(Cursor* self, PyObject* args)
         }
 
         rc = sqlite3_step(self->statement);
-        if (rc != SQLITE_DONE) {
-            PyErr_SetString(DatabaseError, "unexpected rc");
+        if (rc == SQLITE_ROW) {
+            PyErr_SetString(ProgrammingError, "executemany() is only for DML statements");
             return NULL;
         }
 
@@ -330,9 +419,17 @@ PyObject* cursor_iternext(Cursor *self)
     PyObject* row;
     PyObject* item = NULL;
     int coltype;
+    long long intval;
+    PyObject* converter_tuple;
+    PyObject* converter;
+    PyObject* typecode;
+    PyObject* converted;
+    int nbytes;
+    PyObject* buffer;
+    void* raw_buffer;
 
     if (self->statement == NULL) {
-        PyErr_SetString(ProgrammingError, "no compiled statement");
+        PyErr_SetString(ProgrammingError, "no compiled statement - you need to execute() before you can fetch data");
         return NULL;
     }
 
@@ -355,11 +452,65 @@ PyObject* cursor_iternext(Cursor *self)
     row = PyTuple_New(numcols);
 
     for (i = 0; i < numcols; i++) {
-        coltype = sqlite3_column_type(self->statement, i);
-        if (coltype == SQLITE_NULL) {
-            Py_INCREF(Py_None);
-            item = Py_None;
+        if (!self->connection->advancedTypes) {
+            /* Use SQLite's primitive type system (default) */
+            coltype = sqlite3_column_type(self->statement, i);
+            if (coltype == SQLITE_NULL) {
+                Py_INCREF(Py_None);
+                converted = Py_None;
+            } else if (coltype == SQLITE_INTEGER) {
+                intval = sqlite3_column_int64(self->statement, i);
+                if (intval < INT32_MIN || intval > INT32_MAX) {
+                    converted = PyLong_FromLongLong(intval);
+                } else {
+                    converted = PyInt_FromLong((long)intval);
+                }
+            } else if (coltype == SQLITE_FLOAT) {
+                converted = PyFloat_FromDouble(sqlite3_column_double(self->statement, i));
+            } else if (coltype == SQLITE_TEXT) {
+                converted = PyString_FromString(sqlite3_column_text(self->statement, i));
+            } else if (coltype == SQLITE_BLOB) {
+                nbytes = sqlite3_column_bytes(self->statement, i);
+                buffer = PyBuffer_New(nbytes);
+                if (!buffer) {
+                    /* TODO: error */
+                }
+                if (PyObject_AsWriteBuffer(buffer, &raw_buffer, &nbytes)) {
+                    /* TODO: error */
+                }
+                memcpy(raw_buffer, sqlite3_column_blob(self->statement, i), nbytes);
+                converted = buffer;
+            } else {
+                /* TODO: BLOB */
+                Py_INCREF(Py_None);
+                converted = Py_None;
+            }
         } else {
+            /* advanced type system */
+            coltype = sqlite3_column_type(self->statement, i);
+            if (coltype == SQLITE_NULL) {
+                Py_INCREF(Py_None);
+                converted = Py_None;
+            } else {
+                converter_tuple = PyList_GetItem(self->row_cast_map, i);
+                if (!converter_tuple) {
+                    PyErr_SetString(InternalError, "no converter tuple found");
+                    return NULL;
+                }
+
+                if (converter_tuple == Py_None) {
+                    converted = PyString_FromString(sqlite3_column_text(self->statement, i));
+                } else {
+                    converter = PyTuple_GetItem(converter_tuple, 0);
+                    typecode = PyTuple_GetItem(converter_tuple, 1);
+                    item = PyString_FromString(sqlite3_column_text(self->statement, i));
+                    converted = PyObject_CallFunction(converter, "O", item);
+                    Py_DECREF(item);
+                }
+            }
+        }
+
+#if 0
             /* TODO: use typecasters if available */
             if (coltype == SQLITE_INTEGER) {
                 item = PyInt_FromLong((long)sqlite3_column_int(self->statement, i));
@@ -372,17 +523,11 @@ PyObject* cursor_iternext(Cursor *self)
                 /* TODO: BLOB */
                 assert(0);
             }
-        }
-        PyTuple_SetItem(row, i, item);
+#endif
+        PyTuple_SetItem(row, i, converted);
     }
 
     self->step_rc = UNKNOWN;
-
-    /* TODO: that's wrong here, perhaps we need to have a ->typecasters and a
-     * ->current_typecasters */
-    Py_DECREF(self->typecasters);
-    Py_INCREF(Py_None);
-    self->typecasters = Py_None;
 
     return row;
 }
@@ -494,6 +639,7 @@ static struct PyMemberDef cursor_members[] =
     {"description", T_OBJECT, offsetof(Cursor, description), RO},
     {"arraysize", T_INT, offsetof(Cursor, arraysize), 0},
     {"rowcount", T_OBJECT, offsetof(Cursor, rowcount), RO},
+    {"coltypes", T_OBJECT, offsetof(Cursor, next_coltypes), 0},
     {NULL}
 };
 
