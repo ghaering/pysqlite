@@ -21,7 +21,7 @@
 #    misrepresented as being the original software.
 # 3. This notice may not be removed or altered from any source distribution.
 
-from _sqlite import connect
+from _sqlite2 import connect
 
 paramstyle = "qmark"
 

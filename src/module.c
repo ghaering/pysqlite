@@ -30,11 +30,11 @@ static PyMethodDef module_methods[] = {
     {NULL, NULL}
 };
 
-PyMODINIT_FUNC init_sqlite(void)
+PyMODINIT_FUNC init_sqlite2(void)
 {
     PyObject *module, *dict;
 
-    module = Py_InitModule("_sqlite", module_methods);
+    module = Py_InitModule("_sqlite2", module_methods);
 
     ConnectionType.tp_new = PyType_GenericNew;
     CursorType.tp_new = PyType_GenericNew;
@@ -120,7 +120,7 @@ PyMODINIT_FUNC init_sqlite(void)
 
     if (PyErr_Occurred())
     {
-        PyErr_SetString(PyExc_ImportError, "sqlite: init failed");
+        PyErr_SetString(PyExc_ImportError, "sqlite2: init failed");
     }
 }
 

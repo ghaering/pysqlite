@@ -22,7 +22,7 @@
 # 3. This notice may not be removed or altered from any source distribution.
 
 import unittest
-from sqlite.test import dbapi
+from sqlite2.test import dbapi
 
 def suite():
     return unittest.TestSuite(

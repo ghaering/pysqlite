@@ -22,66 +22,66 @@
 # 3. This notice may not be removed or altered from any source distribution.
 
 import unittest
-import sqlite
+import sqlite2
 
 class ModuleTests(unittest.TestCase):
     def CheckAPILevel(self):
-        self.assertEqual(sqlite.apilevel, "2.0",
-                         "apilevel is %s, should be 2.0" % sqlite.apilevel)
+        self.assertEqual(sqlite2.apilevel, "2.0",
+                         "apilevel is %s, should be 2.0" % sqlite2.apilevel)
 
     def CheckThreadSafety(self):
-        self.assertEqual(sqlite.threadsafety, 1,
-                         "threadsafety is %d, should be 1" % sqlite.threadsafety)
+        self.assertEqual(sqlite2.threadsafety, 1,
+                         "threadsafety is %d, should be 1" % sqlite2.threadsafety)
 
     def CheckParamStyle(self):
-        self.assertEqual(sqlite.paramstyle, "qmark",
+        self.assertEqual(sqlite2.paramstyle, "qmark",
                          "paramstyle is '%s', should be 'qmark'" %
-                         sqlite.paramstyle)
+                         sqlite2.paramstyle)
 
     def CheckWarning(self):
-        self.assert_(issubclass(sqlite.Warning, StandardError),
+        self.assert_(issubclass(sqlite2.Warning, StandardError),
                      "Warning is not a subclass of StandardError")
 
     def CheckError(self):
-        self.failUnless(issubclass(sqlite.Error, StandardError),
+        self.failUnless(issubclass(sqlite2.Error, StandardError),
                         "Error is not a subclass of StandardError")
 
     def CheckInterfaceError(self):
-        self.failUnless(issubclass(sqlite.InterfaceError, sqlite.Error),
+        self.failUnless(issubclass(sqlite2.InterfaceError, sqlite2.Error),
                         "InterfaceError is not a subclass of Error")
 
     def CheckDatabaseError(self):
-        self.failUnless(issubclass(sqlite.DatabaseError, sqlite.Error),
+        self.failUnless(issubclass(sqlite2.DatabaseError, sqlite2.Error),
                         "DatabaseError is not a subclass of Error")
 
     def CheckDataError(self):
-        self.failUnless(issubclass(sqlite.DataError, sqlite.DatabaseError),
+        self.failUnless(issubclass(sqlite2.DataError, sqlite2.DatabaseError),
                         "DataError is not a subclass of DatabaseError")
 
     def CheckOperationalError(self):
-        self.failUnless(issubclass(sqlite.OperationalError, sqlite.DatabaseError),
+        self.failUnless(issubclass(sqlite2.OperationalError, sqlite2.DatabaseError),
                         "OperationalError is not a subclass of DatabaseError")
 
     def CheckIntegrityError(self):
-        self.failUnless(issubclass(sqlite.IntegrityError, sqlite.DatabaseError),
+        self.failUnless(issubclass(sqlite2.IntegrityError, sqlite2.DatabaseError),
                         "IntegrityError is not a subclass of DatabaseError")
 
     def CheckInternalError(self):
-        self.failUnless(issubclass(sqlite.InternalError, sqlite.DatabaseError),
+        self.failUnless(issubclass(sqlite2.InternalError, sqlite2.DatabaseError),
                         "InternalError is not a subclass of DatabaseError")
 
     def CheckProgrammingError(self):
-        self.failUnless(issubclass(sqlite.ProgrammingError, sqlite.DatabaseError),
+        self.failUnless(issubclass(sqlite2.ProgrammingError, sqlite2.DatabaseError),
                         "ProgrammingError is not a subclass of DatabaseError")
 
     def CheckNotSupportedError(self):
-        self.failUnless(issubclass(sqlite.NotSupportedError,
-                                   sqlite.DatabaseError),
+        self.failUnless(issubclass(sqlite2.NotSupportedError,
+                                   sqlite2.DatabaseError),
                         "NotSupportedError is not a subclass of DatabaseError")
 
 class ConnectionTests(unittest.TestCase):
     def setUp(self):
-        self.cx = sqlite.connect(":memory:")
+        self.cx = sqlite2.connect(":memory:")
         cu = self.cx.cursor()
         cu.execute("create table test(id integer primary key, name text)")
         cu.execute("insert into test(name) values (?)", ("foo",))
@@ -117,7 +117,7 @@ class ConnectionTests(unittest.TestCase):
 
 class CursorTests(unittest.TestCase):
     def setUp(self):
-        self.cx = sqlite.connect(":memory:")
+        self.cx = sqlite2.connect(":memory:")
         self.cu = self.cx.cursor()
         self.cu.execute("create table test(id integer primary key, name text, income number)")
         self.cu.execute("insert into test(name) values (?)", ("foo",))
@@ -143,7 +143,7 @@ class CursorTests(unittest.TestCase):
 
     # Checks for executemany:
     # Sequences are required by the DB-API, iterators and generators are
-    # enhancements in pysqlite.
+    # enhancements in pysqlite2.
 
     def CheckExecuteManySequence(self):
         self.cu.execute("insert into test(income) values (?)", [(x,) for x in range(100, 110)])
@@ -208,7 +208,7 @@ class CursorTests(unittest.TestCase):
 
 class TypeTests(unittest.TestCase):
     def setUp(self):
-        self.cx = sqlite.connect(":memory:")
+        self.cx = sqlite2.connect(":memory:")
         self.cu = self.cx.cursor()
         self.cu.execute("create table test(id integer primary key, name text, bin binary, ratio number, ts timestamp)")
 
@@ -220,13 +220,13 @@ class TypeTests(unittest.TestCase):
         self.cu.execute("insert into test(name) values (?)", ("foo",))
         self.cu.execute("select id from test")
         res = self.cu.fetchone()
-        self.failUnlessEqual(self.cu.description[0][1], sqlite.ROWID)
+        self.failUnlessEqual(self.cu.description[0][1], sqlite2.ROWID)
 
     def CheckSTRING(self):
         self.cu.execute("insert into test(name) values (?)", ("foo",))
         self.cu.execute("select name from test")
         res = self.cu.fetchone()
-        self.failUnlessEqual(self.cu.description[0][1], sqlite.STRING)
+        self.failUnlessEqual(self.cu.description[0][1], sqlite2.STRING)
 
     def CheckBINARY(self):
         # if we want to get binary data back from SQLite by default for a
@@ -239,7 +239,7 @@ class TypeTests(unittest.TestCase):
         self.cu.execute("insert into test(ratio) values (?)", (3.14,))
         self.cu.execute("select ratio from test")
         res = self.cu.fetchone()
-        self.failUnlessEqual(self.cu.description[0][1], sqlite.NUMBER)
+        self.failUnlessEqual(self.cu.description[0][1], sqlite2.NUMBER)
 
     def CheckDATETIME(self):
         # SQLite does not know about date/time objects internally, so we cannot
@@ -248,25 +248,25 @@ class TypeTests(unittest.TestCase):
 
 class ConstructorTests(unittest.TestCase):
     def CheckDate(self):
-        d = sqlite.Date(2004, 10, 28)
+        d = sqlite2.Date(2004, 10, 28)
 
     def CheckTime(self):
-        t = sqlite.Time(12, 39, 35)
+        t = sqlite2.Time(12, 39, 35)
 
     def CheckTimestamp(self):
-        ts = sqlite.Timestamp(2004, 10, 28, 12, 39, 35)
+        ts = sqlite2.Timestamp(2004, 10, 28, 12, 39, 35)
 
     def CheckDateFromTicks(self):
-        d = sqlite.DateFromTicks(42)
+        d = sqlite2.DateFromTicks(42)
 
     def CheckTimeFromTicks(self):
-        t = sqlite.TimeFromTicks(42)
+        t = sqlite2.TimeFromTicks(42)
 
     def CheckTimestampFromTicks(self):
-        ts = sqlite.TimestampFromTicks(42)
+        ts = sqlite2.TimestampFromTicks(42)
 
     def CheckBinary(self):
-        b = sqlite.Binary(chr(0) + "'")
+        b = sqlite2.Binary(chr(0) + "'")
 
 def suite():
     module_suite = unittest.makeSuite(ModuleTests, "Check")

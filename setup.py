@@ -67,11 +67,11 @@ def main():
             url = "http://initd.org/svn/initd/pysqlite/trunk/",
 
             # Description of the modules and packages in the distribution
-            package_dir = {"sqlite": "lib"},
-            packages = ["sqlite", "sqlite.test"],
+            package_dir = {"sqlite2": "lib"},
+            packages = ["sqlite2", "sqlite2.test"],
             scripts=["scripts/test-pysqlite"],
 
-            ext_modules = [Extension( name="_sqlite",
+            ext_modules = [Extension( name="_sqlite2",
                                       sources=sources,
                                       include_dirs=include_dirs,
                                       library_dirs=library_dirs,
