@@ -6,6 +6,13 @@ TODO list for pysqlite
 Open items:
 -----------
 
+Summary:        better error messages
+Priority:       medium
+Status:         open
+Description:
+    sqlite3_errmsg() should to be used in most places where the error message
+    is constant now.
+
 Summary:        import microprotocols from psycopg
 Priority:       high
 Status:         integrated, needs bugfixing and tests
