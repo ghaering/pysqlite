@@ -27,7 +27,7 @@
 #include "Python.h"
 #include "structmember.h"
 
-#include "sqlite.h"
+#include "sqlite3.h"
 
 #include "port/strsep.h"
 
@@ -69,7 +69,7 @@ typedef struct
     PyObject_HEAD
     const char* database_name;
     const char* sql;
-    sqlite* p_db;
+    sqlite3* p_db;
     PyObject* converters;
     PyObject* expected_types;
     PyObject* command_logfile;
@@ -99,7 +99,7 @@ static PyObject* _sqlite_InternalError;
 static PyObject* _sqlite_ProgrammingError;
 static PyObject* _sqlite_NotSupportedError;
 
-static int debug_callbacks = 0;
+static int debug_callbacks = 1;
 
 #define PRINT_OR_CLEAR_ERROR if (debug_callbacks) PyErr_Print(); else PyErr_Clear();
 
@@ -126,7 +126,7 @@ static PyObject* tc_BINARY;
 static int process_record(void* p_data, int num_fields, char** p_fields, char** p_col_names);
 
 PySQLite_DECLARE_MODINIT_FUNC(init_sqlite);
-static int _seterror(int returncode, char* errmsg);
+static int _seterror(sqlite3* db);
 static void _con_dealloc(pysqlc *self);
 static PyObject* sqlite_version_info(PyObject* self, PyObject* args);
 static PyObject* pysqlite_connect(PyObject *self, PyObject *args, PyObject *kwargs);
@@ -199,7 +199,7 @@ _con_dealloc(pysqlc* self)
         if(self->p_db != 0)
         {
             /* Close the database */
-            sqlite_close(self->p_db);
+            sqlite3_close(self->p_db);
             self->p_db = 0;
         }
 
@@ -234,7 +234,6 @@ PyObject* pysqlite_connect(PyObject *self, PyObject *args, PyObject *kwargs)
 {
     const char* db_name = 0;
     int mode = 0777;
-    char *errmsg;
 
     pysqlc* obj;
 
@@ -252,22 +251,13 @@ PyObject* pysqlite_connect(PyObject *self, PyObject *args, PyObject *kwargs)
     }
 
     /* Open the database */
-    obj->p_db = sqlite_open(db_name, mode, &errmsg);
-
-    if(obj->p_db == 0 || errmsg != NULL)
+    int rc = sqlite3_open(db_name, &obj->p_db);
+    if (rc != SQLITE_OK)
     {
-        PyObject_Del(obj);
-        if (errmsg != NULL)
-        {
-            PyErr_SetString(_sqlite_DatabaseError, errmsg);
-            sqlite_freemem(errmsg);
-        }
-        else
-        {
-            PyErr_SetString(_sqlite_DatabaseError, "Could not open database.");
-        }
+        PyErr_SetString(_sqlite_DatabaseError, sqlite3_errmsg(obj->p_db));
         return NULL;
     }
+
 
     /* Assign the database name */
     if ((obj->database_name = strdup(db_name)) == NULL)
@@ -293,9 +283,6 @@ PyObject* pysqlite_connect(PyObject *self, PyObject *args, PyObject *kwargs)
 
     Py_INCREF(Py_None);
     obj->command_logfile = Py_None;
-
-    /* Get column type information */
-    (void)sqlite_exec(obj->p_db, "pragma show_datatypes=ON", (sqlite_callback)0, (void*)0, &errmsg);
 
     return (PyObject *) obj;
 }
@@ -330,8 +317,8 @@ static PyObject* _con_close(pysqlc *self, PyObject *args)
 
     if(self->p_db != 0)
     {
-        /* Close the database */
-        sqlite_close(self->p_db);
+        /* Close the database, ignore return code */
+        sqlite3_close(self->p_db);
         self->p_db = 0;
     }
     else
@@ -345,7 +332,7 @@ static PyObject* _con_close(pysqlc *self, PyObject *args)
     return Py_None;
 }
 
-static void function_callback(sqlite_func *context, int argc, const char **argv)
+static void function_callback(sqlite3_context *context, int argc, sqlite3_value** params)
 {
     int i;
     PyObject* function_result;
@@ -353,9 +340,10 @@ static void function_callback(sqlite_func *context, int argc, const char **argv)
     PyObject* userdata;
     PyObject* func;
     PyObject* s;
+    char* cstr;
     pysqlc* con;
 
-    userdata = (PyObject*)sqlite_user_data(context);
+    userdata = (PyObject*)sqlite3_user_data(context);
     func = PyTuple_GetItem(userdata, 0);
     con = (pysqlc*)PyTuple_GetItem(userdata, 1);
     MY_END_ALLOW_THREADS(con->tstate)
@@ -363,14 +351,24 @@ static void function_callback(sqlite_func *context, int argc, const char **argv)
     args = PyTuple_New(argc);
     for (i = 0; i < argc; i++)
     {
-        if (argv[i] == NULL)
+        /* TODO: can params[i] ever be NULL? */
+        if (params[i] == NULL)
         {
             Py_INCREF(Py_None);
             PyTuple_SetItem(args, i, Py_None);
         }
         else
         {
-            PyTuple_SetItem(args, i, PyString_FromString(argv[i]));
+            cstr = (char*)sqlite3_value_text(params[i]);
+            if (cstr)
+            {
+                PyTuple_SetItem(args, i, PyString_FromString(cstr));
+            }
+            else
+            {
+                Py_INCREF(Py_None);
+                PyTuple_SetItem(args, i, Py_None);
+            }
         }
     }
 
@@ -380,19 +378,19 @@ static void function_callback(sqlite_func *context, int argc, const char **argv)
     if (PyErr_Occurred())
     {
         PRINT_OR_CLEAR_ERROR
-        sqlite_set_result_error(context, NULL, -1);
+        sqlite3_result_error(context, NULL, -1);
         MY_BEGIN_ALLOW_THREADS(con->tstate)
         return;
     }
 
     if (function_result == Py_None)
     {
-        sqlite_set_result_string(context, NULL, -1);
+        sqlite3_result_null(context);
     }
     else
     {
         s = PyObject_Str(function_result);
-        sqlite_set_result_string(context, PyString_AsString(s), -1);
+        sqlite3_result_text(context, PyString_AsString(s), -1, SQLITE_TRANSIENT);
         Py_DECREF(s);
     }
 
@@ -400,7 +398,7 @@ static void function_callback(sqlite_func *context, int argc, const char **argv)
     MY_BEGIN_ALLOW_THREADS(con->tstate)
 }
 
-static void aggregate_step(sqlite_func *context, int argc, const char **argv)
+static void aggregate_step(sqlite3_context *context, int argc, sqlite3_value** params)
 {
     int i;
     PyObject* args;
@@ -410,14 +408,15 @@ static void aggregate_step(sqlite_func *context, int argc, const char **argv)
     pysqlc* con;
     PyObject** aggregate_instance;
     PyObject* stepmethod;
+    char* strparam;
 
-    userdata = (PyObject*)sqlite_user_data(context);
+    userdata = (PyObject*)sqlite3_user_data(context);
     aggregate_class = PyTuple_GetItem(userdata, 0);
 
     con = (pysqlc*)PyTuple_GetItem(userdata, 1);
     MY_END_ALLOW_THREADS(con->tstate)
 
-    aggregate_instance = (PyObject**)sqlite_aggregate_context(context, sizeof(PyObject*));
+    aggregate_instance = (PyObject**)sqlite3_aggregate_context(context, sizeof(PyObject*));
 
     if (*aggregate_instance == 0) {
         args = PyTuple_New(0);
@@ -442,11 +441,13 @@ static void aggregate_step(sqlite_func *context, int argc, const char **argv)
 
     args = PyTuple_New(argc);
     for (i = 0; i < argc; i++) {
-        if (argv[i] == NULL) {
+        strparam = (char*)sqlite3_value_text(params[i]);
+        if (!strparam)
+        {
             Py_INCREF(Py_None);
             PyTuple_SetItem(args, i, Py_None);
         } else {
-            PyTuple_SetItem(args, i, PyString_FromString(argv[i]));
+            PyTuple_SetItem(args, i, PyString_FromString(strparam));
         }
     }
 
@@ -464,6 +465,8 @@ static void aggregate_step(sqlite_func *context, int argc, const char **argv)
         PRINT_OR_CLEAR_ERROR
         /* Don't use sqlite_set_result_error here. Else an assertion in
          * the SQLite code will trigger and create a core dump.
+         *
+         * This was true with SQLite 2.x. Not checked with 3.x, yet.
          */
     }
     else
@@ -474,7 +477,7 @@ static void aggregate_step(sqlite_func *context, int argc, const char **argv)
     MY_BEGIN_ALLOW_THREADS(con->tstate)
 }
 
-static void aggregate_finalize(sqlite_func *context)
+static void aggregate_finalize(sqlite3_context *context)
 {
     PyObject* args;
     PyObject* function_result;
@@ -485,12 +488,12 @@ static void aggregate_finalize(sqlite_func *context)
     PyObject* aggregate_class;
     PyObject* finalizemethod;
 
-    userdata = (PyObject*)sqlite_user_data(context);
+    userdata = (PyObject*)sqlite3_user_data(context);
     aggregate_class = PyTuple_GetItem(userdata, 0);
     con = (pysqlc*)PyTuple_GetItem(userdata, 1);
     MY_END_ALLOW_THREADS(con->tstate)
 
-    aggregate_instance = (PyObject**)sqlite_aggregate_context(context, sizeof(PyObject*));
+    aggregate_instance = (PyObject**)sqlite3_aggregate_context(context, sizeof(PyObject*));
 
     finalizemethod = PyObject_GetAttrString(*aggregate_instance, "finalize");
 
@@ -508,18 +511,18 @@ static void aggregate_finalize(sqlite_func *context)
     if (PyErr_Occurred())
     {
         PRINT_OR_CLEAR_ERROR
-        sqlite_set_result_error(context, NULL, -1);
+        sqlite3_result_error(context, NULL, -1);
     }
     else if (function_result == Py_None)
     {
         Py_DECREF(function_result);
-        sqlite_set_result_string(context, NULL, -1);
+        sqlite3_result_null(context);
     }
     else
     {
         s = PyObject_Str(function_result);
         Py_DECREF(function_result);
-        sqlite_set_result_string(context, PyString_AsString(s), -1);
+        sqlite3_result_text(context, PyString_AsString(s), -1, SQLITE_TRANSIENT);
         Py_DECREF(s);
     }
 
@@ -598,6 +601,7 @@ Register a busy handler.\n\
 
 static PyObject* _con_sqlite_busy_handler(pysqlc* self, PyObject *args, PyObject* kwargs)
 {
+#if 0
     static char *kwlist[] = {"func", "data", NULL};
     PyObject* func;
     PyObject* data = Py_None;
@@ -617,8 +621,8 @@ static PyObject* _con_sqlite_busy_handler(pysqlc* self, PyObject *args, PyObject
     Py_INCREF(data); PyTuple_SetItem(userdata, 1, data);
     Py_INCREF(self); PyTuple_SetItem(userdata, 2, (PyObject*)self);
 
-    sqlite_busy_handler(self->p_db, &sqlite_busy_handler_callback, userdata);
-
+    sqlite3_busy_handler(self->p_db, &sqlite_busy_handler_callback, userdata);
+#endif
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -642,7 +646,7 @@ static PyObject* _con_sqlite_busy_timeout(pysqlc* self, PyObject *args, PyObject
         return NULL;
     }
 
-    sqlite_busy_timeout(self->p_db, timeout);
+    sqlite3_busy_timeout(self->p_db, timeout);
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -683,7 +687,7 @@ static PyObject* _con_create_function(pysqlc* self, PyObject *args, PyObject* kw
     }
 
     Py_INCREF(func);
-    if (0 != sqlite_create_function(self->p_db, name, n_args, &function_callback, (void*)userdata))
+    if (0 != sqlite3_create_function(self->p_db, name, n_args, SQLITE_UTF8, (void*)userdata, &function_callback, 0, 0))
     {
         PyErr_SetString(_sqlite_ProgrammingError, "Cannot create function.");
         return NULL;
@@ -724,7 +728,7 @@ static PyObject* _con_create_aggregate(pysqlc* self, PyObject *args, PyObject* k
     Py_INCREF(self);
     PyTuple_SetItem(userdata, 1, (PyObject*)self);
 
-    if (0 != sqlite_create_aggregate(self->p_db, name, n_args, &aggregate_step, &aggregate_finalize, (void*)userdata))
+    if (0 != sqlite3_create_function(self->p_db, name, n_args, SQLITE_UTF8, (void*)userdata, 0, &aggregate_step, &aggregate_finalize))
     {
         PyErr_SetString(_sqlite_ProgrammingError, "Cannot create aggregate.");
         return NULL;
@@ -881,7 +885,8 @@ static PyObject* _con_sqlite_exec(pysqlc* self, PyObject *args, PyObject* kwargs
     PyTuple_SetItem(cb_args, 2, (PyObject*)self);
 
     MY_BEGIN_ALLOW_THREADS(self->tstate)
-    sqlite_exec(self->p_db, sql, &sqlite_exec_callback, cb_args, NULL);
+    /* TODO: error condition is ignored here? */
+    sqlite3_exec(self->p_db, sql, &sqlite_exec_callback, cb_args, NULL);
     MY_END_ALLOW_THREADS(self->tstate)
 
     Py_DECREF(cb_args);
@@ -899,7 +904,7 @@ static PyObject* _con_sqlite_last_insert_rowid(pysqlc *self, PyObject *args)
         return NULL;
     }
 
-    value = PyInt_FromLong((long)sqlite_last_insert_rowid(self->p_db));
+    value = PyInt_FromLong((long)sqlite3_last_insert_rowid(self->p_db));
 
     return value;
 }
@@ -913,7 +918,7 @@ static PyObject* _con_sqlite_changes(pysqlc *self, PyObject *args)
         return NULL;
     }
 
-    value = PyInt_FromLong((long)sqlite_changes(self->p_db));
+    value = PyInt_FromLong((long)sqlite3_changes(self->p_db));
 
     return value;
 }
@@ -925,7 +930,7 @@ static PyObject * sqlite_library_version(PyObject *self, PyObject *args)
         return NULL;
     }
 
-    return Py_BuildValue("s", sqlite_libversion());
+    return Py_BuildValue("s", sqlite3_libversion());
 }
 
 static PyObject* sqlite_enable_callback_debugging(PyObject *self, PyObject *args)
@@ -993,81 +998,147 @@ static PyObject* pysqlite_decode(PyObject *self, PyObject *args)
     return res;
 }
 
-static int _seterror(int returncode,  char *errmsg)
+/**
+ * Checks the SQLite error code and sets the appropriate DB-API exception.
+ * Returns the error code (0 means no error occured).
+ */
+static int _seterror(sqlite3* db)
 {
-    switch (returncode)
+    int errorcode;
+
+    errorcode = sqlite3_errcode(db);
+
+    switch (errorcode)
     {
         case SQLITE_OK:
             PyErr_Clear();
             break;
         case SQLITE_ERROR:
-            PyErr_SetString(_sqlite_DatabaseError, (errmsg!=NULL)?errmsg:sqlite_error_string(returncode));
+            PyErr_SetString(_sqlite_DatabaseError, sqlite3_errmsg(db));
             break;
         case SQLITE_INTERNAL:
-            PyErr_SetString(_sqlite_InternalError, (errmsg!=NULL)?errmsg:sqlite_error_string(returncode));
+            PyErr_SetString(_sqlite_InternalError, sqlite3_errmsg(db));
             break;
         case SQLITE_PERM:
-            PyErr_SetString(_sqlite_OperationalError, (errmsg!=NULL)?errmsg:sqlite_error_string(returncode));
+            PyErr_SetString(_sqlite_OperationalError, sqlite3_errmsg(db));
             break;
         case SQLITE_ABORT:
-            PyErr_SetString(_sqlite_OperationalError, (errmsg!=NULL)?errmsg:sqlite_error_string(returncode));
+            PyErr_SetString(_sqlite_OperationalError, sqlite3_errmsg(db));
             break;
         case SQLITE_BUSY:
-            PyErr_SetString(_sqlite_OperationalError, (errmsg!=NULL)?errmsg:sqlite_error_string(returncode));
+            PyErr_SetString(_sqlite_OperationalError, sqlite3_errmsg(db));
             break;
         case SQLITE_LOCKED:
-            PyErr_SetString(_sqlite_OperationalError, (errmsg!=NULL)?errmsg:sqlite_error_string(returncode));
+            PyErr_SetString(_sqlite_OperationalError, sqlite3_errmsg(db));
             break;
         case SQLITE_NOMEM:
             (void)PyErr_NoMemory();
             break;
         case SQLITE_READONLY:
-            PyErr_SetString(_sqlite_DatabaseError, (errmsg!=NULL)?errmsg:sqlite_error_string(returncode));
+            PyErr_SetString(_sqlite_DatabaseError, sqlite3_errmsg(db));
             break;
         case SQLITE_INTERRUPT:
-            PyErr_SetString(_sqlite_OperationalError, (errmsg!=NULL)?errmsg:sqlite_error_string(returncode));
+            PyErr_SetString(_sqlite_OperationalError, sqlite3_errmsg(db));
             break;
         case SQLITE_IOERR:
-            PyErr_SetString(_sqlite_OperationalError, (errmsg!=NULL)?errmsg:sqlite_error_string(returncode));
+            PyErr_SetString(_sqlite_OperationalError, sqlite3_errmsg(db));
             break;
         case SQLITE_CORRUPT:
-            PyErr_SetString(_sqlite_DatabaseError, (errmsg!=NULL)?errmsg:sqlite_error_string(returncode));
+            PyErr_SetString(_sqlite_DatabaseError, sqlite3_errmsg(db));
             break;
         case SQLITE_NOTFOUND:
-            PyErr_SetString(_sqlite_InternalError, (errmsg!=NULL)?errmsg:sqlite_error_string(returncode));
+            PyErr_SetString(_sqlite_InternalError, sqlite3_errmsg(db));
             break;
         case SQLITE_FULL:
-            PyErr_SetString(_sqlite_DatabaseError, (errmsg!=NULL)?errmsg:sqlite_error_string(returncode));
+            PyErr_SetString(_sqlite_DatabaseError, sqlite3_errmsg(db));
             break;
         case SQLITE_CANTOPEN:
-            PyErr_SetString(_sqlite_DatabaseError, (errmsg!=NULL)?errmsg:sqlite_error_string(returncode));
+            PyErr_SetString(_sqlite_DatabaseError, sqlite3_errmsg(db));
             break;
         case SQLITE_PROTOCOL:
-            PyErr_SetString(_sqlite_OperationalError, (errmsg!=NULL)?errmsg:sqlite_error_string(returncode));
+            PyErr_SetString(_sqlite_OperationalError, sqlite3_errmsg(db));
             break;
         case SQLITE_EMPTY:
-            PyErr_SetString(_sqlite_InternalError, (errmsg!=NULL)?errmsg:sqlite_error_string(returncode));
+            PyErr_SetString(_sqlite_InternalError, sqlite3_errmsg(db));
             break;
         case SQLITE_SCHEMA:
-            PyErr_SetString(_sqlite_DatabaseError, (errmsg!=NULL)?errmsg:sqlite_error_string(returncode));
+            PyErr_SetString(_sqlite_DatabaseError, sqlite3_errmsg(db));
             break;
         case SQLITE_TOOBIG:
-            PyErr_SetString(_sqlite_DataError, (errmsg!=NULL)?errmsg:sqlite_error_string(returncode));
+            PyErr_SetString(_sqlite_DataError, sqlite3_errmsg(db));
             break;
         case SQLITE_CONSTRAINT:
-            PyErr_SetString(_sqlite_IntegrityError, (errmsg!=NULL)?errmsg:sqlite_error_string(returncode));
+            PyErr_SetString(_sqlite_IntegrityError, sqlite3_errmsg(db));
             break;
         case SQLITE_MISMATCH:
-            PyErr_SetString(_sqlite_IntegrityError, (errmsg!=NULL)?errmsg:sqlite_error_string(returncode));
+            PyErr_SetString(_sqlite_IntegrityError, sqlite3_errmsg(db));
             break;
         case SQLITE_MISUSE:
-            PyErr_SetString(_sqlite_ProgrammingError, (errmsg!=NULL)?errmsg:sqlite_error_string(returncode));
+            PyErr_SetString(_sqlite_ProgrammingError, sqlite3_errmsg(db));
             break;
         default:
-            PyErr_SetString(_sqlite_DatabaseError, (errmsg!=NULL)?errmsg:sqlite_error_string(returncode));
+            PyErr_SetString(_sqlite_DatabaseError, sqlite3_errmsg(db));
     }
-    sqlite_freemem(errmsg);
-    return returncode;
+
+    return errorcode;
+}
+
+static int my_sqlite3_exec(
+  sqlite3* db,                  /* An open database */
+  const char *sql,              /* SQL to be executed */
+  sqlite3_callback callback,    /* Callback function */
+  void *userdata,               /* 1st argument to callback function */
+  char **errmsg                 /* Error msg written here */
+)
+{
+    int rc;
+    sqlite3_stmt* statement;
+    const char* tail;
+    int abort;
+    int num_fields;
+    char** p_fields;
+    char** p_col_names;
+    int i;
+    char* data;
+
+    rc = sqlite3_prepare(db, sql, 0, &statement, &tail);
+
+    rc = sqlite3_step(statement);
+    if (rc == SQLITE_ROW)
+    {
+        num_fields = sqlite3_data_count(statement);
+        p_fields = malloc(num_fields * sizeof(char*));
+        p_col_names = malloc(2 * num_fields * sizeof(char*));
+        for (i = 0; i < num_fields; i++)
+        {
+            p_col_names[i] = (char*)sqlite3_column_name(statement, i);
+            p_col_names[num_fields + i] = (char*)sqlite3_column_decltype(statement, i);
+        }
+
+        for (;;)
+        {
+            for (i = 0; i < num_fields; i++)
+            {
+                data = (char*)sqlite3_column_text(statement, i);
+                p_fields[i] = data;
+            }
+
+            abort = process_record(userdata, num_fields, p_fields, p_col_names);
+            if (abort)
+                break;
+
+            rc = sqlite3_step(statement);
+            /* TODO: check rc */
+            if (rc == SQLITE_DONE)
+                break;
+        }
+
+        free(p_fields);
+        free(p_col_names);
+    }
+    rc = sqlite3_finalize(statement);
+
+    return rc;
 }
 
 static PyObject* _con_execute(pysqlc* self, PyObject *args)
@@ -1190,7 +1261,7 @@ static PyObject* _con_execute(pysqlc* self, PyObject *args)
 
     /* Run a query: process_record is called back for each record returned. */
     MY_BEGIN_ALLOW_THREADS(self->tstate)
-    ret = sqlite_exec( self->p_db,
+    ret = my_sqlite3_exec( self->p_db,
                        sql,
                        process_record,
                        p_rset,
@@ -1215,7 +1286,7 @@ static PyObject* _con_execute(pysqlc* self, PyObject *args)
         p_rset->p_col_def_list = PyTuple_New(0);
     }
 
-    if(_seterror(ret, errmsg) != SQLITE_OK)
+    if(_seterror(self->p_db))
     {
         free((void*)(self->sql));
         self->sql = NULL;
@@ -1538,7 +1609,10 @@ static PyObject* _con_register_converter(pysqlc* self, PyObject *args, PyObject*
     return Py_None;
 }
 
-static PyObject* _con_set_expected_types(pysqlc* self, PyObject *args, PyObject* kwargs)
+static PyObject* _con_set_expected_types(
+        pysqlc* self, 
+        PyObject *args, 
+        PyObject* kwargs)
 {
     static char *kwlist[] = {"types", NULL};
 
@@ -1637,7 +1711,7 @@ static PyObject* sqlite_version_info(PyObject* self, PyObject* args)
         return NULL;
     }
 
-    buf = strdup(sqlite_libversion());
+    buf = strdup(sqlite3_libversion());
     iterator = buf;
 
     vi_list = PyList_New(0);
