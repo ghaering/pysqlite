@@ -13,11 +13,11 @@ apilevel = "2.0"
 paramstyle = "pyformat"
 
 # This is the version string for the current PySQLite version.
-version = "1.1.5"
+version = "1.1.6"
 
 # This is a tuple with the same digits as the vesrion string, but it's
 # suitable for comparisons of various versions.
-version_info = (1, 1, 5)
+version_info = (1, 1, 6)
 
 #-------------------------------------------------------------------------------
 # Data type support

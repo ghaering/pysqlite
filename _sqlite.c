@@ -908,7 +908,7 @@ static PyObject* pysqlite_encode(PyObject *self, PyObject *args)
     }
 
     /* See comments in encode.c for details on maximum size of encoded data. */
-    out = malloc(2 + (257*n)/254);
+    out = malloc(2 + (257 * (sqlite_uint64)n) / 254);
     if (out == NULL)
     {
         return PyErr_NoMemory();
