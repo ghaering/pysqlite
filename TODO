@@ -29,6 +29,19 @@ Description:
     user must tell it which type it is. Also if pysqlite would guess wrong, the
     user can force a certain typecast.
 
+Summary:        Unicode handling
+Priority:       medium
+Status:         open
+Description:
+    pysqlite2 needs to be able to use Unicode in parameters.
+    This one depends on the microprotocols stuff.
+
+Summary:        busy/timeout handling
+Priority:       medium
+Status:         open
+Description:
+    pysqlite2 needs similar busy/timeout handling like the old one.
+
 Summary:        cursor grows row factory
 Priority:       low
 Status:         open
@@ -43,6 +56,12 @@ Description:
     parameter for creating nonstandard cursor classes. One use-case is to
     create cursors where the returned rows are accessible by name instead of
     index.
+
+Summary:        Add support for BLOB
+Priority:       low
+Status:         open
+Description:
+    Add BLOB support and make sure it works roundtrip with _bind_blob.
 
 -------------
 Closed items:
