@@ -1,0 +1,36 @@
+                                            _ _ _
+                      _ __  _   _ ___  __ _| (_) |_ ___
+                     | '_ \| | | / __|/ _` | | | __/ _ \
+                     | |_) | |_| \__ \ (_| | | | ||  __/
+                     | .__/ \__, |___/\__, |_|_|\__\___|
+                     |_|    |___/        |_|
+
+               A DB API v2.0 compatible interface to SQLite
+                       Embedded Relational Database.
+                          Copyright (c) 2001-2003
+                   Michael Owens <mike@mikesclutter.com>
+                      Gerhard Häring <gh@ghaering.de>
+
+
+Overview:
+
+This is an extension module for the SQLite embedded relational database. It
+tries to conform to the Python DB-API Spec v2 as far as possible. One problem
+is that SQLite returns everything as text. This is a result of SQLite's
+internal representation of data, however it still may be possible to return
+data in the type specified by the table definitions. I am still working on
+that, and will require some study of the SQLite source.
+
+Installation:
+
+Installation should be relatively simple. Following that prescribed by Python,
+it can be done in two steps:
+
+    python setup.py build
+    python setup.py install
+
+For building PySQLite on Windows, check out the file INSTALL.win32.
+
+Other:
+
+Check out the doc/rest and examples folders.

@@ -1,0 +1,387 @@
+-----------------------------------------------------------------
+PySQLite: Python DB-API 2.0 Compliant Interface Module for SQLite
+-----------------------------------------------------------------
+
+These are the beginnings of a new manual.
+
+This document was last updated for PySQLite version 1.0.
+
+===============
+0. Front Matter
+===============
+
+0.1 Copyright notice and License
+--------------------------------
+
+(c) 2002 Michael Owens
+(c) 2002-2004 Gerhard Häring
+
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose and without fee is hereby granted, provided that
+the above copyright notice appear in all copies and that both that copyright
+notice and this permission notice appear in supporting documentation.
+
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.
+
+0.2 Abstract
+------------
+
+SQLite is a powerful embedded relational database management system in a
+compact C library, developed by D. Richard Hipp. It offers support for a large
+subset of SQL92, multiple tables and indices, transactions, not to mention ODBC
+drivers. The library is self-contained and implemented in under 20,000 lines of
+code, which itself is uncopyrighted, and free to use for any purpose. It runs
+on a wide variety of platforms including Linux, FreeBSD, Windows, Windows CE
+and many others.
+
+PySQLite makes this powerful yet small database engine available to Python
+developers via the Python Database API Specification 2.0. The ambition is to
+expose all of SQLite's functionality in a pythonic way, and to offer additional
+ease-of-use features.
+
+===================================
+1. Building and installing PySQLite
+===================================
+
+1.1 Installing binary packages
+------------------------------
+
+The PySQLite developers currently offer binary packages for Microsoft Windows.
+Just be sure to pick the right one for your Python version (the correct
+download for Python 2.3.x will end in py2.3.exe, for example).
+
+Other binary packages are offered by third parties. Debian GNU/Linux for
+example has binaries for PySQLite in its repository.
+
+1.2 Installing PySQLite from source
+-----------------------------------
+
+First, make sure you have the SQLite library and header files installed. Unless
+it's packaged for your OS, this means building and installing SQLite from
+source. How to do this is beyond the scope of this manual. We'll refer you to
+the SQLite documentation instead. Just one important note: Be sure to compile
+SQLite with threads support. This means be sure that -DTHREADSAFE=1 is defined
+while compiling it.
+
+Next, be sure that you have a complete Python development environment for C
+extensions. This means:
+
+- the Python interpreter
+- the Python development libraries and headers: on some Linux distributions,
+  these need to be installed separately, the package will be called python-dev,
+  python-devel or some such
+- a C compiler, like the GNU C Compiler (gcc)
+
+Now you can try to build PySQLite with::
+
+    $ python setup.py build
+
+The paths to the SQLite headers and libraries should be found automatially, but
+if they're not, you'll have to accordingly edit setup.py manually.
+
+Once you got PySQLite built, it's time to install it. Normally you'll have to
+do this step as a system administrator (on Unix-like systems this means you'll
+have to become root)::
+
+    $ python setup.py install
+
+Now's a good time to run the included test suite::
+
+    $ cd test
+    $ python all_tests.py
+
+Be sure that all tests passed correctly.
+
+1.3 Make date functionality work
+--------------------------------
+
+If you plan to use the SQL types date, timestamp or interval you'll have to
+have the mxDateTime package from the eGenix mxExtensions installed.
+
+Get it here if you don't have it installed already:
+http://www.egenix.com/files/python/eGenix-mx-Extensions.html#Download-mxBASE
+
+If you're on a free Unix, your distribution most probably packages it for you,
+too.
+
+===============================
+2. Connecting to the datatabase
+===============================
+
+2.1 Basic usage
+---------------
+
+Connecting to a datatabase file "db"::
+
+    import sqlite
+    cx = sqlite.connect("db")
+
+
+2.2 Parameters explained
+------------------------
+
+In the most basic usage, we only used the database parameter, which is the
+database file we want SQLite to use, or ":memory:" if we want to use an in-RAM
+database.
+
+Of course there are more parameters::
+
+    def connect(database, mode=0755, converters={}, autocommit=0,
+                encoding=None, timeout=None, command_logfile=None)
+
+:mode:  This parameter is passed through to SQLite and means the mode in which
+        to open the file. The idea is to be able to open the database file in
+        read-only mode. But it's currently ignored by SQLite so just forget
+        about it.
+
+:converters:
+        The converters are a mapping from SQL type names to Python conversion
+        callables. You'll only need to define any of these if you want to make
+        PySQLite handle a user-defined type of you transparently.
+
+        => examples/converters.py
+
+:autocommit:
+        see => Transaction management
+
+:encoding:
+    This is an important parameter if you use unicode strings. It can either be
+    a simple encoding name, like "utf-8", or it can be a tuple of encoding name
+    and error policy, like ("utf-8", "ignore"), or ("utf-16", "replace"). Cf.
+    the documentation about the unicode builtin for possible error policies.
+    What it means is in which encoding to save unicode strings in the SQLite
+    database, and from which encoding to construct Unicode strings.
+
+:timeout:
+    A timeout value in seconds, i. e. timeout=1.5. An SQLite database can be
+    locked by a different connection being in an transaction. The timeout value
+    means how long to wait for the lock to be released. If after /timeout/
+    seconds the lock is still not released, a DatabaseError will be thrown.
+
+:command_logfile:
+    A file-like object (anything that has a write method) where all statements
+    sent to the SQLite library will be logged into.
+
+
+
+=========================
+3. Transaction management
+=========================
+
+3.1 The standard, DB-API way
+----------------------------
+
+Transactions are opened "when necessary". PySQLite is optimized quite a bit at
+opening transactions as late as possible. I. e. when you have a sequence::
+
+    cu = cx.cursor()                                    # (1)
+    cu.execute("select foo from bar")                   # (2)
+    cu.execute("update foo set bar=5 where blarg=3")    # (3)
+    cx.commit()                                         # (4)
+
+only line number 3 triggers the sending of a BEGIN statement to the SQLIte
+library. That's because under SQLite, it is safe to use even multiple SELECT
+statements outside transactions. The reason is that a BEGIN will lock the whole
+database, so outside transactions, you will always get consistent data using
+SELECT statements.
+
+Ok, so the .execute() in line #3 sees that it has got a DML (data modification
+language) statement as SQL string and will transparently send a BEGIN before
+that to the SQLite engine. .commit() will send the corresponding COMMIT
+statement, of course. To roll back transactions intead, you'd use .rollback()
+on the connection object.
+
+see => examples/dbapi_transactions.py
+
+3.2 The manual way
+------------------
+
+If you used the parameter autocommit=1 in the sqlite.connect() call, PySQLite
+will not get in your way with respect to transactions. You can send
+BEGIN/COMMIT/ROLLBACK statements with the .execute() method of the cursor
+object as you like.
+
+see => examples/manual_transactions.py
+
+I don't recommend you actually use this option, unless you're implementing a
+transaction management system different from the DB-API one.
+
+=====================================
+4. Type Conversions Python <=> SQLite
+=====================================
+
+SQLite is a typeless database engine. Basically this means that apart from
+arithmetic operations, it only knows about strings. PySQLite goes a long way to
+work around this limitation of SQLite. Storing Python data in an SQLite
+database is not the problem, PySQLite will do this correctly for you for its
+supported Python types.
+
+The other way around is normally no problem either. In most cases, PySQLite can
+infer to which Python type it needs to convert the string data the SQLite
+engine delivers it. In other cases, however, where SQLite doesn't deliver
+enough type information or the wrong type information, you will have to help
+PySQLite guessing right. This is what the next section is all about.
+
+4.1 Conversions SQLite => Python
+--------------------------------
+
+SQLite itself is typeless, it only knows about strings, and to some degree
+about numbers. So PySQLite has to work around this limitation. The conversion
+from string to the Python type we want works with a hidden dictionary called
+converters, which consists of the converters you registered in the .connect()
+call yourself, plus a few standard ones from PySQLite, listed below.
+
++-------------------------+-------------------+--------------------------------+
+| column types            | converter name    | converter callable             |
++=========================+===================+================================+
+| \*CHAR\*, \*TEXT\*      | str               | str()                          |
++-------------------------+-------------------+--------------------------------+
+| \*INT\*                 | int               | int()                          |
++-------------------------+-------------------+--------------------------------+
+|                         | long              | long()                         |
++-------------------------+-------------------+--------------------------------+
+| \*FLOAT\*, \*NUMERIC\*, | float             | float()                        |
+| \*NUMBER\*, \*DECIMAL\*,|                   |                                |
+| \*REAL\*, \*DOUBLE\*    |                   |                                |
++-------------------------+-------------------+--------------------------------+
+| \*UNICODE\*             | unicode           | UnicodeConverter(self.encoding)|
++-------------------------+-------------------+--------------------------------+
+| \*BINARY\*, \*BLOB\*    | binary            | sqlite.decode()                |
++-------------------------+-------------------+--------------------------------+
+| \*DATE\*                | date              | DateTime.DateFrom()            |
++-------------------------+-------------------+--------------------------------+
+| \*TIME\*                | time              | DateTime.TimeFrom()            |
++-------------------------+-------------------+--------------------------------+
+| \*TIMESTAMP\*           | timestamp         | DateTime.DateTimeFrom()        |
++-------------------------+-------------------+--------------------------------+
+| \*INTERVAL\*            | interval          | DateTime.DateTimeDeltaFrom()   |
++-------------------------+-------------------+--------------------------------+
+
+Now there are two ways to determine which converter to use for a given column
+in the resultset. If the column came directly from a table, and wasn't created
+by an expression, or by a function or aggregate, then SQLite delivers column
+type to PySQLite, and PySQLite will then use a certain converter, depending on
+the column type.
+
+Let's use an example to make this more clear::
+
+    CREATE TABLE TEST (V VARCHAR, I INTEGER);
+    INSERT INTO TEST(V, I) VALUES ('foo', 25);
+
+>>> cu = cx.cursor()
+>>> cu.execute("select v, i from test")
+>>> row = cu.fetchone()
+>>> row, map(type, row)
+(('foo', 25), [<type 'str'>, <type 'int'>])
+
+Now, with the statement "select v, i from test" you directly accessed the
+columns 'v' and 'i' in the table 'test'. SQLite is thus able to deliver the
+types of the columns to PySQLite. PySQLite thus knows that the first column is
+of type VARCHAR, and the second column is of type INTEGER. Now VARCHAR matches
+*CHAR* and INTEGER matches *INT*, so PySQLite finds the converter name 'str'
+for the first column in the resultset, and the converter name 'int' for the
+second column. Now 'str' maps to str() and 'int' maps to int(), so these two
+callables are called for the raw string data PySQLite gets from the SQLite
+engine. For you, this means you transparently got back an integer for the
+second column, even though SQLite basically only knows about strings.
+
+Now let's try something else:
+
+>>> cu.execute("select i*2.3 from test")
+>>> row = cu.fetchone()
+>>> row, map(type, row)
+((57.5,), [<type 'float'>])
+
+There's a little magic going on here. SQLite infers that the result is numeric,
+so it sets "NUMERIC" as the type of the result column, which in turn by
+PySQLite is mapped to the converter name 'float', and then to the callable
+float.
+
+Now of course there are areas where there is no magic left and you have to tell
+PySQLite yourself to which type to convert back. Basically always when result
+columns don't come directly from tables, but from expressions.
+
+One example would be where
+you'd want to concatenate two columns of a UNICODE type:
+
+>>> cx = sqlite.connect("db", encoding="utf-8")
+>>> cu = cx.cursor()
+>>> cu.execute("create table test(u1 unicode, u2 unicode)")
+>>> cu.execute("insert into test(u1, u2) values (%s, %s)", (u"\x99sterreich", u"Ungarn"))
+>>> cu.execute("select u1 || '-' || u2 from test")
+>>> print cu.fetchone()
+('\xc2\x99sterreich-Ungarn',)
+
+We didn't specify what type to convert to, so we just got a normal Python
+string back, with the result in UTF-8 encoding. So let's specifiy the converter
+name with the magical "-- types type1[, type2 ...]" SQL command that PySQLite
+intercepts and interprets itself and try again:
+
+>>> cu.execute("-- types unicode")
+>>> cu.execute("select u1 || '-' || u2 from test")
+>>> row = cu.fetchone()
+>>> row, map(type, row)
+((u'\x99sterreich-Ungarn',), [<type 'unicode'>])
+
+Another problematic area are SQLite functions and aggregates. SQLite will
+always consider their results NUMERIC. Consider this:
+
+>>> import sqlite
+>>> cx = sqlite.connect(":memory:")
+>>> cx.create_function("concat", 2, lambda x, y: "%s--%s" % (x,y))
+>>> cu = cx.cursor()
+>>> cu.execute("select concat('ab', 'cd')")
+>>> res = cu.fetchone()[0]
+>>> res, type(res)
+(0.0, <type 'float'>)
+
+Pretty stupid, right? SQLite tells PySQLite that the result is NUMERIC so
+PySQLite faithfully tries to convert it to a float, which fails so the result
+is 0.0. So we'll have to explicitely tell which types we want:
+
+>>> cu.execute("-- types str")
+>>> cu.execute("select concat('ab', 'cd')")
+>>> res = cu.fetchone()[0]
+>>> res, type(res)
+('ab--cd', <type 'str'>)
+>>>
+
+The same problem exists for aggregates, btw.:
+
+>>> import sqlite
+>>> cx = sqlite.connect(":memory:")
+>>> from mx.DateTime import *
+>>> today = now()
+>>> yesterday = now - DateTimeDelta(1)
+>>> today, yesterday
+(<DateTime object for '2004-07-06 18:50:12.12' at 401f12f8>, <DateTime object for '2004-07-05 18:50:12.12' at 401ca2f8>)
+>>> cu = cx.cursor()
+>>> cu.execute("create table test (d timestamp)")
+>>> cu.executemany("insert into test(d) values (%s)", [(today,), (yesterday,)])
+>>> cu.execute("select max(d) from test")
+>>> res = cu.fetchone()[0]
+>>> res, type(res)
+(2004.0, <type 'float'>)
+
+Bah! Ok let's be explicit then:
+
+>>> cu.execute("-- types timestamp")
+>>> cu.execute("select max(d) from test")
+>>> res = cu.fetchone()[0]
+>>> res, type(res)
+(<DateTime object for '2004-07-06 18:50:12.11' at 40279bf0>, <type 'DateTime'>)
+>>>
+
+4.2 Conversions Python => SQLite
+--------------------------------
+
+This section only matters if you want to create your own types and use them
+transparently with SQLite. Just provide them with a _quote() method that will
+return a string ready to be inserted directly into a SQL statement.
+
+You'll then also want to register a suitable converter callable with the
+converters parameter of the connect() function.
+
+

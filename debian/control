@@ -1,0 +1,55 @@
+Source: python-sqlite
+Section: python
+Priority: optional
+Maintainer: Joel Rosdahl <joel@debian.org>
+Build-Depends: debhelper (>> 3.0.0), libsqlite0-dev (>= 2.5.6), python2.1-dev, python2.2-dev, python2.3-dev
+Standards-Version: 3.6.1
+
+Package: python2.1-sqlite
+Architecture: any
+Depends: ${shlibs:Depends}, python2.1
+Recommends: python-egenix-mxdatetime
+Description: Python interface to SQLite
+ pysqlite is an interface to the SQLite database server for
+ Python. It aims to be fully compliant with Python database
+ API version 2.0 while also exploiting the unique features of
+ SQLite.
+ .
+ This Debian package is built for Python 2.1.
+
+Package: python2.2-sqlite
+Architecture: any
+Depends: ${shlibs:Depends}, python2.2
+Recommends: python-egenix-mxdatetime
+Description: Python interface to SQLite
+ pysqlite is an interface to the SQLite database server for
+ Python. It aims to be fully compliant with Python database
+ API version 2.0 while also exploiting the unique features of
+ SQLite.
+ .
+ This Debian package is built for Python 2.2.
+
+Package: python2.3-sqlite
+Architecture: any
+Depends: ${shlibs:Depends}, python2.3
+Recommends: python-egenix-mxdatetime
+Description: Python interface to SQLite
+ pysqlite is an interface to the SQLite database server for
+ Python. It aims to be fully compliant with Python database
+ API version 2.0 while also exploiting the unique features of
+ SQLite.
+ .
+ This Debian package is built for Python 2.3.
+
+Package: python-sqlite
+Architecture: all
+Depends: python (>= 2.3), python (<< 2.4), python2.3-sqlite
+Conflicts:
+Description: Python interface to SQLite
+ pysqlite is an interface to the SQLite database server for
+ Python. It aims to be fully compliant with Python database
+ API version 2.0 while also exploiting the unique features of
+ SQLite.
+ .
+ This Debian package is an empty dummy package that always depends on
+ a package built for Debian's default Python version.
