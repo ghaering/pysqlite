@@ -1094,92 +1094,122 @@ static int my_sqlite3_exec(
     int busy_counter;
     PyObject* cbargs;
     PyObject* cb_result;
+    PyObject* remaining_string;
+    PyObject* remaining_string_stripped;
+    PyObject* func_args;
+    PyObject* stripmethod;
+    int remaining_size;
 
-    db = con->p_db;
-    MY_BEGIN_ALLOW_THREADS(con->tstate)
-    rc = sqlite3_prepare(db, sql, 0, &statement, &tail);
-    MY_END_ALLOW_THREADS(con->tstate)
-
-    busy_counter = 0;
+    tail = sql;
     while (1)
     {
-        busy_counter++;
+        db = con->p_db;
         MY_BEGIN_ALLOW_THREADS(con->tstate)
-        rc = sqlite3_step(statement);
+        rc = sqlite3_prepare(db, tail, 0, &statement, &tail);
         MY_END_ALLOW_THREADS(con->tstate)
-        if (rc != SQLITE_BUSY)
-            break;
 
-        if (con->busy_callback != Py_None)
+        busy_counter = 0;
+        while (1)
         {
-            cbargs = PyTuple_New(3);
-            Py_INCREF(con->busy_callback_param);
-            PyTuple_SetItem(cbargs, 0, con->busy_callback_param);
-            Py_INCREF(Py_None);
-            PyTuple_SetItem(cbargs, 1, Py_None);
-            PyTuple_SetItem(cbargs, 2, PyInt_FromLong((long)busy_counter));
-
-            cb_result = PyObject_CallObject(con->busy_callback, cbargs);
-            Py_DECREF(cbargs);
-
-            if (PyErr_Occurred())
-            {
-                PRINT_OR_CLEAR_ERROR
-                abort = 1;
-            }
-            else
-            {
-                Py_DECREF(cb_result);
-                abort = !PyObject_IsTrue(cb_result);
-            }
-
-            if (abort)
-                break;
-        }
-        else
-        {
-            break;
-        }
-    }
-
-    if (rc == SQLITE_ROW)
-    {
-        num_fields = sqlite3_data_count(statement);
-        p_fields = malloc(num_fields * sizeof(char*));
-        p_col_names = malloc(2 * num_fields * sizeof(char*));
-        for (i = 0; i < num_fields; i++)
-        {
-            p_col_names[i] = (char*)sqlite3_column_name(statement, i);
-            p_col_names[num_fields + i] = (char*)sqlite3_column_decltype(statement, i);
-        }
-
-        for (;;)
-        {
-            for (i = 0; i < num_fields; i++)
-            {
-                data = (char*)sqlite3_column_text(statement, i);
-                p_fields[i] = data;
-            }
-
-            abort = process_record(userdata, num_fields, p_fields, p_col_names);
-            if (abort)
-                break;
-
+            busy_counter++;
             MY_BEGIN_ALLOW_THREADS(con->tstate)
             rc = sqlite3_step(statement);
             MY_END_ALLOW_THREADS(con->tstate)
-            /* TODO: check rc */
-            if (rc == SQLITE_DONE)
+            if (rc != SQLITE_BUSY)
                 break;
+
+            if (con->busy_callback != Py_None)
+            {
+                cbargs = PyTuple_New(3);
+                Py_INCREF(con->busy_callback_param);
+                PyTuple_SetItem(cbargs, 0, con->busy_callback_param);
+                Py_INCREF(Py_None);
+                PyTuple_SetItem(cbargs, 1, Py_None);
+                PyTuple_SetItem(cbargs, 2, PyInt_FromLong((long)busy_counter));
+
+                cb_result = PyObject_CallObject(con->busy_callback, cbargs);
+                Py_DECREF(cbargs);
+
+                if (PyErr_Occurred())
+                {
+                    PRINT_OR_CLEAR_ERROR
+                    abort = 1;
+                }
+                else
+                {
+                    Py_DECREF(cb_result);
+                    abort = !PyObject_IsTrue(cb_result);
+                }
+
+                if (abort)
+                    break;
+            }
+            else
+            {
+                break;
+            }
         }
 
-        free(p_fields);
-        free(p_col_names);
+        if (rc == SQLITE_ROW)
+        {
+            num_fields = sqlite3_data_count(statement);
+            p_fields = malloc(num_fields * sizeof(char*));
+            p_col_names = malloc(2 * num_fields * sizeof(char*));
+            for (i = 0; i < num_fields; i++)
+            {
+                p_col_names[i] = (char*)sqlite3_column_name(statement, i);
+                p_col_names[num_fields + i] = (char*)sqlite3_column_decltype(statement, i);
+            }
+
+            for (;;)
+            {
+                for (i = 0; i < num_fields; i++)
+                {
+                    data = (char*)sqlite3_column_text(statement, i);
+                    p_fields[i] = data;
+                }
+
+                abort = process_record(userdata, num_fields, p_fields, p_col_names);
+                if (abort)
+                    break;
+
+                MY_BEGIN_ALLOW_THREADS(con->tstate)
+                rc = sqlite3_step(statement);
+                MY_END_ALLOW_THREADS(con->tstate)
+                /* TODO: check rc */
+                if (rc == SQLITE_DONE)
+                    break;
+            }
+
+            free(p_fields);
+            free(p_col_names);
+        }
+        else if (rc == SQLITE_BUSY)
+        {
+        }
+        rc = sqlite3_finalize(statement);
+
+        /* Because it worked for older PySQLite versions, we allow here to
+         * execute multiple statements per .execute() call.
+         * To do so, we strip the remaining string after `tail` and look if
+         * size != 0. If so, we loop again.
+         */
+        remaining_string = PyString_FromString(tail);
+        stripmethod = PyObject_GetAttrString(remaining_string, "strip");
+        func_args = PyTuple_New(0);
+        remaining_string_stripped = PyObject_CallObject(stripmethod, func_args);
+        Py_DECREF(func_args);
+        Py_DECREF(stripmethod);
+
+        remaining_size = PyString_Size(remaining_string_stripped);
+
+        Py_DECREF(remaining_string);
+        Py_DECREF(remaining_string_stripped);
+
+        if (remaining_size == 0) {
+            break;
+        }
     }
-    else if (rc == SQLITE_BUSY)
-    {
-    }
-    rc = sqlite3_finalize(statement);
 
     return rc;
 }
