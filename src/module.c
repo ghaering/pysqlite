@@ -25,6 +25,7 @@
 #include "connection.h"
 #include "cursor.h"
 #include "cache.h"
+#include "prepare_protocol.h"
 #include "microprotocols.h"
 #include "microprotocols_proto.h"
 
@@ -42,7 +43,8 @@ PyMODINIT_FUNC init_sqlite(void)
     CursorType.tp_new = PyType_GenericNew;
     NodeType.tp_new = PyType_GenericNew;
     CacheType.tp_new = PyType_GenericNew;
-    isqlquoteType.ob_type    = &PyType_Type;
+    SQLitePrepareProtocolType.tp_new = PyType_GenericNew;
+    SQLitePrepareProtocolType.ob_type    = &PyType_Type;
     if (PyType_Ready(&NodeType) < 0) {
         return;
     }
@@ -55,7 +57,7 @@ PyMODINIT_FUNC init_sqlite(void)
     if (PyType_Ready(&CursorType) < 0) {
         return;
     }
-    if (PyType_Ready(&isqlquoteType) == -1) {
+    if (PyType_Ready(&SQLitePrepareProtocolType) == -1) {
         return;
     }
 
@@ -65,8 +67,8 @@ PyMODINIT_FUNC init_sqlite(void)
     PyModule_AddObject(module, "Cursor", (PyObject*) &CursorType);
     Py_INCREF(&CacheType);
     PyModule_AddObject(module, "Cache", (PyObject*) &CacheType);
-    Py_INCREF(&isqlquoteType);
-    PyModule_AddObject(module, "ISQLQuote", (PyObject*) &isqlquoteType);
+    Py_INCREF(&SQLitePrepareProtocolType);
+    PyModule_AddObject(module, "SQLitePrepareProtocol", (PyObject*) &SQLitePrepareProtocolType);
 
     if (!(dict = PyModule_GetDict(module)))
     {

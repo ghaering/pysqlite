@@ -23,6 +23,7 @@
 
 #include "connection.h"
 #include "cursor.h"
+#include "prepare_protocol.h"
 
 PyObject* connection_alloc(PyTypeObject* type, int aware)
 {
@@ -38,12 +39,14 @@ PyObject* connection_alloc(PyTypeObject* type, int aware)
 
 int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
 {
-    static char *kwlist[] = {"database", "more_types", NULL, NULL};
+    static char *kwlist[] = {"database", "more_types", "prepareProtocol", NULL, NULL};
     char* database;
     int more_types = 0;
+    PyObject* prepare_protocol = NULL;
+    PyObject* proto_args;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|i", kwlist,
-                                     &database, &more_types))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|iO", kwlist,
+                                     &database, &more_types, &prepare_protocol))
     {
         return -1; 
     }
@@ -56,6 +59,15 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
     self->inTransaction = 0;
     self->advancedTypes = more_types;
     self->converters = PyDict_New();
+
+    if (prepare_protocol == NULL) {
+        proto_args = Py_BuildValue("()");
+        self->prepareProtocol = (PyObject*)PyObject_CallObject((PyObject*)&SQLitePrepareProtocolType, proto_args);
+        Py_DECREF(proto_args);
+    } else {
+        Py_INCREF(prepare_protocol);
+        self->prepareProtocol = prepare_protocol;
+    }
 
     return 0;
 }
@@ -77,6 +89,7 @@ void connection_dealloc(Connection* self)
     }
 
     Py_XDECREF(self->converters);
+    Py_XDECREF(self->prepareProtocol);
 
     self->ob_type->tp_free((PyObject*)self);
 }

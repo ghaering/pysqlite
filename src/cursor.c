@@ -216,7 +216,7 @@ PyObject* cursor_execute(Cursor* self, PyObject* args)
             current_param = PySequence_GetItem(parameters, i);
 
             Py_INCREF(current_param);
-            adapted = microprotocols_adapt(current_param, (PyObject*)&isqlquoteType, NULL);
+            adapted = microprotocols_adapt(current_param, (PyObject*)self->connection->SQLitePrepareProtocol, NULL);
             Py_DECREF(current_param);
             if (adapted) {
             } else {

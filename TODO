@@ -6,6 +6,12 @@ TODO list for pysqlite
 Open items:
 -----------
 
+Summary:        handle exceptions in type converters
+Priority:       medium
+Status:
+Description:
+    Exceptions in type converters currently lead to a segfault.
+
 Summary:        import microprotocols from psycopg
 Priority:       high
 Status:         integrated, needs bugfixing and tests

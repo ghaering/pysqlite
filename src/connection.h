@@ -36,6 +36,7 @@ typedef struct
     sqlite3* db;
     int inTransaction;
     int advancedTypes;
+    PyObject* prepareProtocol;
 
     /* A dictionary, mapping colum types (INTEGER, VARCHAR, etc.) to converter
      * functions, that convert the SQL value to the appropriate Python value.

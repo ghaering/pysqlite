@@ -32,7 +32,8 @@ PYSQLITE_VERSION = "2.0.alpha1"
 sqlite = "sqlite"
 
 sources = ["src/module.c", "src/connection.c", "src/cursor.c", "src/cache.c",
-           "src/microprotocols.c", "src/microprotocols_proto.c"]
+           "src/microprotocols.c", "src/microprotocols_proto.c",
+           "src/prepare_protocol.c"]
 
 include_dirs = []
 library_dirs = []
