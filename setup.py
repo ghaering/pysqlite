@@ -46,7 +46,10 @@ pysqlite is an interface to the SQLite 3.x embedded relational database engine.
 It will be fully compliant with Python database API version 2.0 while also
 exploiting the unique features of SQLite."""
 
-define_macros.append(('PYSQLITE_VERSION', '"%s"' % PYSQLITE_VERSION))
+if sys.platform != "win32":
+    define_macros.append(('PYSQLITE_VERSION', '"%s"' % PYSQLITE_VERSION))
+else:
+    define_macros.append(('PYSQLITE_VERSION', '\\"'+PYSQLITE_VERSION+'\\"'))
 define_macros.append(('PY_MAJOR_VERSION', str(sys.version_info[0])))
 define_macros.append(('PY_MINOR_VERSION', str(sys.version_info[1])))
 
