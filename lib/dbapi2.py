@@ -33,7 +33,7 @@ apilevel = "2.0"
 from pysqlite2._sqlite import Error, Warning, InterfaceError, DatabaseError,\
     InternalError, OperationalError, ProgrammingError, IntegrityError,\
     DataError, NotSupportedError, STRING, BINARY, NUMBER, DATETIME, ROWID,\
-    version
+    version, sqlite_version, ISQLQuote
 
 import datetime, time
 
@@ -54,5 +54,7 @@ def TimestampFromTicks(ticks):
 
 _major, _minor, _micro = version.split(".")
 version_info = (int(_major), int(_minor), _micro)
+_major, _minor, _micro = sqlite_version.split(".")
+sqlite_version_info = (int(_major), int(_minor), _micro)
 
-Binary = str
+Binary = buffer
