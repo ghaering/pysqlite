@@ -1470,7 +1470,6 @@ int process_record(sqlite3_stmt* statement, void* p_data, int num_fields, char**
             /* Try to determine column type. */
             if (strcmp(type_name, "") == 0)
             {
-                Py_INCREF(Py_None);
                 type_code = Py_None;
             }
             else if (strstr(type_name, "INTERVAL"))
@@ -1515,6 +1514,10 @@ int process_record(sqlite3_stmt* statement, void* p_data, int num_fields, char**
             else if (strstr(type_name, "TIME"))
             {
                 type_code = tc_TIME;
+            }
+            else
+            {
+                type_code = Py_None;
             }
 
             /* Assign type. */
