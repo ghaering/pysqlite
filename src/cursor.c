@@ -23,6 +23,7 @@
 
 #include "cursor.h"
 #include "module.h"
+#include "util.h"
 #include "microprotocols.h"
 #include "microprotocols_proto.h"
 #include "prepare_protocol.h"
@@ -273,7 +274,7 @@ PyObject* cursor_execute(Cursor* self, PyObject* args)
 
     build_row_cast_map(self);
 
-    self->step_rc = sqlite3_step(self->statement);
+    self->step_rc = _sqlite_step_with_busyhandler(self->statement, self->connection);
     if (self->step_rc != SQLITE_DONE && self->step_rc != SQLITE_ROW) {
         PyErr_SetString(DatabaseError, sqlite3_errmsg(self->connection->db));
         return NULL;

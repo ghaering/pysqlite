@@ -184,7 +184,8 @@ PyObject* connection_commit(Connection* self, PyObject* args)
             return NULL;
         }
 
-        rc = sqlite3_step(statement);
+        rc = _sqlite_step_with_busyhandler(statement, self);
+
         if (rc != SQLITE_DONE) {
             PyErr_SetString(DatabaseError, sqlite3_errmsg(self->db));
             return NULL;
