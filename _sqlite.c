@@ -58,6 +58,19 @@
 #  define MY_END_ALLOW_THREADS(st)      { st = NULL; }
 #endif
 
+/*
+ * ** Some compilers do not support the "long long" datatype.  So we have
+ * ** to do a typedef that for 64-bit integers that depends on what compiler
+ * ** is being used.
+ * */
+#if defined(_MSC_VER) || defined(__BORLANDC__)
+  typedef __int64 sqlite_int64;
+    typedef unsigned __int64 sqlite_uint64;
+#else
+      typedef long long int sqlite_int64;
+        typedef unsigned long long int sqlite_uint64;
+#endif
+
 /*------------------------------------------------------------------------------
 ** Object Declarations
 **------------------------------------------------------------------------------
