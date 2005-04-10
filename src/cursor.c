@@ -201,6 +201,7 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
     PyObject* second_argument = NULL;
     int num_params_needed;
     const char* binding_name;
+    long rowcount = 0;
 
     if (!check_thread(self->connection)) {
         return NULL;
@@ -420,8 +421,9 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
             case STATEMENT_UPDATE:
             case STATEMENT_DELETE:
             case STATEMENT_INSERT:
+                rowcount += (long)sqlite3_changes(self->connection->db);
                 Py_DECREF(self->rowcount);
-                self->rowcount = PyInt_FromLong((long)sqlite3_changes(self->connection->db));
+                self->rowcount = PyInt_FromLong(rowcount);
         }
 
         Py_DECREF(self->lastrowid);
