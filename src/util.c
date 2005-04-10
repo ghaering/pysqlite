@@ -68,7 +68,9 @@ int _sqlite_step_with_busyhandler(sqlite3_stmt* statement, void* _connection)
 
     connection->timeout_started = pysqlite_time();
     while (1) {
+        Py_BEGIN_ALLOW_THREADS
         rc = sqlite3_step(statement);
+        Py_END_ALLOW_THREADS
         if (rc != SQLITE_BUSY) {
             break;
         }

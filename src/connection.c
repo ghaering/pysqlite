@@ -49,6 +49,7 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
     PyObject* proto_args;
     int check_same_thread = 1;
     double timeout = 5.0;
+    int rc;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|diiiO", kwlist,
                                      &database, &timeout, &more_types, &no_implicit_begin, &check_same_thread, &prepare_protocol))
@@ -56,7 +57,11 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
         return -1; 
     }
 
-    if (sqlite3_open(database, &self->db) != SQLITE_OK) {
+    Py_BEGIN_ALLOW_THREADS
+    rc = sqlite3_open(database, &self->db);
+    Py_END_ALLOW_THREADS
+
+    if (rc != SQLITE_OK) {
         _seterror(self->db);
         return -1;
     }
@@ -94,7 +99,9 @@ void connection_dealloc(Connection* self)
 {
     /* Clean up if user has not called .close() explicitly. */
     if (self->db) {
+        Py_BEGIN_ALLOW_THREADS
         sqlite3_close(self->db);
+        Py_END_ALLOW_THREADS
     }
 
     Py_XDECREF(self->converters);
@@ -145,7 +152,10 @@ PyObject* connection_close(Connection* self, PyObject* args)
     }
 
     if (self->db) {
+        Py_BEGIN_ALLOW_THREADS
         rc = sqlite3_close(self->db);
+        Py_END_ALLOW_THREADS
+
         if (rc != SQLITE_OK) {
             _seterror(self->db);
             return NULL;
@@ -168,7 +178,10 @@ PyObject* _connection_begin(Connection* self, PyObject* args)
         return NULL;
     }
 
+    Py_BEGIN_ALLOW_THREADS
     rc = sqlite3_prepare(self->db, "BEGIN", -1, &statement, &tail);
+    Py_END_ALLOW_THREADS
+
     if (rc != SQLITE_OK) {
         _seterror(self->db);
         return NULL;
@@ -180,7 +193,10 @@ PyObject* _connection_begin(Connection* self, PyObject* args)
         return NULL;
     }
 
+    Py_BEGIN_ALLOW_THREADS
     rc = sqlite3_finalize(statement);
+    Py_END_ALLOW_THREADS
+
     if (rc != SQLITE_OK) {
         _seterror(self->db);
         return NULL;
@@ -214,7 +230,9 @@ PyObject* connection_commit(Connection* self, PyObject* args)
     }
 
     if (self->inTransaction) {
+        Py_BEGIN_ALLOW_THREADS
         rc = sqlite3_prepare(self->db, "COMMIT", -1, &statement, &tail);
+        Py_END_ALLOW_THREADS
         if (rc != SQLITE_OK) {
             _seterror(self->db);
             return NULL;
@@ -227,7 +245,9 @@ PyObject* connection_commit(Connection* self, PyObject* args)
             return NULL;
         }
 
+        Py_BEGIN_ALLOW_THREADS
         rc = sqlite3_finalize(statement);
+        Py_END_ALLOW_THREADS
         if (rc != SQLITE_OK) {
             _seterror(self->db);
             return NULL;
@@ -251,7 +271,9 @@ PyObject* connection_rollback(Connection* self, PyObject* args)
     }
 
     if (self->inTransaction) {
+        Py_BEGIN_ALLOW_THREADS
         rc = sqlite3_prepare(self->db, "ROLLBACK", -1, &statement, &tail);
+        Py_END_ALLOW_THREADS
         if (rc != SQLITE_OK) {
             _seterror(self->db);
             return NULL;
@@ -263,7 +285,9 @@ PyObject* connection_rollback(Connection* self, PyObject* args)
             return NULL;
         }
 
+        Py_BEGIN_ALLOW_THREADS
         rc = sqlite3_finalize(statement);
+        Py_END_ALLOW_THREADS
         if (rc != SQLITE_OK) {
             _seterror(self->db);
             return NULL;
