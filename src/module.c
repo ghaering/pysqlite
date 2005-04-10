@@ -29,6 +29,12 @@
 #include "microprotocols.h"
 #include "microprotocols_proto.h"
 
+PyObject* sqlite_STRING;
+PyObject* sqlite_BINARY;
+PyObject* sqlite_NUMBER;
+PyObject* sqlite_DATETIME;
+PyObject* sqlite_ROWID;
+
 static PyMethodDef module_methods[] = {
     {NULL, NULL}
 };

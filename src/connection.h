@@ -27,6 +27,7 @@
 #include "structmember.h"
 
 #include "util.h"
+#include "module.h"
 
 #include "sqlite3.h"
 
@@ -46,6 +47,9 @@ typedef struct
 
     /* 0: normal mode; 1: "autocommit" mode */
     int no_implicit_begin;
+
+    int check_same_thread;
+    int thread_ident;
 
     PyObject* prepareProtocol;
 
@@ -68,4 +72,7 @@ PyObject* connection_commit(Connection* self, PyObject* args);
 PyObject* connection_rollback(Connection* self, PyObject* args);
 PyObject* connection_new(PyTypeObject* type, PyObject* args, PyObject* kw);
 int connection_init(Connection* self, PyObject* args, PyObject* kwargs);
+
+int check_thread(Connection* self);
+
 #endif

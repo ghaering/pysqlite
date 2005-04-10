@@ -25,6 +25,7 @@
 #include "cursor.h"
 #include "prepare_protocol.h"
 #include "util.h"
+#include "pythread.h"
 
 PyObject* connection_alloc(PyTypeObject* type, int aware)
 {
@@ -40,16 +41,17 @@ PyObject* connection_alloc(PyTypeObject* type, int aware)
 
 int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
 {
-    static char *kwlist[] = {"database", "timeout", "more_types", "no_implicit_begin", "prepareProtocol", NULL, NULL};
+    static char *kwlist[] = {"database", "timeout", "more_types", "no_implicit_begin", "check_same_thread", "prepareProtocol", NULL, NULL};
     char* database;
     int more_types = 0;
     int no_implicit_begin = 0;
     PyObject* prepare_protocol = NULL;
     PyObject* proto_args;
+    int check_same_thread = 1;
     double timeout = 5.0;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|diiO", kwlist,
-                                     &database, &timeout, &more_types, &no_implicit_begin, &prepare_protocol))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|diiiO", kwlist,
+                                     &database, &timeout, &more_types, &no_implicit_begin, &check_same_thread, &prepare_protocol))
     {
         return -1; 
     }
@@ -63,6 +65,8 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
     self->advancedTypes = more_types;
     self->timeout = timeout;
     self->no_implicit_begin = no_implicit_begin;
+    self->thread_ident = PyThread_get_thread_ident();
+    self->check_same_thread = check_same_thread;
     self->converters = PyDict_New();
 
     if (prepare_protocol == NULL) {
@@ -103,6 +107,10 @@ PyObject* connection_cursor(Connection* self, PyObject* args)
 {
     Cursor* cursor = NULL;
 
+    if (!check_thread(self)) {
+        return NULL;
+    }
+
     cursor = (Cursor*) (CursorType.tp_alloc(&CursorType, 0));
     cursor->connection = self;
     cursor->statement = NULL;
@@ -132,6 +140,10 @@ PyObject* connection_close(Connection* self, PyObject* args)
 {
     int rc;
 
+    if (!check_thread(self)) {
+        return NULL;
+    }
+
     if (self->db) {
         rc = sqlite3_close(self->db);
         if (rc != SQLITE_OK) {
@@ -151,6 +163,10 @@ PyObject* _connection_begin(Connection* self, PyObject* args)
     int rc;
     const char* tail;
     sqlite3_stmt* statement;
+
+    if (!check_thread(self)) {
+        return NULL;
+    }
 
     rc = sqlite3_prepare(self->db, "BEGIN", -1, &statement, &tail);
     if (rc != SQLITE_OK) {
@@ -193,6 +209,10 @@ PyObject* connection_commit(Connection* self, PyObject* args)
     const char* tail;
     sqlite3_stmt* statement;
 
+    if (!check_thread(self)) {
+        return NULL;
+    }
+
     if (self->inTransaction) {
         rc = sqlite3_prepare(self->db, "COMMIT", -1, &statement, &tail);
         if (rc != SQLITE_OK) {
@@ -226,6 +246,10 @@ PyObject* connection_rollback(Connection* self, PyObject* args)
     const char* tail;
     sqlite3_stmt* statement;
 
+    if (!check_thread(self)) {
+        return NULL;
+    }
+
     if (self->inTransaction) {
         rc = sqlite3_prepare(self->db, "ROLLBACK", -1, &statement, &tail);
         if (rc != SQLITE_OK) {
@@ -257,6 +281,10 @@ PyObject* connection_register_converter(Connection* self, PyObject* args)
     PyObject* name;
     PyObject* func;
 
+    if (!check_thread(self)) {
+        return NULL;
+    }
+
     if (!PyArg_ParseTuple(args, "OO", &name, &func)) {
         return NULL;
     }
@@ -267,6 +295,22 @@ PyObject* connection_register_converter(Connection* self, PyObject* args)
 
     Py_INCREF(Py_None);
     return Py_None;
+}
+
+int check_thread(Connection* self)
+{
+    if (self->check_same_thread) {
+        if (PyThread_get_thread_ident() != self->thread_ident) {
+            PyErr_Format(ProgrammingError,
+                        "SQLite objects created in a thread can only be used in that same thread."
+                        "The object was created in thread id %d and this is thread id %d",
+                        PyThread_get_thread_ident(), self->thread_ident);
+            return 0;
+        }
+
+    }
+
+    return 1;
 }
 
 static char connection_doc[] =

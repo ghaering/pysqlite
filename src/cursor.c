@@ -202,6 +202,10 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
     int num_params_needed;
     const char* binding_name;
 
+    if (!check_thread(self->connection)) {
+        return NULL;
+    }
+
     if (multiple) {
         /* executemany() */
         if (!PyArg_ParseTuple(args, "SO", &operation, &second_argument)) {
@@ -466,6 +470,10 @@ PyObject* cursor_iternext(Cursor *self)
     PyObject* buffer;
     void* raw_buffer;
 
+    if (!check_thread(self->connection)) {
+        return NULL;
+    }
+
     if (self->statement == NULL) {
         PyErr_SetString(ProgrammingError, "no compiled statement - you need to execute() before you can fetch data");
         return NULL;
@@ -593,6 +601,8 @@ PyObject* cursor_fetchmany(Cursor* self, PyObject* args)
         row = cursor_iternext(self);
         if (row) {
             PyList_Append(list, row);
+        } else {
+            break;
         }
 
         if (++counter == maxrows) {
@@ -600,7 +610,12 @@ PyObject* cursor_fetchmany(Cursor* self, PyObject* args)
         }
     }
 
-    return list;
+    if (PyErr_Occurred()) {
+        Py_DECREF(list);
+        return NULL;
+    } else {
+        return list;
+    }
 }
 
 PyObject* cursor_fetchall(Cursor* self, PyObject* args)
@@ -620,7 +635,12 @@ PyObject* cursor_fetchall(Cursor* self, PyObject* args)
         }
     }
 
-    return list;
+    if (PyErr_Occurred()) {
+        Py_DECREF(list);
+        return NULL;
+    } else {
+        return list;
+    }
 }
 
 PyObject* pysqlite_noop(Connection* self, PyObject* args)
@@ -633,6 +653,10 @@ PyObject* pysqlite_noop(Connection* self, PyObject* args)
 PyObject* cursor_close(Cursor* self, PyObject* args)
 {
     int rc;
+
+    if (!check_thread(self->connection)) {
+        return NULL;
+    }
 
     rc = sqlite3_finalize(self->statement);
     if (rc != SQLITE_OK) {

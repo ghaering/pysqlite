@@ -26,27 +26,14 @@
 #include "Python.h"
 
 #include "util.h"
-
-/**
- * Exception objects
- */
-extern PyObject* Error;
-extern PyObject* Warning;
-extern PyObject* InterfaceError;
-extern PyObject* DatabaseError;
-extern PyObject* InternalError;
-extern PyObject* OperationalError;
-extern PyObject* ProgrammingError;
-extern PyObject* IntegrityError;
-extern PyObject* DataError;
-extern PyObject* NotSupportedError;
-
-/**
- * Type objects
- */
-extern PyObject* sqlite_STRING;
-extern PyObject* sqlite_BINARY;
-extern PyObject* sqlite_NUMBER;
-extern PyObject* sqlite_DATETIME;
-extern PyObject* sqlite_ROWID;
+PyObject* Error;
+PyObject* Warning;
+PyObject* InterfaceError;
+PyObject* DatabaseError;
+PyObject* InternalError;
+PyObject* OperationalError;
+PyObject* ProgrammingError;
+PyObject* IntegrityError;
+PyObject* DataError;
+PyObject* NotSupportedError;
 #endif
