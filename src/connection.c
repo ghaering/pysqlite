@@ -334,6 +334,7 @@ void _func_callback(sqlite3_context* context, int argc, sqlite3_value** argv)
     long long int val_int;
     long longval;
     const char* buffer;
+    void* raw_buffer;
     int buflen;
 
     PyObject* stringval;
@@ -360,6 +361,17 @@ void _func_callback(sqlite3_context* context, int argc, sqlite3_value** argv)
                 val_str = sqlite3_value_text(cur_value);
                 cur_py_value = PyUnicode_DecodeUTF8(val_str, strlen(val_str), NULL);
                 /* TODO: error handling, check cur_py_value for NULL */
+                break;
+            case SQLITE_BLOB:
+                buflen = sqlite3_value_bytes(cur_value);
+                cur_py_value = PyBuffer_New(buflen);
+                if (!cur_py_value) {
+                    /* TODO: error */
+                }
+                if (PyObject_AsWriteBuffer(cur_py_value, &raw_buffer, &buflen)) {
+                    /* TODO: error */
+                }
+                memcpy(raw_buffer, sqlite3_value_blob(cur_value), buflen);
                 break;
             case SQLITE_NULL:
             default:
@@ -593,7 +605,7 @@ int check_thread(Connection* self)
         if (PyThread_get_thread_ident() != self->thread_ident) {
             PyErr_Format(ProgrammingError,
                         "SQLite objects created in a thread can only be used in that same thread."
-                        "The object was created in thread id %d and this is thread id %d",
+                        "The object was created in thread id %ld and this is thread id %ld",
                         PyThread_get_thread_ident(), self->thread_ident);
             return 0;
         }
