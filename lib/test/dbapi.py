@@ -195,6 +195,18 @@ class CursorTests(unittest.TestCase):
     def CheckClose(self):
         self.cu.close()
 
+    def CheckRowcountExecute(self):
+        self.cu.execute("delete from test")
+        self.cu.execute("insert into test(name) values ('foo')")
+        self.cu.execute("insert into test(name) values ('foo')")
+        self.cu.execute("update test set name='bar'")
+        self.failUnlessEqual(self.cu.rowcount, 2)
+
+    def CheckRowcountExecutemany(self):
+        self.cu.execute("delete from test")
+        self.cu.executemany("insert into test(name) values (?)", [(1,), (2,), (3,)])
+        self.failUnlessEqual(self.cu.rowcount, 3)
+
     # Checks for executemany:
     # Sequences are required by the DB-API, iterators
     # enhancements in pysqlite.

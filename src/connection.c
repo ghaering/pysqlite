@@ -321,6 +321,272 @@ PyObject* connection_register_converter(Connection* self, PyObject* args)
     return Py_None;
 }
 
+void _func_callback(sqlite3_context* context, int argc, sqlite3_value** argv)
+{
+    PyObject* args;
+    sqlite3_value* cur_value;
+    PyObject* cur_py_value;
+    int i;
+    PyObject* py_func;
+    PyObject* py_retval;
+
+    const char* val_str;
+    long long int val_int;
+    long longval;
+    const char* buffer;
+    int buflen;
+
+    PyObject* stringval;
+
+    PyGILState_STATE threadstate;
+
+    threadstate = PyGILState_Ensure();
+
+    py_func = (PyObject*)sqlite3_user_data(context);
+
+    args = PyTuple_New(argc);
+
+    for (i = 0; i < argc; i++) {
+        cur_value = argv[i];
+        switch (sqlite3_value_type(argv[i])) {
+            case SQLITE_INTEGER:
+                val_int = sqlite3_value_int64(cur_value);
+                cur_py_value = PyInt_FromLong((long)val_int);
+                break;
+            case SQLITE_FLOAT:
+                cur_py_value = PyFloat_FromDouble(sqlite3_value_double(cur_value));
+                break;
+            case SQLITE_TEXT:
+                val_str = sqlite3_value_text(cur_value);
+                cur_py_value = PyUnicode_DecodeUTF8(val_str, strlen(val_str), NULL);
+                /* TODO: error handling, check cur_py_value for NULL */
+                break;
+            case SQLITE_NULL:
+            default:
+                Py_INCREF(Py_None);
+                cur_py_value = Py_None;
+        }
+        PyTuple_SetItem(args, i, cur_py_value);
+
+    }
+
+    py_retval = PyObject_CallObject(py_func, args);
+    Py_DECREF(args);
+
+    if (PyErr_Occurred()) {
+        /* Errors in callbacks are ignored, and we return NULL */
+        PyErr_Clear();
+        sqlite3_result_null(context);
+    } else if (py_retval == Py_None) {
+        sqlite3_result_null(context);
+    } else if (PyInt_Check(py_retval)) {
+        longval = PyInt_AsLong(py_retval);
+        /* TODO: investigate what to do with range overflows - long vs. long long */
+        sqlite3_result_int64(context, (long long int)longval);
+    } else if (PyFloat_Check(py_retval)) {
+        sqlite3_result_double(context, PyFloat_AsDouble(py_retval));
+    } else if (PyBuffer_Check(py_retval)) {
+        if (PyObject_AsCharBuffer(py_retval, &buffer, &buflen) != 0) {
+            /* TODO: decide what error to raise */
+            PyErr_SetString(PyExc_ValueError, "could not convert BLOB to buffer");
+        }
+        sqlite3_result_blob(context, buffer, buflen, SQLITE_TRANSIENT);
+    } else if (PyString_Check(py_retval)) {
+        sqlite3_result_text(context, PyString_AsString(py_retval), -1, SQLITE_TRANSIENT);
+    } else if (PyUnicode_Check(py_retval)) {
+        stringval = PyUnicode_AsUTF8String(py_retval);
+        sqlite3_result_text(context, PyString_AsString(stringval), -1, SQLITE_TRANSIENT);
+        Py_DECREF(stringval);
+    } else {
+        /* TODO: raise error */
+    }
+
+    PyGILState_Release(threadstate);
+}
+
+static void _step_callback(sqlite3_context *context, int argc, sqlite3_value** params)
+{
+    int i;
+    PyObject* args;
+    PyObject* function_result;
+    PyObject* aggregate_class;
+    PyObject** aggregate_instance;
+    PyObject* stepmethod;
+    char* strparam;
+
+    PyGILState_STATE threadstate;
+
+    threadstate = PyGILState_Ensure();
+
+    aggregate_class = (PyObject*)sqlite3_user_data(context);
+
+    aggregate_instance = (PyObject**)sqlite3_aggregate_context(context, sizeof(PyObject*));
+
+    if (*aggregate_instance == 0) {
+        args = PyTuple_New(0);
+        *aggregate_instance = PyObject_CallObject(aggregate_class, args);
+        Py_DECREF(args);
+
+        if (PyErr_Occurred())
+        {
+            //PRINT_OR_CLEAR_ERROR
+            PyGILState_Release(threadstate);
+            return;
+        }
+    }
+
+    stepmethod = PyObject_GetAttrString(*aggregate_instance, "step");
+    if (!stepmethod)
+    {
+        /* PRINT_OR_CLEAR_ERROR */
+        PyGILState_Release(threadstate);
+        return;
+    }
+
+    args = PyTuple_New(argc);
+    for (i = 0; i < argc; i++) {
+        /* TODO: switch on different types, call appropriate sqlite3_value_...
+         * functions, or rather, factor that stuff out in a helper function */
+        strparam = (char*)sqlite3_value_text(params[i]);
+        if (!strparam)
+        {
+            Py_INCREF(Py_None);
+            PyTuple_SetItem(args, i, Py_None);
+        } else {
+            PyTuple_SetItem(args, i, PyString_FromString(strparam));
+        }
+    }
+
+    if (PyErr_Occurred())
+    {
+        //PRINT_OR_CLEAR_ERROR
+    }
+
+    function_result = PyObject_CallObject(stepmethod, args);
+    Py_DECREF(args);
+    Py_DECREF(stepmethod);
+
+    if (function_result == NULL)
+    {
+        //PRINT_OR_CLEAR_ERROR
+        /* Don't use sqlite_set_result_error here. Else an assertion in
+         * the SQLite code will trigger and create a core dump.
+         *
+         * This was true with SQLite 2.x. Not checked with 3.x, yet.
+         */
+    }
+    else
+    {
+        Py_DECREF(function_result);
+    }
+
+    PyGILState_Release(threadstate);
+}
+
+void _final_callback(sqlite3_context* context)
+{
+    PyObject* args;
+    PyObject* function_result;
+    PyObject* s;
+    PyObject** aggregate_instance;
+    PyObject* aggregate_class;
+    PyObject* finalizemethod;
+
+    PyGILState_STATE threadstate;
+
+    threadstate = PyGILState_Ensure();
+
+    aggregate_class = (PyObject*)sqlite3_user_data(context);
+
+    aggregate_instance = (PyObject**)sqlite3_aggregate_context(context, sizeof(PyObject*));
+
+    finalizemethod = PyObject_GetAttrString(*aggregate_instance, "finalize");
+
+    if (!finalizemethod) {
+        PyErr_SetString(PyExc_ValueError, "finalize method missing");
+        goto error;
+    }
+
+    args = PyTuple_New(0);
+    function_result = PyObject_CallObject(finalizemethod, args);
+    Py_DECREF(args);
+    Py_DECREF(finalizemethod);
+
+    if (PyErr_Occurred())
+    {
+        //PRINT_OR_CLEAR_ERROR
+        sqlite3_result_error(context, NULL, -1);
+    }
+    else if (function_result == Py_None)
+    {
+        Py_DECREF(function_result);
+        sqlite3_result_null(context);
+    }
+    else
+    {
+        s = PyObject_Str(function_result);
+        Py_DECREF(function_result);
+        sqlite3_result_text(context, PyString_AsString(s), -1, SQLITE_TRANSIENT);
+        Py_DECREF(s);
+    }
+
+error:
+    Py_XDECREF(*aggregate_instance);
+
+    PyGILState_Release(threadstate);
+}
+
+
+PyObject* connection_create_function(Connection* self, PyObject* args, PyObject* kwargs)
+{
+    static char *kwlist[] = {"name", "narg", "func", NULL, NULL};
+
+    PyObject* func;
+    char* name;
+    int narg;
+    int rc;
+
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "siO", kwlist,
+                                     &name, &narg, &func))
+    {
+        return NULL;
+    }
+
+    Py_INCREF(func);
+
+    rc = sqlite3_create_function(self->db, name, narg, SQLITE_UTF8, (void*)func, _func_callback, NULL, NULL);
+;
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+PyObject* connection_create_aggregate(Connection* self, PyObject* args, PyObject* kwargs)
+{
+    PyObject* aggregate_class;
+
+    int n_arg;
+    char* name;
+    static char *kwlist[] = { "name", "n_arg", "aggregate_class", NULL };
+    int rc;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "siO:create_aggregate",
+                                      kwlist, &name, &n_arg, &aggregate_class)) {
+        return NULL;
+    }
+
+    Py_INCREF(aggregate_class);
+
+    rc = sqlite3_create_function(self->db, name, n_arg, SQLITE_UTF8, (void*)aggregate_class, 0, &_step_callback, &_final_callback);
+    if (rc != SQLITE_OK) {
+        _seterror(self->db);
+        return NULL;
+    } else {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+}
+
 int check_thread(Connection* self)
 {
     if (self->check_same_thread) {
@@ -353,7 +619,10 @@ static PyMethodDef connection_methods[] = {
         PyDoc_STR("Roll back the current transaction.")},
     {"register_converter", (PyCFunction)connection_register_converter, METH_VARARGS,
         PyDoc_STR("Registers a new type converter.")},
-
+    {"create_function", (PyCFunction)connection_create_function, METH_VARARGS|METH_KEYWORDS,
+        PyDoc_STR("Creates a new function.")},
+    {"create_aggregate", (PyCFunction)connection_create_aggregate, METH_VARARGS|METH_KEYWORDS,
+        PyDoc_STR("Creates a new aggregate.")},
     {NULL, NULL}
 };
 

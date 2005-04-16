@@ -24,6 +24,7 @@
 #ifndef PYSQLITE_UTIL_H
 #define PYSQLITE_UTIL_H
 #include "Python.h"
+#include "pythread.h"
 #include "sqlite3.h"
 
 void pysqlite_sleep(float seconds);
