@@ -35,10 +35,10 @@ class SqliteTypeTests(unittest.TestCase):
         self.con.close()
 
     def CheckString(self):
-        self.cur.execute("insert into test(s) values (?)", ("foo",))
+        self.cur.execute("insert into test(s) values (?)", (u"Österreich",))
         self.cur.execute("select s from test")
         row = self.cur.fetchone()
-        self.failUnlessEqual(row[0], "foo")
+        self.failUnlessEqual(row[0], u"Österreich")
 
     def CheckSmallInt(self):
         self.cur.execute("insert into test(i) values (?)", (42,))

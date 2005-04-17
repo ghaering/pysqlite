@@ -490,6 +490,7 @@ PyObject* cursor_iternext(Cursor *self)
     int nbytes;
     PyObject* buffer;
     void* raw_buffer;
+    const char* val_str;
 
     if (!check_thread(self->connection)) {
         return NULL;
@@ -539,7 +540,8 @@ PyObject* cursor_iternext(Cursor *self)
             } else if (coltype == SQLITE_FLOAT) {
                 converted = PyFloat_FromDouble(sqlite3_column_double(self->statement, i));
             } else if (coltype == SQLITE_TEXT) {
-                converted = PyString_FromString(sqlite3_column_text(self->statement, i));
+                val_str = sqlite3_column_text(self->statement, i);
+                converted = PyUnicode_DecodeUTF8(val_str, strlen(val_str), NULL);
             } else if (coltype == SQLITE_BLOB) {
                 nbytes = sqlite3_column_bytes(self->statement, i);
                 buffer = PyBuffer_New(nbytes);

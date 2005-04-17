@@ -135,7 +135,7 @@ class FunctionTests(unittest.TestCase):
         cur = self.con.cursor()
         cur.execute("select returntext()")
         val = cur.fetchone()[0]
-        self.failUnlessEqual(type(val), str)
+        self.failUnlessEqual(type(val), unicode)
         self.failUnlessEqual(val, "foo")
 
     def CheckFuncReturnInt(self):
