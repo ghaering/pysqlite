@@ -101,6 +101,16 @@ class AggrCheckType:
     def finalize(self):
         return self.val
 
+class AggrSum:
+    def __init__(self):
+        self.val = 0.0
+
+    def step(self, val):
+        self.val += val
+
+    def finalize(self):
+        return self.val
+
 class FunctionTests(unittest.TestCase):
     def setUp(self):
         self.con = sqlite.connect(":memory:")
@@ -215,6 +225,7 @@ class AggregateTests(unittest.TestCase):
         self.con.create_aggregate("excStep", 1, AggrExceptionInStep)
         self.con.create_aggregate("excFinalize", 1, AggrExceptionInFinalize)
         self.con.create_aggregate("checkType", 2, AggrCheckType)
+        self.con.create_aggregate("mysum", 1, AggrSum)
 
     def tearDown(self):
         #self.cur.close()
@@ -278,6 +289,14 @@ class AggregateTests(unittest.TestCase):
         cur.execute("select checkType('blob', ?)", (buffer("blob"),))
         val = cur.fetchone()[0]
         self.failUnlessEqual(val, 1)
+
+    def CheckAggrCheckAggrSum(self):
+        cur = self.con.cursor()
+        cur.execute("delete from test")
+        cur.executemany("insert into test(i) values (?)", [(10,), (20,), (30,)])
+        cur.execute("select mysum(i) from test")
+        val = cur.fetchone()[0]
+        self.failUnlessEqual(val, 60)
 
 def suite():
     function_suite = unittest.makeSuite(FunctionTests, "Check")
