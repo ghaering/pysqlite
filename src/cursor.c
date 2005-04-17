@@ -195,7 +195,6 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
     PyObject* func_args;
     PyObject* result;
     int numcols;
-    /*int coltype;*/
     int statement_type;
     PyObject* descriptor;
     PyObject* current_param;
@@ -211,8 +210,13 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
 
     if (multiple) {
         /* executemany() */
-        if (!PyArg_ParseTuple(args, "SO", &operation, &second_argument)) {
+        if (!PyArg_ParseTuple(args, "OO", &operation, &second_argument)) {
             return NULL; 
+        }
+
+        if (!PyString_Check(operation) && !PyUnicode_Check(operation)) {
+            PyErr_SetString(PyExc_ValueError, "operation parameter must be str or unicode");
+            return NULL;
         }
 
         if (PyIter_Check(second_argument)) {
@@ -229,8 +233,13 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
         }
     } else {
         /* execute() */
-        if (!PyArg_ParseTuple(args, "S|O", &operation, &second_argument)) {
+        if (!PyArg_ParseTuple(args, "O|O", &operation, &second_argument)) {
             return NULL; 
+        }
+
+        if (!PyString_Check(operation) && !PyUnicode_Check(operation)) {
+            PyErr_SetString(PyExc_ValueError, "operation parameter must be str or unicode");
+            return NULL;
         }
 
         parameters_list = PyList_New(0);
@@ -258,7 +267,11 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
         }
     }
 
-    operation_cstr = PyString_AsString(operation);
+    if (PyString_Check(operation)) {
+        operation_cstr = PyString_AsString(operation);
+    } else {
+        operation_cstr = PyString_AsString(PyUnicode_AsUTF8String(operation));
+    }
 
     /* reset description and rowcount */
     Py_DECREF(self->description);

@@ -67,6 +67,11 @@ class SqliteTypeTests(unittest.TestCase):
         row = self.cur.fetchone()
         self.failUnlessEqual(row[0], val)
 
+    def CheckUnicodeExecute(self):
+        self.cur.execute(u"select 'Österreich'")
+        row = self.cur.fetchone()
+        self.failUnlessEqual(row[0], u"Österreich")
+
 class AdvancedTypeTests(unittest.TestCase):
     class Foo:
         def __init__(self, _val):
