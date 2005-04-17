@@ -321,29 +321,52 @@ PyObject* connection_register_converter(Connection* self, PyObject* args)
     return Py_None;
 }
 
-void _func_callback(sqlite3_context* context, int argc, sqlite3_value** argv)
+void _set_result(sqlite3_context* context, PyObject* py_val)
 {
-    PyObject* args;
-    sqlite3_value* cur_value;
-    PyObject* cur_py_value;
-    int i;
-    PyObject* py_func;
-    PyObject* py_retval;
-
-    const char* val_str;
-    long long int val_int;
     long longval;
     const char* buffer;
-    void* raw_buffer;
     int buflen;
-
     PyObject* stringval;
 
-    PyGILState_STATE threadstate;
+    if (PyErr_Occurred()) {
+        /* Errors in callbacks are ignored, and we return NULL */
+        PyErr_Clear();
+        sqlite3_result_null(context);
+    } else if (py_val == Py_None) {
+        sqlite3_result_null(context);
+    } else if (PyInt_Check(py_val)) {
+        longval = PyInt_AsLong(py_val);
+        /* TODO: investigate what to do with range overflows - long vs. long long */
+        sqlite3_result_int64(context, (long long int)longval);
+    } else if (PyFloat_Check(py_val)) {
+        sqlite3_result_double(context, PyFloat_AsDouble(py_val));
+    } else if (PyBuffer_Check(py_val)) {
+        if (PyObject_AsCharBuffer(py_val, &buffer, &buflen) != 0) {
+            /* TODO: decide what error to raise */
+            PyErr_SetString(PyExc_ValueError, "could not convert BLOB to buffer");
+        }
+        sqlite3_result_blob(context, buffer, buflen, SQLITE_TRANSIENT);
+    } else if (PyString_Check(py_val)) {
+        sqlite3_result_text(context, PyString_AsString(py_val), -1, SQLITE_TRANSIENT);
+    } else if (PyUnicode_Check(py_val)) {
+        stringval = PyUnicode_AsUTF8String(py_val);
+        sqlite3_result_text(context, PyString_AsString(stringval), -1, SQLITE_TRANSIENT);
+        Py_DECREF(stringval);
+    } else {
+        /* TODO: raise error */
+    }
+}
 
-    threadstate = PyGILState_Ensure();
-
-    py_func = (PyObject*)sqlite3_user_data(context);
+PyObject* _build_py_params(sqlite3_context *context, int argc, sqlite3_value** argv)
+{
+    PyObject* args;
+    int i;
+    sqlite3_value* cur_value;
+    PyObject* cur_py_value;
+    const char* val_str;
+    long long int val_int;
+    int buflen;
+    void* raw_buffer;
 
     args = PyTuple_New(argc);
 
@@ -382,49 +405,39 @@ void _func_callback(sqlite3_context* context, int argc, sqlite3_value** argv)
 
     }
 
+    return args;
+}
+
+void _func_callback(sqlite3_context* context, int argc, sqlite3_value** argv)
+{
+    PyObject* args;
+    PyObject* py_func;
+    PyObject* py_retval;
+
+
+    PyGILState_STATE threadstate;
+
+    threadstate = PyGILState_Ensure();
+
+    py_func = (PyObject*)sqlite3_user_data(context);
+
+    args = _build_py_params(context, argc, argv);
+
     py_retval = PyObject_CallObject(py_func, args);
     Py_DECREF(args);
 
-    if (PyErr_Occurred()) {
-        /* Errors in callbacks are ignored, and we return NULL */
-        PyErr_Clear();
-        sqlite3_result_null(context);
-    } else if (py_retval == Py_None) {
-        sqlite3_result_null(context);
-    } else if (PyInt_Check(py_retval)) {
-        longval = PyInt_AsLong(py_retval);
-        /* TODO: investigate what to do with range overflows - long vs. long long */
-        sqlite3_result_int64(context, (long long int)longval);
-    } else if (PyFloat_Check(py_retval)) {
-        sqlite3_result_double(context, PyFloat_AsDouble(py_retval));
-    } else if (PyBuffer_Check(py_retval)) {
-        if (PyObject_AsCharBuffer(py_retval, &buffer, &buflen) != 0) {
-            /* TODO: decide what error to raise */
-            PyErr_SetString(PyExc_ValueError, "could not convert BLOB to buffer");
-        }
-        sqlite3_result_blob(context, buffer, buflen, SQLITE_TRANSIENT);
-    } else if (PyString_Check(py_retval)) {
-        sqlite3_result_text(context, PyString_AsString(py_retval), -1, SQLITE_TRANSIENT);
-    } else if (PyUnicode_Check(py_retval)) {
-        stringval = PyUnicode_AsUTF8String(py_retval);
-        sqlite3_result_text(context, PyString_AsString(stringval), -1, SQLITE_TRANSIENT);
-        Py_DECREF(stringval);
-    } else {
-        /* TODO: raise error */
-    }
+    _set_result(context, py_retval);
 
     PyGILState_Release(threadstate);
 }
 
 static void _step_callback(sqlite3_context *context, int argc, sqlite3_value** params)
 {
-    int i;
     PyObject* args;
     PyObject* function_result;
     PyObject* aggregate_class;
     PyObject** aggregate_instance;
     PyObject* stepmethod;
-    char* strparam;
 
     PyGILState_STATE threadstate;
 
@@ -442,6 +455,7 @@ static void _step_callback(sqlite3_context *context, int argc, sqlite3_value** p
         if (PyErr_Occurred())
         {
             //PRINT_OR_CLEAR_ERROR
+            *aggregate_instance = 0;
             PyGILState_Release(threadstate);
             return;
         }
@@ -455,40 +469,15 @@ static void _step_callback(sqlite3_context *context, int argc, sqlite3_value** p
         return;
     }
 
-    args = PyTuple_New(argc);
-    for (i = 0; i < argc; i++) {
-        /* TODO: switch on different types, call appropriate sqlite3_value_...
-         * functions, or rather, factor that stuff out in a helper function */
-        strparam = (char*)sqlite3_value_text(params[i]);
-        if (!strparam)
-        {
-            Py_INCREF(Py_None);
-            PyTuple_SetItem(args, i, Py_None);
-        } else {
-            PyTuple_SetItem(args, i, PyString_FromString(strparam));
-        }
-    }
-
-    if (PyErr_Occurred())
-    {
-        //PRINT_OR_CLEAR_ERROR
-    }
+    args = _build_py_params(context, argc, params);
 
     function_result = PyObject_CallObject(stepmethod, args);
     Py_DECREF(args);
     Py_DECREF(stepmethod);
 
-    if (function_result == NULL)
-    {
-        //PRINT_OR_CLEAR_ERROR
-        /* Don't use sqlite_set_result_error here. Else an assertion in
-         * the SQLite code will trigger and create a core dump.
-         *
-         * This was true with SQLite 2.x. Not checked with 3.x, yet.
-         */
-    }
-    else
-    {
+    if (function_result == NULL) {
+        PyErr_Clear();
+    } else {
         Py_DECREF(function_result);
     }
 
@@ -499,7 +488,6 @@ void _final_callback(sqlite3_context* context)
 {
     PyObject* args;
     PyObject* function_result;
-    PyObject* s;
     PyObject** aggregate_instance;
     PyObject* aggregate_class;
     PyObject* finalizemethod;
@@ -511,6 +499,13 @@ void _final_callback(sqlite3_context* context)
     aggregate_class = (PyObject*)sqlite3_user_data(context);
 
     aggregate_instance = (PyObject**)sqlite3_aggregate_context(context, sizeof(PyObject*));
+    if (!*aggregate_instance) {
+        /* this branch is executed if there was an exception in the aggregate's
+         * __init__ */
+
+        PyGILState_Release(threadstate);
+        return;
+    }
 
     finalizemethod = PyObject_GetAttrString(*aggregate_instance, "finalize");
 
@@ -524,24 +519,7 @@ void _final_callback(sqlite3_context* context)
     Py_DECREF(args);
     Py_DECREF(finalizemethod);
 
-    if (PyErr_Occurred())
-    {
-        //PRINT_OR_CLEAR_ERROR
-        sqlite3_result_error(context, NULL, -1);
-    }
-    else if (function_result == Py_None)
-    {
-        Py_DECREF(function_result);
-        sqlite3_result_null(context);
-    }
-    else
-    {
-        s = PyObject_Str(function_result);
-        Py_DECREF(function_result);
-        sqlite3_result_text(context, PyString_AsString(s), -1, SQLITE_TRANSIENT);
-        Py_DECREF(s);
-    }
-
+    _set_result(context, function_result);
 error:
     Py_XDECREF(*aggregate_instance);
 

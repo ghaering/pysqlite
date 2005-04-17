@@ -49,11 +49,155 @@ def func_isnone(v):
 def func_isblob(v):
     return type(v) is buffer
 
+class AggrNoStep:
+    def __init__(self):
+        pass
+
+class AggrNoFinalize:
+    def __init__(self):
+        pass
+
+    def step(self, x):
+        pass
+
+class AggrExceptionInInit:
+    def __init__(self):
+        5/0
+
+    def step(self, x):
+        pass
+
+    def finalize(self):
+        pass
+
+class AggrExceptionInStep:
+    def __init__(self):
+        pass
+
+    def step(self, x):
+        5/0
+
+    def finalize(self):
+        return 42
+
+class AggrExceptionInFinalize:
+    def __init__(self):
+        pass
+
+    def step(self, x):
+        pass
+
+    def finalize(self):
+        5/0
+
+class AggrCheckType:
+    def __init__(self):
+        self.val = None
+
+    def step(self, whichType, val):
+        theType = {"str": unicode, "int": int, "float": float, "None": type(None), "blob": buffer}
+        self.val = int(theType[whichType] is type(val))
+
+    def finalize(self):
+        return self.val
+
 class FunctionTests(unittest.TestCase):
     def setUp(self):
-        self.cx = sqlite.connect(":memory:")
-        cu = self.cx.cursor()
-        cu.execute("""
+        self.con = sqlite.connect(":memory:")
+
+        self.con.create_function("returntext", 0, func_returntext)
+        self.con.create_function("returnint", 0, func_returnint)
+        self.con.create_function("returnfloat", 0, func_returnfloat)
+        self.con.create_function("returnnull", 0, func_returnnull)
+        self.con.create_function("returnblob", 0, func_returnblob)
+        self.con.create_function("raiseexception", 0, func_raiseexception)
+
+        self.con.create_function("isstring", 1, func_isstring)
+        self.con.create_function("isint", 1, func_isint)
+        self.con.create_function("isfloat", 1, func_isfloat)
+        self.con.create_function("isnone", 1, func_isnone)
+        self.con.create_function("isblob", 1, func_isblob)
+
+    def tearDown(self):
+        self.con.close()
+
+    def CheckFuncReturnText(self):
+        cur = self.con.cursor()
+        cur.execute("select returntext()")
+        val = cur.fetchone()[0]
+        self.failUnlessEqual(type(val), str)
+        self.failUnlessEqual(val, "foo")
+
+    def CheckFuncReturnInt(self):
+        cur = self.con.cursor()
+        cur.execute("select returnint()")
+        val = cur.fetchone()[0]
+        self.failUnlessEqual(type(val), int)
+        self.failUnlessEqual(val, 42)
+
+    def CheckFuncReturnFloat(self):
+        cur = self.con.cursor()
+        cur.execute("select returnfloat()")
+        val = cur.fetchone()[0]
+        self.failUnlessEqual(type(val), float)
+        if val < 3.139 or val > 3.141:
+            self.fail("wrong value")
+
+    def CheckFuncReturnNull(self):
+        cur = self.con.cursor()
+        cur.execute("select returnnull()")
+        val = cur.fetchone()[0]
+        self.failUnlessEqual(type(val), type(None))
+        self.failUnlessEqual(val, None)
+
+    def CheckFuncReturnBlob(self):
+        cur = self.con.cursor()
+        cur.execute("select returnblob()")
+        val = cur.fetchone()[0]
+        self.failUnlessEqual(type(val), buffer)
+        self.failUnlessEqual(val, buffer("blob"))
+
+    def CheckFuncException(self):
+        cur = self.con.cursor()
+        cur.execute("select raiseexception()")
+        val = cur.fetchone()[0]
+        self.failUnlessEqual(val, None)
+
+    def CheckParamString(self):
+        cur = self.con.cursor()
+        cur.execute("select isstring(?)", ("foo",))
+        val = cur.fetchone()[0]
+        self.failUnlessEqual(val, 1)
+
+    def CheckParamInt(self):
+        cur = self.con.cursor()
+        cur.execute("select isint(?)", (42,))
+        val = cur.fetchone()[0]
+        self.failUnlessEqual(val, 1)
+
+    def CheckParamFloat(self):
+        cur = self.con.cursor()
+        cur.execute("select isfloat(?)", (3.14,))
+        val = cur.fetchone()[0]
+        self.failUnlessEqual(val, 1)
+
+    def CheckParamNone(self):
+        cur = self.con.cursor()
+        cur.execute("select isnone(?)", (None,))
+        val = cur.fetchone()[0]
+        self.failUnlessEqual(val, 1)
+
+    def CheckParamBlob(self):
+        cur = self.con.cursor()
+        cur.execute("select isblob(?)", (buffer("blob"),))
+        val = cur.fetchone()[0]
+        self.failUnlessEqual(val, 1)
+
+class AggregateTests(unittest.TestCase):
+    def setUp(self):
+        self.con = sqlite.connect(":memory:")
+        cur = self.con.cursor()
+        cur.execute("""
             create table test(
                 t text,
                 i integer,
@@ -62,110 +206,78 @@ class FunctionTests(unittest.TestCase):
                 b blob
                 )
             """)
-        cu.execute("insert into test(t, i, f, n, b) values (?, ?, ?, ?, ?)",
+        cur.execute("insert into test(t, i, f, n, b) values (?, ?, ?, ?, ?)",
             ("foo", 5, 3.14, None, buffer("blob"),)) 
 
-        self.cx.create_function("returntext", 0, func_returntext)
-        self.cx.create_function("returnint", 0, func_returnint)
-        self.cx.create_function("returnfloat", 0, func_returnfloat)
-        self.cx.create_function("returnnull", 0, func_returnnull)
-        self.cx.create_function("returnblob", 0, func_returnblob)
-        self.cx.create_function("raiseexception", 0, func_raiseexception)
-
-        self.cx.create_function("isstring", 1, func_isstring)
-        self.cx.create_function("isint", 1, func_isint)
-        self.cx.create_function("isfloat", 1, func_isfloat)
-        self.cx.create_function("isnone", 1, func_isnone)
-        self.cx.create_function("isblob", 1, func_isblob)
+        self.con.create_aggregate("nostep", 1, AggrNoStep)
+        self.con.create_aggregate("nofinalize", 1, AggrNoFinalize)
+        self.con.create_aggregate("excInit", 1, AggrExceptionInInit)
+        self.con.create_aggregate("excStep", 1, AggrExceptionInStep)
+        self.con.create_aggregate("excFinalize", 1, AggrExceptionInFinalize)
+        self.con.create_aggregate("checkType", 2, AggrCheckType)
 
     def tearDown(self):
-        self.cx.close()
+        #self.cur.close()
+        #self.con.close()
+        pass
 
-    def CheckFuncReturnText(self):
-        cu = self.cx.cursor()
-        cu.execute("select returntext()")
-        val = cu.fetchone()[0]
-        self.failUnlessEqual(type(val), str)
-        self.failUnlessEqual(val, "foo")
+    def CheckAggrNoStep(self):
+        cur = self.con.cursor()
+        cur.execute("select nostep(t) from test")
 
-    def CheckFuncReturnInt(self):
-        cu = self.cx.cursor()
-        cu.execute("select returnint()")
-        val = cu.fetchone()[0]
-        self.failUnlessEqual(type(val), int)
+    def CheckAggrNoFinalize(self):
+        cur = self.con.cursor()
+        cur.execute("select nofinalize(t) from test")
+        val = cur.fetchone()[0]
+        self.failUnlessEqual(val, None)
+
+    def CheckAggrExceptionInInit(self):
+        cur = self.con.cursor()
+        cur.execute("select excInit(t) from test")
+        val = cur.fetchone()[0]
+        self.failUnlessEqual(val, None)
+
+    def CheckAggrExceptionInStep(self):
+        cur = self.con.cursor()
+        cur.execute("select excStep(t) from test")
+        val = cur.fetchone()[0]
         self.failUnlessEqual(val, 42)
 
-    def CheckFuncReturnFloat(self):
-        cu = self.cx.cursor()
-        cu.execute("select returnfloat()")
-        val = cu.fetchone()[0]
-        self.failUnlessEqual(type(val), float)
-        if val < 3.139 or val > 3.141:
-            self.fail("wrong value")
-
-    def CheckFuncReturnNull(self):
-        cu = self.cx.cursor()
-        cu.execute("select returnnull()")
-        val = cu.fetchone()[0]
-        self.failUnlessEqual(type(val), type(None))
+    def CheckAggrExceptionInFinalize(self):
+        cur = self.con.cursor()
+        cur.execute("select excFinalize(t) from test")
+        val = cur.fetchone()[0]
         self.failUnlessEqual(val, None)
 
-    def CheckFuncReturnBlob(self):
-        cu = self.cx.cursor()
-        cu.execute("select returnblob()")
-        val = cu.fetchone()[0]
-        self.failUnlessEqual(type(val), buffer)
-        self.failUnlessEqual(val, buffer("blob"))
-
-    def CheckFuncException(self):
-        cu = self.cx.cursor()
-        cu.execute("select raiseexception()")
-        val = cu.fetchone()[0]
-        self.failUnlessEqual(val, None)
-
-    def CheckParamString(self):
-        cu = self.cx.cursor()
-        cu.execute("select isstring(?)", ("foo",))
-        val = cu.fetchone()[0]
+    def CheckAggrCheckParamStr(self):
+        cur = self.con.cursor()
+        cur.execute("select checkType('str', ?)", ("foo",))
+        val = cur.fetchone()[0]
         self.failUnlessEqual(val, 1)
 
-    def CheckParamInt(self):
-        cu = self.cx.cursor()
-        cu.execute("select isint(?)", (42,))
-        val = cu.fetchone()[0]
+    def CheckAggrCheckParamInt(self):
+        cur = self.con.cursor()
+        cur.execute("select checkType('int', ?)", (42,))
+        val = cur.fetchone()[0]
         self.failUnlessEqual(val, 1)
 
-    def CheckParamFloat(self):
-        cu = self.cx.cursor()
-        cu.execute("select isfloat(?)", (3.14,))
-        val = cu.fetchone()[0]
+    def CheckAggrCheckParamFloat(self):
+        cur = self.con.cursor()
+        cur.execute("select checkType('float', ?)", (3.14,))
+        val = cur.fetchone()[0]
         self.failUnlessEqual(val, 1)
 
-    def CheckParamNone(self):
-        cu = self.cx.cursor()
-        cu.execute("select isnone(?)", (None,))
-        val = cu.fetchone()[0]
+    def CheckAggrCheckParamNone(self):
+        cur = self.con.cursor()
+        cur.execute("select checkType('None', ?)", (None,))
+        val = cur.fetchone()[0]
         self.failUnlessEqual(val, 1)
 
-    def CheckParamBlob(self):
-        cu = self.cx.cursor()
-        cu.execute("select isblob(?)", (buffer("blob"),))
-        val = cu.fetchone()[0]
+    def CheckAggrCheckParamBlob(self):
+        cur = self.con.cursor()
+        cur.execute("select checkType('blob', ?)", (buffer("blob"),))
+        val = cur.fetchone()[0]
         self.failUnlessEqual(val, 1)
-
-class AggregateTests(unittest.TestCase):
-    def setUp(self):
-        self.cx = sqlite.connect(":memory:")
-        self.cu = self.cx.cursor()
-        self.cu.execute("create table test(id integer primary key, name text, income number)")
-        self.cu.execute("insert into test(name) values (?)", ("foo",))
-
-    def tearDown(self):
-        self.cu.close()
-        self.cx.close()
-
-    def CheckExecuteNoArgs(self):
-        self.cu.execute("delete from test")
 
 def suite():
     function_suite = unittest.makeSuite(FunctionTests, "Check")
