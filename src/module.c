@@ -35,7 +35,29 @@ PyObject* sqlite_NUMBER;
 PyObject* sqlite_DATETIME;
 PyObject* sqlite_ROWID;
 
+static PyObject* module_connect(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    PyObject* factory = NULL;
+    PyObject* dontcare = NULL;
+    static char *kwlist[] = {"database", "timeout", "more_types", "no_implicit_begin", "check_same_thread", "prepareProtocol", "factory", NULL, NULL};
+    PyObject* result;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|diiiOO", kwlist,
+                                     &dontcare, &dontcare, &dontcare, &dontcare, &dontcare, &dontcare, &factory)) {
+        return NULL; 
+    }
+
+    if (factory == NULL) {
+        factory = (PyObject*)&ConnectionType;
+    }
+
+    result = PyObject_Call(factory, args, kwargs);
+
+    return result;
+}
+
 static PyMethodDef module_methods[] = {
+    {"connect",  (PyCFunction)module_connect,  METH_VARARGS|METH_KEYWORDS, PyDoc_STR("Creates a connection.")},
     {NULL, NULL}
 };
 
@@ -68,7 +90,7 @@ PyMODINIT_FUNC init_sqlite(void)
     }
 
     Py_INCREF(&ConnectionType);
-    PyModule_AddObject(module, "connect", (PyObject*) &ConnectionType);
+    PyModule_AddObject(module, "Connection", (PyObject*) &ConnectionType);
     Py_INCREF(&CursorType);
     PyModule_AddObject(module, "Cursor", (PyObject*) &CursorType);
     Py_INCREF(&CacheType);

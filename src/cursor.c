@@ -72,16 +72,41 @@ static StatementType detect_statement_type(char* statement)
 
 int cursor_init(Cursor* self, PyObject* args, PyObject* kwargs)
 {
-    static char *kwlist[] = {NULL};
+    Connection* connection;
+    PyObject* factory;
 
-    printf("cursor init\n");
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "", kwlist))
+    if (!PyArg_ParseTuple(args, "O|O", &connection, &factory))
     {
         return -1; 
     }
 
-    printf("initializing\n");
+    self->connection = connection;
+    self->statement = NULL;
+    self->step_rc = UNKNOWN;
     self->row_cast_map = PyList_New(0);
+
+    Py_INCREF(Py_None);
+    self->description = Py_None;
+
+    Py_INCREF(Py_None);
+    self->lastrowid= Py_None;
+
+    self->arraysize = 1;
+
+    Py_INCREF(Py_None);
+    self->rowcount = Py_None;
+
+    Py_INCREF(Py_None);
+    self->row_factory = Py_None;
+
+    Py_INCREF(Py_None);
+    self->coltypes = Py_None;
+    Py_INCREF(Py_None);
+    self->next_coltypes = Py_None;
+
+    if (!check_thread(self->connection)) {
+        return -1;
+    }
 
     return 0;
 }
@@ -495,6 +520,7 @@ PyObject* cursor_iternext(Cursor *self)
 {
     int i, numcols;
     PyObject* row;
+    PyObject* converted_row;
     PyObject* item = NULL;
     int coltype;
     long long intval;
@@ -504,6 +530,8 @@ PyObject* cursor_iternext(Cursor *self)
     PyObject* buffer;
     void* raw_buffer;
     const char* val_str;
+
+    PyObject* factory_args;
 
     if (!check_thread(self->connection)) {
         return NULL;
@@ -605,7 +633,18 @@ PyObject* cursor_iternext(Cursor *self)
 
     self->step_rc = UNKNOWN;
 
-    return row;
+    if (self->row_factory != Py_None) {
+        factory_args = PyTuple_New(1);
+        Py_INCREF(row);
+        PyTuple_SetItem(factory_args, 0, row);
+        converted_row = PyObject_CallObject(self->row_factory, factory_args);
+        Py_DECREF(factory_args);
+        Py_DECREF(row);
+    } else {
+        converted_row = row;
+    }
+
+    return converted_row;
 }
 
 PyObject* cursor_fetchone(Cursor* self, PyObject* args)
@@ -735,6 +774,7 @@ static struct PyMemberDef cursor_members[] =
     {"lastrowid", T_OBJECT, offsetof(Cursor, lastrowid), RO},
     {"rowcount", T_OBJECT, offsetof(Cursor, rowcount), RO},
     {"coltypes", T_OBJECT, offsetof(Cursor, next_coltypes), 0},
+    {"row_factory", T_OBJECT, offsetof(Cursor, row_factory), 0},
     {NULL}
 };
 

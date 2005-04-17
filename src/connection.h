@@ -65,7 +65,7 @@ extern PyTypeObject ConnectionType;
 
 PyObject* connection_alloc(PyTypeObject* type, int aware);
 void connection_dealloc(Connection* self);
-PyObject* connection_cursor(Connection* self, PyObject* args);
+PyObject* connection_cursor(Connection* self, PyObject* args, PyObject* kwargs);
 PyObject* connection_close(Connection* self, PyObject* args);
 PyObject* _connection_begin(Connection* self, PyObject* args);
 PyObject* connection_begin(Connection* self, PyObject* args);

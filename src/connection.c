@@ -41,18 +41,19 @@ PyObject* connection_alloc(PyTypeObject* type, int aware)
 
 int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
 {
-    static char *kwlist[] = {"database", "timeout", "more_types", "no_implicit_begin", "check_same_thread", "prepareProtocol", NULL, NULL};
+    static char *kwlist[] = {"database", "timeout", "more_types", "no_implicit_begin", "check_same_thread", "prepareProtocol", "factory", NULL, NULL};
     char* database;
     int more_types = 0;
     int no_implicit_begin = 0;
     PyObject* prepare_protocol = NULL;
+    PyObject* factory = NULL;
     PyObject* proto_args;
     int check_same_thread = 1;
     double timeout = 5.0;
     int rc;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|diiiO", kwlist,
-                                     &database, &timeout, &more_types, &no_implicit_begin, &check_same_thread, &prepare_protocol))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|diiiOO", kwlist,
+                                     &database, &timeout, &more_types, &no_implicit_begin, &check_same_thread, &prepare_protocol, &factory))
     {
         return -1; 
     }
@@ -110,37 +111,30 @@ void connection_dealloc(Connection* self)
     self->ob_type->tp_free((PyObject*)self);
 }
 
-PyObject* connection_cursor(Connection* self, PyObject* args)
+PyObject* connection_cursor(Connection* self, PyObject* args, PyObject* kwargs)
 {
-    Cursor* cursor = NULL;
+    static char *kwlist[] = {"factory", NULL, NULL};
+    PyObject* factory = NULL;
+    PyObject* cursor;
+    PyObject* factory_args;
 
-    if (!check_thread(self)) {
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|O", kwlist,
+                                     &factory)) {
         return NULL;
     }
 
-    cursor = (Cursor*) (CursorType.tp_alloc(&CursorType, 0));
-    cursor->connection = self;
-    cursor->statement = NULL;
-    cursor->step_rc = UNKNOWN;
-    cursor->row_cast_map = PyList_New(0);
+    if (factory == NULL) {
+        factory = (PyObject*)&CursorType;
+    }
 
-    Py_INCREF(Py_None);
-    cursor->description = Py_None;
+    factory_args = PyTuple_New(1);
+    Py_INCREF(self);
+    PyTuple_SetItem(factory_args, 0, (PyObject*)self);
+    cursor = PyObject_CallObject(factory, factory_args);
+    Py_DECREF(factory_args);
 
-    Py_INCREF(Py_None);
-    cursor->lastrowid= Py_None;
-
-    cursor->arraysize = 1;
-
-    Py_INCREF(Py_None);
-    cursor->rowcount = Py_None;
-
-    Py_INCREF(Py_None);
-    cursor->coltypes = Py_None;
-    Py_INCREF(Py_None);
-    cursor->next_coltypes = Py_None;
-
-    return (PyObject*)cursor;
+    return cursor;
 }
 
 PyObject* connection_close(Connection* self, PyObject* args)
@@ -584,7 +578,7 @@ int check_thread(Connection* self)
             PyErr_Format(ProgrammingError,
                         "SQLite objects created in a thread can only be used in that same thread."
                         "The object was created in thread id %ld and this is thread id %ld",
-                        PyThread_get_thread_ident(), self->thread_ident);
+                        self->thread_ident, PyThread_get_thread_ident());
             return 0;
         }
 
@@ -597,7 +591,7 @@ static char connection_doc[] =
 PyDoc_STR("<missing docstring>");
 
 static PyMethodDef connection_methods[] = {
-    {"cursor", (PyCFunction)connection_cursor, METH_NOARGS,
+    {"cursor", (PyCFunction)connection_cursor, METH_VARARGS|METH_KEYWORDS,
         PyDoc_STR("Return a cursor for the connection.")},
     {"close", (PyCFunction)connection_close, METH_NOARGS,
         PyDoc_STR("Closes the connection.")},
@@ -637,7 +631,7 @@ PyTypeObject ConnectionType = {
         0,                                              /* tp_getattro */
         0,                                              /* tp_setattro */
         0,                                              /* tp_as_buffer */
-        Py_TPFLAGS_DEFAULT,                             /* tp_flags */
+        Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE,         /* tp_flags */
         connection_doc,                                 /* tp_doc */
         0,                                              /* tp_traverse */
         0,                                              /* tp_clear */

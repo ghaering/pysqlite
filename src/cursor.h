@@ -40,6 +40,7 @@ typedef struct
     int arraysize;
     PyObject* lastrowid;
     PyObject* rowcount;
+    PyObject* row_factory;
     sqlite3_stmt* statement;
 
     /* return code of the last call to sqlite3_step */
