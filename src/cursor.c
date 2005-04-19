@@ -122,6 +122,13 @@ void cursor_dealloc(Cursor* self)
     if (rc != SQLITE_OK) {
     }
 
+    Py_DECREF(self->row_cast_map);
+    Py_DECREF(self->description);
+    Py_DECREF(self->rowcount);
+    Py_DECREF(self->row_factory);
+    Py_DECREF(self->coltypes);
+    Py_DECREF(self->next_coltypes);
+
     self->ob_type->tp_free((PyObject*)self);
 }
 
@@ -210,7 +217,7 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
 {
     PyObject* operation;
     char* operation_cstr;
-    PyObject* parameters_list;
+    PyObject* parameters_list = NULL;
     PyObject* parameters_iter;
     PyObject* parameters;
     int num_params;
@@ -295,6 +302,7 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
     if (PyString_Check(operation)) {
         operation_cstr = PyString_AsString(operation);
     } else {
+        /* FIXME: leak */
         operation_cstr = PyString_AsString(PyUnicode_AsUTF8String(operation));
     }
 
@@ -359,7 +367,8 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
         if (parameters == Py_None && num_params_needed > 0) {
             PyErr_Format(ProgrammingError, "Incorrect number of bindings supplied.  The current statement uses %d, but there are none supplied.",
                          num_params_needed);
-            return NULL;
+            Py_DECREF(parameters);
+            goto error;
         }
 
         if (parameters != Py_None) {
@@ -494,7 +503,13 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
             rc = sqlite3_reset(self->statement);
             Py_END_ALLOW_THREADS
         }
+
+        Py_DECREF(parameters);
     }
+
+error:
+    Py_DECREF(parameters_iter);
+    Py_XDECREF(parameters_list);
 
     Py_INCREF(Py_None);
     return Py_None;
