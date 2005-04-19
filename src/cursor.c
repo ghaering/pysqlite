@@ -280,8 +280,7 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
         }
 
         if (second_argument == NULL) {
-            Py_INCREF(Py_None);
-            second_argument = Py_None;
+            second_argument = PyTuple_New(0);
         }
         PyList_Append(parameters_list, second_argument);
 
@@ -371,71 +370,69 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
             goto error;
         }
 
-        if (parameters != Py_None) {
-            if (PyDict_Check(parameters)) {
-                /* parameters passed as dictionary */
-                for (i = 1; i <= num_params_needed; i++) {
-                    Py_BEGIN_ALLOW_THREADS
-                    binding_name = sqlite3_bind_parameter_name(self->statement, i);
-                    Py_END_ALLOW_THREADS
-                    if (!binding_name) {
-                        PyErr_Format(ProgrammingError, "Binding %d has no name, but you supplied a dictionary (which has only names).", i);
-                        return NULL;
-                    }
-
-                    binding_name++; /* skip first char (the colon) */
-                    current_param = PyDict_GetItemString(parameters, binding_name);
-                    if (!current_param) {
-                        PyErr_Format(ProgrammingError, "You did not supply a value for binding %d.", i);
-                        return NULL;
-                    }
-
-
-                    Py_INCREF(current_param);
-                    adapted = microprotocols_adapt(current_param, (PyObject*)self->connection->prepareProtocol, NULL);
-                    Py_DECREF(current_param);
-                    if (adapted) {
-                    } else {
-                        PyErr_Clear();
-                        adapted = current_param;
-                        Py_INCREF(adapted);
-                    }
-
-                    rc = _bind_parameter(self, i, adapted);
-                    if (rc != SQLITE_OK) {
-                        /* TODO: fail */
-                    }
-
-                    Py_DECREF(adapted);
-                }
-            } else {
-                /* parameters passed as sequence */
-                num_params = PySequence_Length(parameters);
-                if (num_params != num_params_needed) {
-                    PyErr_Format(ProgrammingError, "Incorrect number of bindings supplied.  The current statement uses %d, and there are %d supplied.",
-                                 num_params_needed, num_params);
+        if (PyDict_Check(parameters)) {
+            /* parameters passed as dictionary */
+            for (i = 1; i <= num_params_needed; i++) {
+                Py_BEGIN_ALLOW_THREADS
+                binding_name = sqlite3_bind_parameter_name(self->statement, i);
+                Py_END_ALLOW_THREADS
+                if (!binding_name) {
+                    PyErr_Format(ProgrammingError, "Binding %d has no name, but you supplied a dictionary (which has only names).", i);
                     return NULL;
                 }
-                for (i = 0; i < num_params; i++) {
-                    current_param = PySequence_GetItem(parameters, i);
 
-                    Py_INCREF(current_param);
-                    adapted = microprotocols_adapt(current_param, (PyObject*)self->connection->prepareProtocol, NULL);
-                    Py_DECREF(current_param);
-                    if (adapted) {
-                    } else {
-                        PyErr_Clear();
-                        adapted = current_param;
-                        Py_INCREF(adapted);
-                    }
-
-                    rc = _bind_parameter(self, i + 1, adapted);
-                    if (rc != SQLITE_OK) {
-                        /* TODO: fail */
-                    }
-
-                    Py_DECREF(adapted);
+                binding_name++; /* skip first char (the colon) */
+                current_param = PyDict_GetItemString(parameters, binding_name);
+                if (!current_param) {
+                    PyErr_Format(ProgrammingError, "You did not supply a value for binding %d.", i);
+                    return NULL;
                 }
+
+
+                Py_INCREF(current_param);
+                adapted = microprotocols_adapt(current_param, (PyObject*)self->connection->prepareProtocol, NULL);
+                Py_DECREF(current_param);
+                if (adapted) {
+                } else {
+                    PyErr_Clear();
+                    adapted = current_param;
+                    Py_INCREF(adapted);
+                }
+
+                rc = _bind_parameter(self, i, adapted);
+                if (rc != SQLITE_OK) {
+                    /* TODO: fail */
+                }
+
+                Py_DECREF(adapted);
+            }
+        } else {
+            /* parameters passed as sequence */
+            num_params = PySequence_Length(parameters);
+            if (num_params != num_params_needed) {
+                PyErr_Format(ProgrammingError, "Incorrect number of bindings supplied.  The current statement uses %d, and there are %d supplied.",
+                             num_params_needed, num_params);
+                return NULL;
+            }
+            for (i = 0; i < num_params; i++) {
+                current_param = PySequence_GetItem(parameters, i);
+
+                Py_INCREF(current_param);
+                adapted = microprotocols_adapt(current_param, (PyObject*)self->connection->prepareProtocol, NULL);
+                Py_DECREF(current_param);
+                if (adapted) {
+                } else {
+                    PyErr_Clear();
+                    adapted = current_param;
+                    Py_INCREF(adapted);
+                }
+
+                rc = _bind_parameter(self, i + 1, adapted);
+                if (rc != SQLITE_OK) {
+                    /* TODO: fail */
+                }
+
+                Py_DECREF(adapted);
             }
         }
 
