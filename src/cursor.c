@@ -171,6 +171,7 @@ int _bind_parameter(Cursor* self, int pos, PyObject* parameter)
     int rc = SQLITE_OK;
     long longval;
     const char* buffer;
+    char* string;
     int buflen;
     PyObject* stringval;
 
@@ -189,25 +190,16 @@ int _bind_parameter(Cursor* self, int pos, PyObject* parameter)
             return -1;
         }
         rc = sqlite3_bind_blob(self->statement, pos, buffer, buflen, SQLITE_TRANSIENT);
+    } else if PyString_Check(parameter) {
+        string = PyString_AsString(parameter);
+        rc = sqlite3_bind_text(self->statement, pos, string, -1, SQLITE_TRANSIENT);
+    } else if PyUnicode_Check(parameter) {
+        stringval = PyUnicode_AsUTF8String(parameter);
+        string = PyString_AsString(parameter);
+        rc = sqlite3_bind_text(self->statement, pos, string, -1, SQLITE_TRANSIENT);
+        Py_DECREF(stringval);
     } else {
-        if (!PyString_Check(parameter)) {
-            PyErr_SetString(InternalError, "Could not convert parameter value to string.");
-        } else {
-            stringval = PyObject_Str(parameter);
-            /*
-            if (PyUnicode_Check(parameter)) {
-                stringval = PyUnicode_AsUTF8String(parameter);
-            } else {
-                stringval = PyObject_Str(parameter);
-            }
-            */
-
-            if (stringval)  {
-                rc = sqlite3_bind_text(self->statement, pos, PyString_AsString(stringval), -1, SQLITE_TRANSIENT);
-            } else {
-                PyErr_SetString(InternalError, "Could not convert parameter value to string.");
-            }
-        }
+        PyErr_SetString(PyExc_ValueError, "Tried to bind non-supported value. Supported types are NoneType, int, float, str, unicode and buffer.");
     }
 
     return rc;
@@ -363,13 +355,6 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
             break;
         }
 
-        if (parameters == Py_None && num_params_needed > 0) {
-            PyErr_Format(ProgrammingError, "Incorrect number of bindings supplied.  The current statement uses %d, but there are none supplied.",
-                         num_params_needed);
-            Py_DECREF(parameters);
-            goto error;
-        }
-
         if (PyDict_Check(parameters)) {
             /* parameters passed as dictionary */
             for (i = 1; i <= num_params_needed; i++) {
@@ -402,6 +387,7 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
                 rc = _bind_parameter(self, i, adapted);
                 if (rc != SQLITE_OK) {
                     /* TODO: fail */
+                    return NULL;
                 }
 
                 Py_DECREF(adapted);
@@ -416,10 +402,9 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
             }
             for (i = 0; i < num_params; i++) {
                 current_param = PySequence_GetItem(parameters, i);
-
-                Py_INCREF(current_param);
                 adapted = microprotocols_adapt(current_param, (PyObject*)self->connection->prepareProtocol, NULL);
                 Py_DECREF(current_param);
+
                 if (adapted) {
                 } else {
                     PyErr_Clear();
@@ -428,11 +413,12 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
                 }
 
                 rc = _bind_parameter(self, i + 1, adapted);
+                Py_DECREF(adapted);
+
                 if (rc != SQLITE_OK) {
-                    /* TODO: fail */
+                    goto error;
                 }
 
-                Py_DECREF(adapted);
             }
         }
 
@@ -508,8 +494,12 @@ error:
     Py_DECREF(parameters_iter);
     Py_XDECREF(parameters_list);
 
-    Py_INCREF(Py_None);
-    return Py_None;
+    if (PyErr_Occurred()) {
+        return NULL;
+    } else {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
 }
 
 PyObject* cursor_execute(Cursor* self, PyObject* args)

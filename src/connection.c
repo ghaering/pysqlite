@@ -448,7 +448,7 @@ static void _step_callback(sqlite3_context *context, int argc, sqlite3_value** p
 
         if (PyErr_Occurred())
         {
-            //PRINT_OR_CLEAR_ERROR
+            PyErr_Clear();
             *aggregate_instance = 0;
             PyGILState_Release(threadstate);
             return;
@@ -458,7 +458,6 @@ static void _step_callback(sqlite3_context *context, int argc, sqlite3_value** p
     stepmethod = PyObject_GetAttrString(*aggregate_instance, "step");
     if (!stepmethod)
     {
-        /* PRINT_OR_CLEAR_ERROR */
         PyGILState_Release(threadstate);
         return;
     }
@@ -504,17 +503,20 @@ void _final_callback(sqlite3_context* context)
     finalizemethod = PyObject_GetAttrString(*aggregate_instance, "finalize");
 
     if (!finalizemethod) {
-        PyErr_SetString(PyExc_ValueError, "finalize method missing");
+        /*
+        PyErr_SetString(ProgrammingError, "finalize method missing");
         goto error;
+        */
+        Py_INCREF(Py_None);
+        function_result = Py_None;
+    } else {
+        args = PyTuple_New(0);
+        function_result = PyObject_CallObject(finalizemethod, args);
+        Py_DECREF(args);
+        Py_DECREF(finalizemethod);
     }
 
-    args = PyTuple_New(0);
-    function_result = PyObject_CallObject(finalizemethod, args);
-    Py_DECREF(args);
-    Py_DECREF(finalizemethod);
-
     _set_result(context, function_result);
-error:
     Py_XDECREF(*aggregate_instance);
 
     PyGILState_Release(threadstate);
