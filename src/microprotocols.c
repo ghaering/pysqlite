@@ -104,7 +104,6 @@ microprotocols_adapt(PyObject *obj, PyObject *proto, PyObject *alt)
         if (adapted && adapted != Py_None) return adapted;
         if (PyErr_Occurred() && !PyErr_ExceptionMatches(PyExc_TypeError)) {
             PyErr_Print();
-            printf("error\n");
             return NULL;
         }
     }
