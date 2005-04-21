@@ -119,8 +119,6 @@ void cursor_dealloc(Cursor* self)
     Py_BEGIN_ALLOW_THREADS
     rc = sqlite3_finalize(self->statement);
     Py_END_ALLOW_THREADS
-    if (rc != SQLITE_OK) {
-    }
 
     Py_DECREF(self->row_cast_map);
     Py_DECREF(self->description);
@@ -289,10 +287,6 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
         Py_BEGIN_ALLOW_THREADS
         rc = sqlite3_finalize(self->statement);
         Py_END_ALLOW_THREADS
-        if (rc != SQLITE_OK) {
-            _seterror(self->connection->db);
-            return NULL;
-        }
     }
 
     if (PyString_Check(operation)) {
@@ -745,8 +739,6 @@ PyObject* cursor_close(Cursor* self, PyObject* args)
     Py_BEGIN_ALLOW_THREADS
     rc = sqlite3_finalize(self->statement);
     Py_END_ALLOW_THREADS
-    if (rc != SQLITE_OK) {
-    }
 
     Py_INCREF(Py_None);
     return Py_None;
