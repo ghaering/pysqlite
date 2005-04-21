@@ -426,7 +426,6 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
         build_row_cast_map(self);
 
         self->step_rc = _sqlite_step_with_busyhandler(self->statement, self->connection);
-        //self->step_rc = sqlite3_step(self->statement);
         if (self->step_rc != SQLITE_DONE && self->step_rc != SQLITE_ROW) {
             _seterror(self->connection->db);
             return NULL;
@@ -594,7 +593,7 @@ PyObject* cursor_iternext(Cursor *self)
                 memcpy(raw_buffer, sqlite3_column_blob(self->statement, i), nbytes);
                 converted = buffer;
             } else {
-                /* TODO: BLOB */
+                /* should never happen */
                 Py_INCREF(Py_None);
                 converted = Py_None;
             }
