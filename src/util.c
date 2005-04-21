@@ -35,10 +35,12 @@ void pysqlite_sleep(float seconds)
     PyObject* sleepFunc;
     PyObject* ret;
 
-    timeModule = PyImport_AddModule("time");
+    timeModule = PyImport_ImportModule("time");
     sleepFunc = PyObject_GetAttrString(timeModule, "sleep");
     ret = PyObject_CallFunction(sleepFunc, "f", seconds);
     Py_DECREF(ret);
+    Py_DECREF(sleepFunc);
+    Py_DECREF(timeModule);
 }
 
 double pysqlite_time()
@@ -48,11 +50,13 @@ double pysqlite_time()
     PyObject* ret;
     double time;
 
-    timeModule = PyImport_AddModule("time");
+    timeModule = PyImport_ImportModule("time");
     timeFunc = PyObject_GetAttrString(timeModule, "time");
     ret = PyObject_CallFunction(timeFunc, "");
     time = PyFloat_AsDouble(ret);
     Py_DECREF(ret);
+    Py_DECREF(timeFunc);
+    Py_DECREF(timeModule);
 
     return time;
 }

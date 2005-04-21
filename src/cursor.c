@@ -73,9 +73,8 @@ static StatementType detect_statement_type(char* statement)
 int cursor_init(Cursor* self, PyObject* args, PyObject* kwargs)
 {
     Connection* connection;
-    PyObject* factory;
 
-    if (!PyArg_ParseTuple(args, "O|O", &connection, &factory))
+    if (!PyArg_ParseTuple(args, "O", &connection))
     {
         return -1; 
     }
@@ -83,6 +82,7 @@ int cursor_init(Cursor* self, PyObject* args, PyObject* kwargs)
     self->connection = connection;
     self->statement = NULL;
     self->step_rc = UNKNOWN;
+
     self->row_cast_map = PyList_New(0);
 
     Py_INCREF(Py_None);
@@ -124,6 +124,7 @@ void cursor_dealloc(Cursor* self)
 
     Py_DECREF(self->row_cast_map);
     Py_DECREF(self->description);
+    Py_DECREF(self->lastrowid);
     Py_DECREF(self->rowcount);
     Py_DECREF(self->row_factory);
     Py_DECREF(self->coltypes);
@@ -137,18 +138,21 @@ void build_row_cast_map(Cursor* self)
     int i;
     const unsigned char* colname;
     const unsigned char* decltype;
-    PyObject* converter = NULL;
+    PyObject* converter;
     PyObject* typename;
 
     Py_DECREF(self->row_cast_map);
     self->row_cast_map = PyList_New(0);
 
     for (i = 0; i < sqlite3_column_count(self->statement); i++) {
+        converter = NULL;
+
         colname = sqlite3_column_name(self->statement, i);
         /* TODO: toupper() */
         typename = PyDict_GetItemString(self->coltypes, colname);
         if (typename) {
             converter = PyDict_GetItem(self->connection->converters, typename);
+            Py_DECREF(typename);
         } else {
             decltype = sqlite3_column_decltype(self->statement, i);
             if (decltype) {
@@ -157,10 +161,8 @@ void build_row_cast_map(Cursor* self)
         }
 
         if (converter) {
-            Py_INCREF(converter);
             PyList_Append(self->row_cast_map, converter);
         } else {
-            Py_INCREF(Py_None);
             PyList_Append(self->row_cast_map, Py_None);
         }
     }
@@ -273,8 +275,11 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
 
         if (second_argument == NULL) {
             second_argument = PyTuple_New(0);
+        } else {
+            Py_INCREF(second_argument);
         }
         PyList_Append(parameters_list, second_argument);
+        Py_DECREF(second_argument);
 
         parameters_iter = PyObject_GetIter(parameters_list);
     }
@@ -308,8 +313,6 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
 
     Py_DECREF(self->coltypes);
     self->coltypes = self->next_coltypes;
-    Py_INCREF(self->coltypes);
-    Py_DECREF(self->next_coltypes);
     Py_INCREF(Py_None);
     self->next_coltypes = Py_None;
 
@@ -429,6 +432,7 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
         build_row_cast_map(self);
 
         self->step_rc = _sqlite_step_with_busyhandler(self->statement, self->connection);
+        //self->step_rc = sqlite3_step(self->statement);
         if (self->step_rc != SQLITE_DONE && self->step_rc != SQLITE_ROW) {
             _seterror(self->connection->db);
             return NULL;
@@ -486,7 +490,6 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
             rc = sqlite3_reset(self->statement);
             Py_END_ALLOW_THREADS
         }
-
         Py_DECREF(parameters);
     }
 

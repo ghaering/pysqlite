@@ -116,7 +116,6 @@ PyObject* connection_cursor(Connection* self, PyObject* args, PyObject* kwargs)
     static char *kwlist[] = {"factory", NULL, NULL};
     PyObject* factory = NULL;
     PyObject* cursor;
-    PyObject* factory_args;
 
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|O", kwlist,
@@ -128,11 +127,7 @@ PyObject* connection_cursor(Connection* self, PyObject* args, PyObject* kwargs)
         factory = (PyObject*)&CursorType;
     }
 
-    factory_args = PyTuple_New(1);
-    Py_INCREF(self);
-    PyTuple_SetItem(factory_args, 0, (PyObject*)self);
-    cursor = PyObject_CallObject(factory, factory_args);
-    Py_DECREF(factory_args);
+    cursor = PyObject_CallFunction(factory, "O", self);
 
     return cursor;
 }
