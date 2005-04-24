@@ -678,6 +678,7 @@ PyObject* cursor_fetchmany(Cursor* self, PyObject* args)
         row = cursor_iternext(self);
         if (row) {
             PyList_Append(list, row);
+            Py_DECREF(row);
         } else {
             break;
         }
@@ -709,6 +710,7 @@ PyObject* cursor_fetchall(Cursor* self, PyObject* args)
         row = cursor_iternext(self);
         if (row) {
             PyList_Append(list, row);
+            Py_DECREF(row);
         }
     }
 

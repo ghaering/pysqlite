@@ -27,7 +27,7 @@ from distutils.extension import Extension
 
 # If you need to change anything, it should be enough to change setup.cfg.
 
-PYSQLITE_VERSION = "2.0.alpha3"
+PYSQLITE_VERSION = "2.0.beta1"
 
 sqlite = "sqlite"
 
@@ -67,7 +67,7 @@ def main():
             author_email = "gh@ghaering.de",
             license = "zlib/libpng license",
             platforms = "ALL",
-            url = "http://initd.org/svn/initd/pysqlite/trunk/",
+            url = "http://pysqlite.org/",
 
             # Description of the modules and packages in the distribution
             package_dir = {"pysqlite2": "lib"},
