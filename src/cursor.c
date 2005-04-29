@@ -74,9 +74,16 @@ int cursor_init(Cursor* self, PyObject* args, PyObject* kwargs)
 {
     Connection* connection;
 
+    self->statement = NULL;
+
     if (!PyArg_ParseTuple(args, "O", &connection))
     {
         return -1; 
+    }
+
+    if (!PyObject_IsInstance((PyObject*)connection, &ConnectionType)) {
+        PyErr_SetString(PyExc_ValueError, "The connection parameter must be an instance of pysqlite.dbapi2.Connection");
+        return -1;
     }
 
     self->connection = connection;
@@ -116,17 +123,19 @@ void cursor_dealloc(Cursor* self)
     int rc;
 
     /* Finalize the statement if the user has not closed the cursor */
-    Py_BEGIN_ALLOW_THREADS
-    rc = sqlite3_finalize(self->statement);
-    Py_END_ALLOW_THREADS
+    if (self->statement) {
+        Py_BEGIN_ALLOW_THREADS
+        rc = sqlite3_finalize(self->statement);
+        Py_END_ALLOW_THREADS
+    }
 
-    Py_DECREF(self->row_cast_map);
-    Py_DECREF(self->description);
-    Py_DECREF(self->lastrowid);
-    Py_DECREF(self->rowcount);
-    Py_DECREF(self->row_factory);
-    Py_DECREF(self->coltypes);
-    Py_DECREF(self->next_coltypes);
+    Py_XDECREF(self->row_cast_map);
+    Py_XDECREF(self->description);
+    Py_XDECREF(self->lastrowid);
+    Py_XDECREF(self->rowcount);
+    Py_XDECREF(self->row_factory);
+    Py_XDECREF(self->coltypes);
+    Py_XDECREF(self->next_coltypes);
 
     self->ob_type->tp_free((PyObject*)self);
 }
