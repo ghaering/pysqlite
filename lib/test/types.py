@@ -46,7 +46,7 @@ class SqliteTypeTests(unittest.TestCase):
         row = self.cur.fetchone()
         self.failUnlessEqual(row[0], 42)
 
-    def _does_not_work_atm_CheckLargeInt(self):
+    def CheckLargeInt(self):
         num = 2**40
         self.cur.execute("insert into test(i) values (?)", (num,))
         self.cur.execute("select i from test")
@@ -121,7 +121,7 @@ class AdvancedTypeTests(unittest.TestCase):
         row = self.cur.fetchone()
         self.failUnlessEqual(row[0], 42)
 
-    def _does_not_work_atm_CheckLargeInt(self):
+    def CheckLargeInt(self):
         num = 2**40
         self.cur.execute("insert into test(i) values (?)", (num,))
         self.cur.execute("select i from test")

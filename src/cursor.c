@@ -170,6 +170,9 @@ int _bind_parameter(Cursor* self, int pos, PyObject* parameter)
 {
     int rc = SQLITE_OK;
     long longval;
+#ifdef HAVE_LONG_LONG
+    PY_LONG_LONG longlongval;
+#endif
     const char* buffer;
     char* string;
     int buflen;
@@ -179,8 +182,13 @@ int _bind_parameter(Cursor* self, int pos, PyObject* parameter)
         rc = sqlite3_bind_null(self->statement, pos);
     } else if (PyInt_Check(parameter)) {
         longval = PyInt_AsLong(parameter);
-        /* TODO: investigate what to do with range overflows - long vs. long long */
-        rc = sqlite3_bind_int64(self->statement, pos, (long long)longval);
+        rc = sqlite3_bind_int64(self->statement, pos, (sqlite_int64)longval);
+#ifdef HAVE_LONG_LONG
+    } else if (PyLong_Check(parameter)) {
+        longlongval = PyLong_AsLongLong(parameter);
+        /* in the overflow error case, longlongval is -1, and an exception is set */
+        rc = sqlite3_bind_int64(self->statement, pos, (sqlite_int64)longlongval);
+#endif
     } else if (PyFloat_Check(parameter)) {
         rc = sqlite3_bind_double(self->statement, pos, PyFloat_AsDouble(parameter));
     } else if (PyBuffer_Check(parameter)) {
@@ -199,7 +207,7 @@ int _bind_parameter(Cursor* self, int pos, PyObject* parameter)
         rc = sqlite3_bind_text(self->statement, pos, string, -1, SQLITE_TRANSIENT);
         Py_DECREF(stringval);
     } else {
-        PyErr_SetString(PyExc_ValueError, "Tried to bind non-supported value. Supported types are NoneType, int, float, str, unicode and buffer.");
+        PyErr_SetString(PyExc_ValueError, "Tried to bind non-supported value. Supported types are NoneType, int, long (on most platforms), float, str, unicode and buffer.");
     }
 
     return rc;
