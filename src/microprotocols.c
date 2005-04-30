@@ -103,11 +103,10 @@ microprotocols_adapt(PyObject *obj, PyObject *proto, PyObject *alt)
         PyObject *adapted = PyObject_CallMethod(obj, "__conform__","O", proto);
         if (adapted && adapted != Py_None) return adapted;
         if (PyErr_Occurred() && !PyErr_ExceptionMatches(PyExc_TypeError)) {
-            PyErr_Print();
             return NULL;
         }
     }
-            
+
     /* else set the right exception and return NULL */
     PyErr_SetString(ProgrammingError, "can't adapt");
     return NULL;

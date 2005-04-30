@@ -115,6 +115,19 @@ class ConnectionTests(unittest.TestCase):
     def CheckClose(self):
         self.cx.close()
 
+    def CheckExceptions(self):
+        # Optional DB-API extension.
+        self.failUnlessEqual(self.cx.Warning, sqlite.Warning)
+        self.failUnlessEqual(self.cx.Error, sqlite.Error)
+        self.failUnlessEqual(self.cx.InterfaceError, sqlite.InterfaceError)
+        self.failUnlessEqual(self.cx.DatabaseError, sqlite.DatabaseError)
+        self.failUnlessEqual(self.cx.DataError, sqlite.DataError)
+        self.failUnlessEqual(self.cx.OperationalError, sqlite.OperationalError)
+        self.failUnlessEqual(self.cx.IntegrityError, sqlite.IntegrityError)
+        self.failUnlessEqual(self.cx.InternalError, sqlite.InternalError)
+        self.failUnlessEqual(self.cx.ProgrammingError, sqlite.ProgrammingError)
+        self.failUnlessEqual(self.cx.NotSupportedError, sqlite.NotSupportedError)
+
 class CursorTests(unittest.TestCase):
     def setUp(self):
         self.cx = sqlite.connect(":memory:")
@@ -236,6 +249,7 @@ class CursorTests(unittest.TestCase):
         self.cu.executemany("insert into test(income) values (?)", mygen())
 
     def CheckFetchIter(self):
+        # Optional DB-API extension.
         self.cu.execute("delete from test")
         self.cu.execute("insert into test(id) values (?)", (5,))
         self.cu.execute("insert into test(id) values (?)", (6,))
@@ -252,6 +266,23 @@ class CursorTests(unittest.TestCase):
         self.failUnlessEqual(row[0], "foo")
         row = self.cu.fetchone()
         self.failUnlessEqual(row, None)
+
+    def CheckArraySize(self):
+        # must default ot 1
+        self.failUnlessEqual(self.cu.arraysize, 1)
+
+        # now set to 2
+        self.cu.arraysize = 2
+
+        # now make the query return 3 rows
+        self.cu.execute("delete from test")
+        self.cu.execute("insert into test(name) values ('A')")
+        self.cu.execute("insert into test(name) values ('B')")
+        self.cu.execute("insert into test(name) values ('C')")
+        self.cu.execute("select name from test")
+        res = self.cu.fetchmany()
+
+        self.failUnlessEqual(len(res), 2)
 
     def CheckFetchmany(self):
         self.cu.execute("select name from test")
@@ -271,6 +302,11 @@ class CursorTests(unittest.TestCase):
 
     def CheckSetoutputsizeNoColumn(self):
         self.cu.setoutputsize(42)
+
+    def CheckCursorConnection(self):
+        # Optional DB-API extension.
+        self.failUnlessEqual(self.cu.connection, self.cx)
+
 
 class TypeTests(unittest.TestCase):
     def setUp(self):

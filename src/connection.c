@@ -21,6 +21,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
+#include "module.h"
 #include "connection.h"
 #include "cursor.h"
 #include "prepare_protocol.h"
@@ -41,10 +42,10 @@ PyObject* connection_alloc(PyTypeObject* type, int aware)
 
 int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
 {
-    static char *kwlist[] = {"database", "timeout", "more_types", "no_implicit_begin", "check_same_thread", "prepareProtocol", "factory", NULL, NULL};
+    static char *kwlist[] = {"database", "timeout", "detect_types", "autocommit", "check_same_thread", "prepareProtocol", "factory", NULL, NULL};
     char* database;
-    int more_types = 0;
-    int no_implicit_begin = 0;
+    int detect_types = 0;
+    int autocommit = 0;
     PyObject* prepare_protocol = NULL;
     PyObject* factory = NULL;
     PyObject* proto_args;
@@ -53,7 +54,7 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
     int rc;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|diiiOO", kwlist,
-                                     &database, &timeout, &more_types, &no_implicit_begin, &check_same_thread, &prepare_protocol, &factory))
+                                     &database, &timeout, &detect_types, &autocommit, &check_same_thread, &prepare_protocol, &factory))
     {
         return -1; 
     }
@@ -68,12 +69,23 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
     }
 
     self->inTransaction = 0;
-    self->advancedTypes = more_types;
+    self->detect_types = detect_types;
     self->timeout = timeout;
-    self->no_implicit_begin = no_implicit_begin;
+    self->autocommit = autocommit;
     self->thread_ident = PyThread_get_thread_ident();
     self->check_same_thread = check_same_thread;
     self->converters = PyDict_New();
+
+    self->Warning = Warning;
+    self->Error = Error;
+    self->InterfaceError = InterfaceError;
+    self->DatabaseError = DatabaseError;
+    self->DataError = DataError;
+    self->OperationalError = OperationalError;
+    self->IntegrityError = IntegrityError;
+    self->InternalError = InternalError;
+    self->ProgrammingError = ProgrammingError;
+    self->NotSupportedError = NotSupportedError;
 
     if (prepare_protocol == NULL) {
         proto_args = Py_BuildValue("()");
@@ -157,7 +169,7 @@ PyObject* connection_close(Connection* self, PyObject* args)
     return Py_None;
 }
 
-PyObject* _connection_begin(Connection* self, PyObject* args)
+PyObject* _connection_begin(Connection* self)
 {
     int rc;
     const char* tail;
@@ -195,17 +207,6 @@ PyObject* _connection_begin(Connection* self, PyObject* args)
 
     Py_INCREF(Py_None);
     return Py_None;
-}
-
-PyObject* connection_begin(Connection* self, PyObject* args)
-{
-    if (!self->no_implicit_begin) {
-        PyErr_SetString(ProgrammingError,
-            "begin() can only be called when the connection was created with the no_implicit_begin parameter set to true.");
-        return NULL;
-    }
-
-    return _connection_begin(self, args);
 }
 
 PyObject* connection_commit(Connection* self, PyObject* args)
@@ -284,27 +285,6 @@ PyObject* connection_rollback(Connection* self, PyObject* args)
 
         self->inTransaction = 0;
     }
-
-    Py_INCREF(Py_None);
-    return Py_None;
-}
-
-PyObject* connection_register_converter(Connection* self, PyObject* args)
-{
-    PyObject* name;
-    PyObject* func;
-
-    if (!check_thread(self)) {
-        return NULL;
-    }
-
-    if (!PyArg_ParseTuple(args, "OO", &name, &func)) {
-        return NULL;
-    }
-
-    Py_INCREF(name);
-    Py_INCREF(func);
-    PyDict_SetItem(self->converters, name, func);
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -584,27 +564,68 @@ int check_thread(Connection* self)
     return 1;
 }
 
+static PyObject* connection_get_autocommit(Connection* self, void* unused)
+{
+    return PyBool_FromLong(self->autocommit);
+}
+
+static int connection_set_autocommit(Connection* self, PyObject* value)
+{
+    PyObject* empty;
+
+    if (PyObject_IsTrue(value)) {
+        empty = PyTuple_New(0);
+        connection_commit(self, empty);
+        Py_DECREF(empty);
+
+        self->inTransaction = 0;
+        self->autocommit = 1;
+    } else {
+        self->autocommit = 0;
+    }
+
+    return 0;
+}
+
+
 static char connection_doc[] =
 PyDoc_STR("<missing docstring>");
+
+static PyGetSetDef connection_getset[] = {
+    {"autocommit",  (getter)connection_get_autocommit, (setter)connection_set_autocommit},
+    {NULL}
+};
 
 static PyMethodDef connection_methods[] = {
     {"cursor", (PyCFunction)connection_cursor, METH_VARARGS|METH_KEYWORDS,
         PyDoc_STR("Return a cursor for the connection.")},
     {"close", (PyCFunction)connection_close, METH_NOARGS,
         PyDoc_STR("Closes the connection.")},
-    {"begin", (PyCFunction)connection_begin, METH_NOARGS,
-        PyDoc_STR("Starts a new transaction.")},
     {"commit", (PyCFunction)connection_commit, METH_NOARGS,
         PyDoc_STR("Commit the current transaction.")},
     {"rollback", (PyCFunction)connection_rollback, METH_NOARGS,
         PyDoc_STR("Roll back the current transaction.")},
-    {"register_converter", (PyCFunction)connection_register_converter, METH_VARARGS,
-        PyDoc_STR("Registers a new type converter.")},
     {"create_function", (PyCFunction)connection_create_function, METH_VARARGS|METH_KEYWORDS,
         PyDoc_STR("Creates a new function.")},
     {"create_aggregate", (PyCFunction)connection_create_aggregate, METH_VARARGS|METH_KEYWORDS,
         PyDoc_STR("Creates a new aggregate.")},
     {NULL, NULL}
+};
+
+static struct PyMemberDef connection_members[] =
+{
+    {"converters", T_OBJECT, offsetof(Connection, converters), 0},
+    {"Warning", T_OBJECT, offsetof(Connection, Warning), RO},
+    {"Error", T_OBJECT, offsetof(Connection, Error), RO},
+    {"InterfaceError", T_OBJECT, offsetof(Connection, InterfaceError), RO},
+    {"DatabaseError", T_OBJECT, offsetof(Connection, DatabaseError), RO},
+    {"DataError", T_OBJECT, offsetof(Connection, DataError), RO},
+    {"OperationalError", T_OBJECT, offsetof(Connection, OperationalError), RO},
+    {"IntegrityError", T_OBJECT, offsetof(Connection, IntegrityError), RO},
+    {"InternalError", T_OBJECT, offsetof(Connection, InternalError), RO},
+    {"ProgrammingError", T_OBJECT, offsetof(Connection, ProgrammingError), RO},
+    {"NotSupportedError", T_OBJECT, offsetof(Connection, NotSupportedError), RO},
+    {NULL}
 };
 
 PyTypeObject ConnectionType = {
@@ -637,8 +658,8 @@ PyTypeObject ConnectionType = {
         0,                                              /* tp_iter */
         0,                                              /* tp_iternext */
         connection_methods,                             /* tp_methods */
-        0,                                              /* tp_members */
-        0,                                              /* tp_getset */
+        connection_members,                             /* tp_members */
+        connection_getset,                              /* tp_getset */
         0,                                              /* tp_base */
         0,                                              /* tp_dict */
         0,                                              /* tp_descr_get */

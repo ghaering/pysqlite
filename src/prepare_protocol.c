@@ -42,13 +42,19 @@ PyObject* prepare_protocol_adapt(SQLitePrepareProtocol* self, PyObject* args, Py
         return NULL;
     }
 
-    /* Unicode strings need to be converted to utf-8 encoded bytestrings. */
-    if (PyUnicode_Check(obj)) {
-        ret = PyUnicode_AsUTF8String(obj);
-    } else {
-        /* Strings, floats, ints and None can be returned as-is. */
+    /* These types are supported already for the manifest typing, no need to convert them: */
+    if (obj == Py_None
+     || PyString_Check(obj)
+     || PyUnicode_Check(obj)
+     || PyInt_Check(obj)
+     || PyLong_Check(obj)
+     || PyFloat_Check(obj)
+     || PyBuffer_Check(obj)) {
         Py_INCREF(obj);
         ret = obj;
+    } else {
+        Py_INCREF(Py_None);
+        ret = Py_None;
     }
 
     return ret;

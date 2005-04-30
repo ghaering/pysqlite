@@ -31,32 +31,20 @@
  */
 void pysqlite_sleep(float seconds)
 {
-    PyObject* timeModule;
-    PyObject* sleepFunc;
     PyObject* ret;
 
-    timeModule = PyImport_ImportModule("time");
-    sleepFunc = PyObject_GetAttrString(timeModule, "sleep");
-    ret = PyObject_CallFunction(sleepFunc, "f", seconds);
+    ret = PyObject_CallFunction(time_sleep, "f", seconds);
     Py_DECREF(ret);
-    Py_DECREF(sleepFunc);
-    Py_DECREF(timeModule);
 }
 
 double pysqlite_time()
 {
-    PyObject* timeModule;
-    PyObject* timeFunc;
     PyObject* ret;
     double time;
 
-    timeModule = PyImport_ImportModule("time");
-    timeFunc = PyObject_GetAttrString(timeModule, "time");
-    ret = PyObject_CallFunction(timeFunc, "");
+    ret = PyObject_CallFunction(time_time, "");
     time = PyFloat_AsDouble(ret);
     Py_DECREF(ret);
-    Py_DECREF(timeFunc);
-    Py_DECREF(timeModule);
 
     return time;
 }
@@ -69,6 +57,14 @@ int _sqlite_step_with_busyhandler(sqlite3_stmt* statement, void* _connection)
     int counter = 0;
     int rc;
     double how_long;
+
+    Py_BEGIN_ALLOW_THREADS
+    rc = sqlite3_step(statement);
+    Py_END_ALLOW_THREADS
+
+    if (rc != SQLITE_BUSY) {
+        return rc;
+    }
 
     connection->timeout_started = pysqlite_time();
     while (1) {

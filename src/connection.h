@@ -37,7 +37,7 @@ typedef struct
     PyObject_HEAD
     sqlite3* db;
     int inTransaction;
-    int advancedTypes;
+    int detect_types;
 
     /* the timeout value in seconds for database locks */
     double timeout;
@@ -47,7 +47,7 @@ typedef struct
     double timeout_started;
 
     /* 0: normal mode; 1: "autocommit" mode */
-    int no_implicit_begin;
+    int autocommit;
 
     int check_same_thread;
     int thread_ident;
@@ -59,6 +59,18 @@ typedef struct
      * The key is uppercase.
      */
     PyObject* converters;
+
+    /* Exception objects */
+    PyObject* Warning;
+    PyObject* Error;
+    PyObject* InterfaceError;
+    PyObject* DatabaseError;
+    PyObject* DataError;
+    PyObject* OperationalError;
+    PyObject* IntegrityError;
+    PyObject* InternalError;
+    PyObject* ProgrammingError;
+    PyObject* NotSupportedError;
 } Connection;
 
 extern PyTypeObject ConnectionType;
@@ -67,7 +79,7 @@ PyObject* connection_alloc(PyTypeObject* type, int aware);
 void connection_dealloc(Connection* self);
 PyObject* connection_cursor(Connection* self, PyObject* args, PyObject* kwargs);
 PyObject* connection_close(Connection* self, PyObject* args);
-PyObject* _connection_begin(Connection* self, PyObject* args);
+PyObject* _connection_begin(Connection* self);
 PyObject* connection_begin(Connection* self, PyObject* args);
 PyObject* connection_commit(Connection* self, PyObject* args);
 PyObject* connection_rollback(Connection* self, PyObject* args);

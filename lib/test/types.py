@@ -72,14 +72,13 @@ class SqliteTypeTests(unittest.TestCase):
         row = self.cur.fetchone()
         self.failUnlessEqual(row[0], u"Österreich")
 
-class AdvancedTypeTests(unittest.TestCase):
+class DeclTypesTests(unittest.TestCase):
     class Foo:
         def __init__(self, _val):
             self.val = _val
 
         def __cmp__(self, other):
-            if not isinstance(other, AdvancedTypeTests.Foo):
-                print "other type:", type(other), other
+            if not isinstance(other, DeclTypesTests.Foo):
                 raise ValueError
             if self.val == other.val:
                 return 0
@@ -87,41 +86,46 @@ class AdvancedTypeTests(unittest.TestCase):
                 return 1
 
         def __conform__(self, protocol):
-            # hack: assume `protocol` is the right one
-            return self.val
+            if isinstance(protocol, sqlite.PrepareProtocol):
+                return self.val
+            else:
+                return None
 
         def __str__(self):
             return "<%s>" % self.val
 
     def setUp(self):
-        self.con = sqlite.connect(":memory:", more_types=True)
+        self.con = sqlite.connect(":memory:", detect_types=sqlite.PARSE_DECLTYPES)
         self.cur = self.con.cursor()
         self.cur.execute("create table test(i int, s str, f float, b bool, u unicode, foo foo, bin blob)")
 
-        self.con.register_converter("int", lambda x: int(x))
-        self.con.register_converter("float", lambda x: float(x))
-        self.con.register_converter("bool", lambda x: x == "1")
-        self.con.register_converter("unicode", lambda x: unicode(x, "utf-8"))
-        self.con.register_converter("foo", AdvancedTypeTests.Foo)
-        self.con.register_converter("blob", buffer)
+        # override float, make them always return the same number
+        self.con.converters["float"] = lambda x: 47.2
+
+        # and implement two custom ones
+        self.con.converters["bool"] = lambda x: bool(int(x))
+        self.con.converters["foo"] = DeclTypesTests.Foo
 
     def tearDown(self):
         self.cur.close()
         self.con.close()
 
     def CheckString(self):
+        # default
         self.cur.execute("insert into test(s) values (?)", ("foo",))
         self.cur.execute("select s from test")
         row = self.cur.fetchone()
         self.failUnlessEqual(row[0], "foo")
 
     def CheckSmallInt(self):
+        # default
         self.cur.execute("insert into test(i) values (?)", (42,))
         self.cur.execute("select i from test")
         row = self.cur.fetchone()
         self.failUnlessEqual(row[0], 42)
 
     def CheckLargeInt(self):
+        # default
         num = 2**40
         self.cur.execute("insert into test(i) values (?)", (num,))
         self.cur.execute("select i from test")
@@ -129,13 +133,15 @@ class AdvancedTypeTests(unittest.TestCase):
         self.failUnlessEqual(row[0], num)
 
     def CheckFloat(self):
+        # custom
         val = 3.14
         self.cur.execute("insert into test(f) values (?)", (val,))
         self.cur.execute("select f from test")
         row = self.cur.fetchone()
-        self.failUnlessEqual(row[0], val)
+        self.failUnlessEqual(row[0], 47.2)
 
     def CheckBool(self):
+        # custom
         self.cur.execute("insert into test(b) values (?)", (False,))
         self.cur.execute("select b from test")
         row = self.cur.fetchone()
@@ -148,30 +154,62 @@ class AdvancedTypeTests(unittest.TestCase):
         self.failUnlessEqual(row[0], True)
 
     def CheckUnicode(self):
+        # default
         val = u"\xd6sterreich"
         self.cur.execute("insert into test(u) values (?)", (val,))
         self.cur.execute("select u from test")
         row = self.cur.fetchone()
         self.failUnlessEqual(row[0], val)
 
-    def _does_not_work_atm_CheckFoo(self):
-        val = AdvancedTypeTests.Foo("bla")
+    def CheckFoo(self):
+        val = DeclTypesTests.Foo("bla")
         self.cur.execute("insert into test(foo) values (?)", (val,))
         self.cur.execute("select foo from test")
         row = self.cur.fetchone()
         self.failUnlessEqual(row[0], val)
 
     def CheckBlob(self):
+        # default
         val = buffer("Guglhupf")
         self.cur.execute("insert into test(bin) values (?)", (val,))
         self.cur.execute("select bin from test")
         row = self.cur.fetchone()
         self.failUnlessEqual(row[0], val)
 
+class ColNamesTests(unittest.TestCase):
+    def setUp(self):
+        self.con = sqlite.connect(":memory:", detect_types=sqlite.PARSE_COLNAMES|sqlite.PARSE_DECLTYPES)
+        self.cur = self.con.cursor()
+        self.cur.execute("create table test(x foo)")
+
+        self.con.converters["foo"] = lambda x: "[%s]" % x
+        self.con.converters["bar"] = lambda x: "<%s>" % x
+
+    def tearDown(self):
+        self.cur.close()
+        self.con.close()
+
+    def CheckDeclType(self):
+        self.cur.execute("insert into test(x) values (?)", ("xxx",))
+        self.cur.execute("select x from test")
+        val = self.cur.fetchone()[0]
+        self.failUnlessEqual(val, "[xxx]")
+
+    def CheckColName(self):
+        self.cur.execute("insert into test(x) values (?)", ("xxx",))
+        self.cur.execute('select x as "x [bar]" from test')
+        val = self.cur.fetchone()[0]
+        self.failUnlessEqual(val, "<xxx>")
+
+        # Check if the stripping of colnames works. Everything after the first
+        # whitespace should be stripped.
+        self.failUnlessEqual(self.cur.description[0][0], "x")
+
 def suite():
     sqlite_type_suite = unittest.makeSuite(SqliteTypeTests, "Check")
-    advanced_type_suite = unittest.makeSuite(AdvancedTypeTests, "Check")
-    return unittest.TestSuite((sqlite_type_suite, advanced_type_suite))
+    decltypes_type_suite = unittest.makeSuite(DeclTypesTests, "Check")
+    colnames_type_suite = unittest.makeSuite(ColNamesTests, "Check")
+    return unittest.TestSuite((sqlite_type_suite, decltypes_type_suite, colnames_type_suite))
 
 def test():
     runner = unittest.TextTestRunner()

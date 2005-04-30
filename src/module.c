@@ -39,7 +39,7 @@ static PyObject* module_connect(PyObject* self, PyObject* args, PyObject* kwargs
 {
     PyObject* factory = NULL;
     PyObject* dontcare = NULL;
-    static char *kwlist[] = {"database", "timeout", "more_types", "no_implicit_begin", "check_same_thread", "prepareProtocol", "factory", NULL, NULL};
+    static char *kwlist[] = {"database", "timeout", "detect_types", "autocommit", "check_same_thread", "prepareProtocol", "factory", NULL, NULL};
     PyObject* result;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|diiiOO", kwlist,
@@ -64,6 +64,7 @@ static PyMethodDef module_methods[] = {
 PyMODINIT_FUNC init_sqlite(void)
 {
     PyObject *module, *dict;
+    PyObject* time_module;
 
     module = Py_InitModule("pysqlite2._sqlite", module_methods);
 
@@ -96,7 +97,7 @@ PyMODINIT_FUNC init_sqlite(void)
     Py_INCREF(&CacheType);
     PyModule_AddObject(module, "Cache", (PyObject*) &CacheType);
     Py_INCREF(&SQLitePrepareProtocolType);
-    PyModule_AddObject(module, "SQLitePrepareProtocol", (PyObject*) &SQLitePrepareProtocolType);
+    PyModule_AddObject(module, "PrepareProtocol", (PyObject*) &SQLitePrepareProtocolType);
 
     if (!(dict = PyModule_GetDict(module)))
     {
@@ -152,12 +153,19 @@ PyMODINIT_FUNC init_sqlite(void)
     PyDict_SetItemString(dict, "DATETIME", sqlite_DATETIME);
     PyDict_SetItemString(dict, "ROWID", sqlite_ROWID);
 
+    PyDict_SetItemString(dict, "PARSE_DECLTYPES", PyInt_FromLong(PARSE_DECLTYPES));
+    PyDict_SetItemString(dict, "PARSE_COLNAMES", PyInt_FromLong(PARSE_COLNAMES));
+
     PyDict_SetItemString(dict, "version", PyString_FromString(PYSQLITE_VERSION));
     PyDict_SetItemString(dict, "sqlite_version", PyString_FromString(sqlite3_libversion()));
 
     /* initialize microprotocols layer */
     microprotocols_init(dict);
     /* psyco_adapters_init(dict); */
+
+    time_module = PyImport_ImportModule("time");
+    time_time =  PyObject_GetAttrString(time_module, "time");
+    time_sleep = PyObject_GetAttrString(time_module, "sleep");
 
     /* Original comment form _bsddb.c in the Python core. This is also still
      * needed nowadays for Python 2.3/2.4.

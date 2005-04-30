@@ -36,4 +36,11 @@ PyObject* ProgrammingError;
 PyObject* IntegrityError;
 PyObject* DataError;
 PyObject* NotSupportedError;
+
+/* the functions time.time() and time.sleep() */
+PyObject* time_time;
+PyObject* time_sleep;
+
+#define PARSE_DECLTYPES 1
+#define PARSE_COLNAMES 2
 #endif

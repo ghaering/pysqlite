@@ -82,7 +82,7 @@ int cursor_init(Cursor* self, PyObject* args, PyObject* kwargs)
     }
 
     if (!PyObject_IsInstance((PyObject*)connection, &ConnectionType)) {
-        PyErr_SetString(PyExc_ValueError, "The connection parameter must be an instance of pysqlite.dbapi2.Connection");
+        PyErr_SetString(PyExc_ValueError, "The connection parameter must be an instance of Connection");
         return -1;
     }
 
@@ -105,11 +105,6 @@ int cursor_init(Cursor* self, PyObject* args, PyObject* kwargs)
 
     Py_INCREF(Py_None);
     self->row_factory = Py_None;
-
-    Py_INCREF(Py_None);
-    self->coltypes = Py_None;
-    Py_INCREF(Py_None);
-    self->next_coltypes = Py_None;
 
     if (!check_thread(self->connection)) {
         return -1;
@@ -134,8 +129,6 @@ void cursor_dealloc(Cursor* self)
     Py_XDECREF(self->lastrowid);
     Py_XDECREF(self->rowcount);
     Py_XDECREF(self->row_factory);
-    Py_XDECREF(self->coltypes);
-    Py_XDECREF(self->next_coltypes);
 
     self->ob_type->tp_free((PyObject*)self);
 }
@@ -143,10 +136,18 @@ void cursor_dealloc(Cursor* self)
 void build_row_cast_map(Cursor* self)
 {
     int i;
+    const unsigned char* type_start = (const unsigned char*)-1;
+    const unsigned char* pos;
+
     const unsigned char* colname;
     const unsigned char* decltype;
+    PyObject* py_decltype;
     PyObject* converter;
-    PyObject* typename;
+    PyObject* key;
+
+    if (!self->connection->detect_types) {
+        return;
+    }
 
     Py_DECREF(self->row_cast_map);
     self->row_cast_map = PyList_New(0);
@@ -154,16 +155,33 @@ void build_row_cast_map(Cursor* self)
     for (i = 0; i < sqlite3_column_count(self->statement); i++) {
         converter = NULL;
 
-        colname = sqlite3_column_name(self->statement, i);
-        /* TODO: toupper() */
-        typename = PyDict_GetItemString(self->coltypes, colname);
-        if (typename) {
-            converter = PyDict_GetItem(self->connection->converters, typename);
-            Py_DECREF(typename);
-        } else {
+        if (self->connection->detect_types | PARSE_COLNAMES) {
+            colname = sqlite3_column_name(self->statement, i);
+
+            for (pos = colname; *pos != 0; pos++) {
+                if (*pos == '[') {
+                    type_start = pos + 1;
+                } else if (*pos == ']' && type_start != (const unsigned char*)-1) {
+                    key = PyString_FromStringAndSize(type_start, pos - type_start);
+                    converter = PyDict_GetItem(self->connection->converters, key);
+                    Py_DECREF(key);
+                    break;
+                }
+
+            }
+        }
+
+        if (!converter && self->connection->detect_types | PARSE_DECLTYPES) {
             decltype = sqlite3_column_decltype(self->statement, i);
             if (decltype) {
-                converter = PyDict_GetItemString(self->connection->converters, decltype);
+                for (pos = decltype;;pos++) {
+                    if (*pos == ' ' || *pos == 0) {
+                        py_decltype = PyString_FromStringAndSize(decltype, pos - decltype);
+                        break;
+                    }
+                }
+
+                converter = PyDict_GetItem(self->connection->converters, py_decltype);
             }
         }
 
@@ -212,7 +230,7 @@ int _bind_parameter(Cursor* self, int pos, PyObject* parameter)
         rc = sqlite3_bind_text(self->statement, pos, string, -1, SQLITE_TRANSIENT);
     } else if PyUnicode_Check(parameter) {
         stringval = PyUnicode_AsUTF8String(parameter);
-        string = PyString_AsString(parameter);
+        string = PyString_AsString(stringval);
         rc = sqlite3_bind_text(self->statement, pos, string, -1, SQLITE_TRANSIENT);
         Py_DECREF(stringval);
     } else {
@@ -221,6 +239,18 @@ int _bind_parameter(Cursor* self, int pos, PyObject* parameter)
 
     return rc;
 }
+
+PyObject* _build_column_name(const unsigned char* colname)
+{
+    const unsigned char* pos;
+
+    for (pos = colname;; pos++) {
+        if (*pos == 0 || *pos == ' ') {
+            return PyString_FromStringAndSize(colname, pos - colname);
+        }
+    }
+}
+
 
 PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
 {
@@ -322,29 +352,35 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
     Py_INCREF(Py_None);
     self->rowcount = Py_None;
 
-    Py_DECREF(self->coltypes);
-    self->coltypes = self->next_coltypes;
-    Py_INCREF(Py_None);
-    self->next_coltypes = Py_None;
-
     statement_type = detect_statement_type(operation_cstr);
-    if (!self->connection->inTransaction) {
-        switch (statement_type) {
-            case STATEMENT_UPDATE:
-            case STATEMENT_DELETE:
-            case STATEMENT_INSERT:
-                func_args = PyTuple_New(0);
-                if (!args)
-                    return NULL;
-                result = _connection_begin(self->connection, func_args);
-                Py_DECREF(func_args);
-                if (!result) {
-                    return NULL;
-                }
-            case STATEMENT_SELECT:
-                /* TODO: raise error in executemany() case */
-                break;
-        }
+    if (!self->connection->autocommit) {
+            switch (statement_type) {
+                case STATEMENT_UPDATE:
+                case STATEMENT_DELETE:
+                case STATEMENT_INSERT:
+                    if (!self->connection->inTransaction) {
+                        result = _connection_begin(self->connection);
+                        if (!result) {
+                            return NULL;
+                        }
+                    }
+                    break;
+                case STATEMENT_OTHER:
+                    /* it's a DDL statement or something similar
+                       - we better COMMIT first so it works for all cases */
+                    if (self->connection->inTransaction) {
+                        func_args = PyTuple_New(0);
+                        result = connection_commit(self->connection, func_args);
+                        Py_DECREF(func_args);
+                        if (!result) {
+                            return NULL;
+                        }
+                    }
+                    break;
+                case STATEMENT_SELECT:
+                    /* TODO: raise error in executemany() case */
+                    break;
+            }
     }
 
     Py_BEGIN_ALLOW_THREADS
@@ -462,7 +498,7 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
                 self->description = PyTuple_New(numcols);
                 for (i = 0; i < numcols; i++) {
                     descriptor = PyTuple_New(7);
-                    PyTuple_SetItem(descriptor, 0, PyString_FromString(sqlite3_column_name(self->statement, i)));
+                    PyTuple_SetItem(descriptor, 0, _build_column_name(sqlite3_column_name(self->statement, i)));
                     Py_INCREF(Py_None); PyTuple_SetItem(descriptor, 1, Py_None);
                     Py_INCREF(Py_None); PyTuple_SetItem(descriptor, 2, Py_None);
                     Py_INCREF(Py_None); PyTuple_SetItem(descriptor, 3, Py_None);
@@ -578,8 +614,29 @@ PyObject* cursor_iternext(Cursor *self)
     row = PyTuple_New(numcols);
 
     for (i = 0; i < numcols; i++) {
-        if (!self->connection->advancedTypes) {
-            /* Use SQLite's primitive type system (default) */
+        /* Use SQLite's primitive type system (default) */
+        if (self->connection->detect_types) {
+            converter = PyList_GetItem(self->row_cast_map, i);
+            if (!converter) {
+                Py_INCREF(Py_None);
+                converter = Py_None;
+            }
+        } else {
+            Py_INCREF(Py_None);
+            converter = Py_None;
+        }
+
+        if (converter != Py_None) {
+            item = PyString_FromString(sqlite3_column_text(self->statement, i));
+            converted = PyObject_CallFunction(converter, "O", item);
+            if (!converted) {
+                /* TODO: have a way to log these errors */
+                Py_INCREF(Py_None);
+                converted = Py_None;
+                PyErr_Clear();
+            }
+            Py_DECREF(item);
+        } else {
             Py_BEGIN_ALLOW_THREADS
             coltype = sqlite3_column_type(self->statement, i);
             Py_END_ALLOW_THREADS
@@ -613,33 +670,6 @@ PyObject* cursor_iternext(Cursor *self)
                 /* should never happen */
                 Py_INCREF(Py_None);
                 converted = Py_None;
-            }
-        } else {
-            /* advanced type system */
-            coltype = sqlite3_column_type(self->statement, i);
-            if (coltype == SQLITE_NULL) {
-                Py_INCREF(Py_None);
-                converted = Py_None;
-            } else {
-                converter = PyList_GetItem(self->row_cast_map, i);
-                if (!converter) {
-                    PyErr_SetString(InternalError, "no converter found");
-                    return NULL;
-                }
-
-                if (converter == Py_None) {
-                    converted = PyString_FromString(sqlite3_column_text(self->statement, i));
-                } else {
-                    item = PyString_FromString(sqlite3_column_text(self->statement, i));
-                    converted = PyObject_CallFunction(converter, "O", item);
-                    if (!converted) {
-                        /* TODO: have a way to log these errors */
-                        Py_INCREF(Py_None);
-                        converted = Py_None;
-                        PyErr_Clear();
-                    }
-                    Py_DECREF(item);
-                }
             }
         }
 
@@ -784,11 +814,11 @@ static PyMethodDef cursor_methods[] = {
 
 static struct PyMemberDef cursor_members[] =
 {
+    {"connection", T_OBJECT, offsetof(Cursor, connection), RO},
     {"description", T_OBJECT, offsetof(Cursor, description), RO},
     {"arraysize", T_INT, offsetof(Cursor, arraysize), 0},
     {"lastrowid", T_OBJECT, offsetof(Cursor, lastrowid), RO},
     {"rowcount", T_OBJECT, offsetof(Cursor, rowcount), RO},
-    {"coltypes", T_OBJECT, offsetof(Cursor, next_coltypes), 0},
     {"row_factory", T_OBJECT, offsetof(Cursor, row_factory), 0},
     {NULL}
 };

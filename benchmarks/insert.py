@@ -1,13 +1,23 @@
 import time
 
-from pysqlite2 import dbapi2 as sqlite
-#import sqlite
+def yesno(question):
+    val = raw_input(question + " ")
+    return val.startswith("y") or val.startswith("Y")
+
+use_pysqlite2 = yesno("Use pysqlite 2.0?")
+use_autocommit = yesno("Use autocommit?")
+use_executemany= yesno("Use executemany?")
+
+if use_pysqlite2:
+    from pysqlite2 import dbapi2 as sqlite
+else:
+    import sqlite
+
 
 def create_db():
-    if sqlite.version_info > (2, 0):
-        con = sqlite.connect(":memory:", more_types=True)
-    else:
-        con = sqlite.connect(":memory:")
+    con = sqlite.connect(":memory:")
+    if use_autocommit:
+        con.autocommit = True
     cur = con.cursor()
     cur.execute("""
         create table test(v text, f float, i integer)
@@ -20,7 +30,7 @@ def test():
     l = []
     for i in range(1000):
         l.append(row)
-    
+
     con = create_db()
     cur = con.cursor()
 
@@ -28,13 +38,14 @@ def test():
         sql = "insert into test(v, f, i) values (?, ?, ?)"
     else:
         sql = "insert into test(v, f, i) values (%s, %s, %s)"
-    
+
     starttime = time.time()
     for i in range(50):
-        #cur.executemany(sql, l)
-        for r in l:
-            cur.execute(sql, r)
-    endtime = time.time()
+        if use_executemany:
+            cur.executemany(sql, l)
+        else:
+            for r in l:
+                cur.execute(sql, r)
 
     print "elapsed", endtime - starttime
 

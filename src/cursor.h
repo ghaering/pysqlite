@@ -35,8 +35,6 @@ typedef struct
     Connection* connection;
     PyObject* description;
     PyObject* row_cast_map;
-    PyObject* next_coltypes;
-    PyObject* coltypes;
     int arraysize;
     PyObject* lastrowid;
     PyObject* rowcount;

@@ -27,10 +27,7 @@ threadsafety = 1
 
 apilevel = "2.0"
 
-from pysqlite2._sqlite import Error, Warning, InterfaceError, DatabaseError,\
-    InternalError, OperationalError, ProgrammingError, IntegrityError,\
-    DataError, NotSupportedError, STRING, BINARY, NUMBER, DATETIME, ROWID,\
-    version, sqlite_version, SQLitePrepareProtocol, connect, Connection, Cursor
+from pysqlite2._sqlite import *
 
 import datetime, time
 
