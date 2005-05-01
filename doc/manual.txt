@@ -2,7 +2,7 @@
 pysqlite: powerful embedded SQL database for Python
 ---------------------------------------------------
 
-(c) 2004-2005 Gerhard Häring
+\(c\) 2004-2005 Gerhard Häring
 
 ===========
 0. Abstract
