@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="Docutils 0.3.8: http://docutils.sourceforge.net/" />
+<title>pysqlite installation guide - source distribution</title>
+<link rel="stylesheet" href="default.css" type="text/css" />
+</head>
+<body>
+<div class="document" id="pysqlite-installation-guide-source-distribution">
+<h1 class="title">pysqlite installation guide - source distribution</h1>
+<p>(c) 2005 Gerhard Häring</p>
+<dl class="docutils">
+<dt>Note: For Windows users, it is recommended that you use the win32 binary</dt>
+<dd>distribution of pysqlite!</dd>
+</dl>
+<p>Steps:</p>
+<blockquote>
+<ul class="simple">
+<li><a class="reference" href="#step-1-satisfy-the-dependencies">Step 1: Satisfy the dependencies</a></li>
+<li><a class="reference" href="#step-2-compile-pysqlite">Step 2: Compile pysqlite</a></li>
+<li><a class="reference" href="#step-3-install-pysqlite">Step 3: Install pysqlite</a></li>
+<li><a class="reference" href="#step-4-test-your-pysqlite-installation">Step 4: Test your pysqlite installation</a></li>
+</ul>
+</blockquote>
+<div class="section" id="step-1-satisfy-the-dependencies">
+<h1><a name="step-1-satisfy-the-dependencies">Step 1: Satisfy The Dependencies</a></h1>
+<p>pysqlite requires a valid combination of the dependencies in the list below.</p>
+<p>Detailed instructions on how to install each dependency are beyond the scope of
+this document; consult the dependency distributor for installation
+instructions.</p>
+<p>Dependencies:</p>
+<blockquote>
+<ol class="arabic simple">
+<li>Operating System and C Compiler - one of:<ul>
+<li>Linux/FreeBSD/NetBSD/OpenBSD and GCC</li>
+<li>Other POSIX-compliant operating system and a C compiler</li>
+<li>[Compilation on Windows will be described in a later version of this document]</li>
+</ul>
+</li>
+<li>SQLite:<ul>
+<li>SQLite version 3.1 or later.</li>
+</ul>
+</li>
+<li>Python:<ul>
+<li>Python 2.3 or later</li>
+</ul>
+</li>
+</ol>
+</blockquote>
+</div>
+<div class="section" id="step-2-compile-pysqlite">
+<h1><a name="step-2-compile-pysqlite">Step 2: Compile pysqlite</a></h1>
+<p>Once you have successfully installed the dependencies, you may proceed with the
+installation of pysqlite itself.</p>
+<p>pysqlite has full support for the <a class="reference" href="http://www.python.org/sigs/distutils-sig/">distutils</a>, the standard facility for Python
+package distribution and installation. Full instructions for using the
+distutils are available in <a class="reference" href="http://www.python.org/doc/current/inst/inst.html">this section of the Python documentation</a>, but you
+can skip them unless you have an otherwise insoluble problem.</p>
+<p>Open a command prompt, change to the directory where you decompressed the
+pysqlite source distribution, and type:</p>
+<pre class="literal-block">
+python setup.py build
+</pre>
+<p>The installation script, setup.py, will attempt to automatically detect the
+information needed by the C compiler; then it will invoke the distutils to
+perform the actual compilation. If you installed automatic distributions of the
+dependencies that place themselves in standard locations (on UNIX-style
+operating systems), the compilation should proceed without incident.</p>
+<p>Otherwise you will have to customize the build process. That's what the file
+<em>setup.cfg</em> is meant for. It's contains a few lines that you can customize so
+your C compiler will find the library and header files and you can also do a
+few other tweaks, like build pysqlite in debug mode.</p>
+<p>After you've customized <em>setup.cfg</em> apprporiately, try invoking <tt class="docutils literal"><span class="pre">python</span>
+<span class="pre">setup.py</span> <span class="pre">build</span></tt> again.</p>
+<p>If setup.py raises no errors and its output concludes with something like
+&quot;Creating library...&quot;, then you are ready to proceed to the next step.</p>
+<p>If you receive an error message from the compiler, then try to look at the
+first error it reports. Other errors will most likely be aftereffects from the
+first error (like not finding the sqlite3.h header file).</p>
+</div>
+<div class="section" id="step-3-install-pysqlite">
+<h1><a name="step-3-install-pysqlite">Step 3: Install pysqlite</a></h1>
+<p>During this step, the setup script moves the <em>pysqlite2</em> package (including the
+newly compiled C extension) to the standard package directory of your Python
+installation so that Python will be able to import pysqlite2.dbapi2 and
+pysqlite2.test.</p>
+<p>In addition to the Python code and shared library files actually used by the
+Python interpreter, the setup script typically installs some supporting files,
+such as documentation. Depending on your system configuration, these supporting
+files may be placed in the same directory or a different directory from the
+files used by the Python interpreter.</p>
+<p>Run the following command:</p>
+<pre class="literal-block">
+python setup.py install
+</pre>
+<p>The setup script will install pysqlite, listing each file it installs.</p>
+<p>Errors during this step are rare because compilation (the finicky part of this
+process) has already taken place; installation is really just a matter of
+copying files. However, there will be file system permission errors if the
+Python installation directory is not writable by the user running the setup
+script. If you encounter such an error, try one of the following:</p>
+<ul class="simple">
+<li>Log in as a user who has the required file system permissions and repeat the
+installation step.</li>
+<li>Manually copy the directory build/lib.platform-pyver/pysqlite2 (which
+contains the Python modules and compiled library files created during the
+compilation step) to a directory in your PYTHONPATH. This approach will not
+install the supporting files, but they are for the benefit of the programmer
+rather than the Python interpreter anyway.</li>
+</ul>
+</div>
+<div class="section" id="step-4-test-your-pysqlite-installation">
+<h1><a name="step-4-test-your-pysqlite-installation">Step 4: Test Your pysqlite Installation</a></h1>
+<p>Switch to a directory other than the temporary directory into which you
+decompressed the source distribution (to avoid conflict between the copy of
+pysqlite in that directory and the copy placed under the standard Python
+site-packages directory), then run the pysqlite test suite by starting a Python
+interpreter for the Python version you installed pysqlite for and entering the
+following:</p>
+<pre class="literal-block">
+&gt;&gt;&gt; from pysqlite2 import test
+&gt;&gt;&gt; test.test()
+...................................................................................................
+----------------------------------------------------------------------
+Ran 99 tests in 0.182s
+</pre>
+<p>If the test suite runs without any errors, you are finished.</p>
+<p>You should not encounter any errors at this stage since you have already
+completed the compilation and installation steps successfully. If you do,
+please report them to the <a class="reference" href="http://initd.org/tracker/pysqlite">pysqlite bug tracker</a> or the <a class="reference" href="http://lists.initd.org/mailman/listinfo/pysqlite">pysqlite mailing
+list</a>.</p>
+</div>
+</div>
+</body>
+</html>
