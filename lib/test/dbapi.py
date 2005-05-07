@@ -112,6 +112,14 @@ class ConnectionTests(unittest.TestCase):
     def CheckCursor(self):
         cu = self.cx.cursor()
 
+    def CheckFailedOpen(self):
+        YOU_CANNOT_OPEN_THIS = "/foo/bar/bla/23534/mydb.db"
+        try:
+            con = sqlite.connect(YOU_CANNOT_OPEN_THIS)
+        except sqlite.OperationalError:
+            return
+        self.fail("should have raised an OperationalError")
+
     def CheckClose(self):
         self.cx.close()
 

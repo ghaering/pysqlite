@@ -92,7 +92,11 @@ microprotocols_adapt(PyObject *obj, PyObject *proto, PyObject *alt)
     /* try to have the protocol adapt this object*/
     if (PyObject_HasAttrString(proto, "__adapt__")) {
         PyObject *adapted = PyObject_CallMethod(proto, "__adapt__", "O", obj);
-        if (adapted && adapted != Py_None) return adapted;
+        if (adapted && adapted != Py_None) {
+            return adapted;
+        } else {
+            Py_DECREF(Py_None);
+        }
         if (PyErr_Occurred() && !PyErr_ExceptionMatches(PyExc_TypeError))
             return NULL;
     }

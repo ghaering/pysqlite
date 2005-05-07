@@ -37,7 +37,7 @@ def dict_factory(cursor, row):
 class MyCursor(sqlite.Cursor):
     def __init__(self, *args, **kwargs):
         sqlite.Cursor.__init__(self, *args, **kwargs)
-        self.row_factory = lambda row: dict_factory(self, row)
+        self.row_factory = dict_factory
 
 class ConnectionFactoryTests(unittest.TestCase):
     def setUp(self):

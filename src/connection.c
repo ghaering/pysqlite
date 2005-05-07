@@ -225,14 +225,14 @@ PyObject* connection_commit(Connection* self, PyObject* args)
         Py_END_ALLOW_THREADS
         if (rc != SQLITE_OK) {
             _seterror(self->db);
-            return NULL;
+            goto error;
         }
 
         rc = _sqlite_step_with_busyhandler(statement, self);
 
         if (rc != SQLITE_DONE) {
             _seterror(self->db);
-            return NULL;
+            goto error;
         }
 
         Py_BEGIN_ALLOW_THREADS
@@ -240,14 +240,19 @@ PyObject* connection_commit(Connection* self, PyObject* args)
         Py_END_ALLOW_THREADS
         if (rc != SQLITE_OK) {
             _seterror(self->db);
-            return NULL;
+            goto error;
         }
 
         self->inTransaction = 0;
     }
 
-    Py_INCREF(Py_None);
-    return Py_None;
+error:
+    if (PyErr_Occurred()) {
+        return NULL;
+    } else {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
 }
 
 PyObject* connection_rollback(Connection* self, PyObject* args)
@@ -396,6 +401,7 @@ void _func_callback(sqlite3_context* context, int argc, sqlite3_value** argv)
     Py_DECREF(args);
 
     _set_result(context, py_retval);
+    Py_XDECREF(py_retval);
 
     PyGILState_Release(threadstate);
 }
@@ -417,9 +423,7 @@ static void _step_callback(sqlite3_context *context, int argc, sqlite3_value** p
     aggregate_instance = (PyObject**)sqlite3_aggregate_context(context, sizeof(PyObject*));
 
     if (*aggregate_instance == 0) {
-        args = PyTuple_New(0);
-        *aggregate_instance = PyObject_CallObject(aggregate_class, args);
-        Py_DECREF(args);
+        *aggregate_instance = PyObject_CallFunction(aggregate_class, "");
 
         if (PyErr_Occurred())
         {
@@ -493,6 +497,7 @@ void _final_callback(sqlite3_context* context)
 
     _set_result(context, function_result);
     Py_XDECREF(*aggregate_instance);
+    Py_XDECREF(function_result);
 
     PyGILState_Release(threadstate);
 }
@@ -514,8 +519,6 @@ PyObject* connection_create_function(Connection* self, PyObject* args, PyObject*
         return NULL;
     }
 
-    Py_INCREF(func);
-
     rc = sqlite3_create_function(self->db, name, narg, SQLITE_UTF8, (void*)func, _func_callback, NULL, NULL);
 ;
     Py_INCREF(Py_None);
@@ -535,8 +538,6 @@ PyObject* connection_create_aggregate(Connection* self, PyObject* args, PyObject
                                       kwlist, &name, &n_arg, &aggregate_class)) {
         return NULL;
     }
-
-    Py_INCREF(aggregate_class);
 
     rc = sqlite3_create_function(self->db, name, n_arg, SQLITE_UTF8, (void*)aggregate_class, 0, &_step_callback, &_final_callback);
     if (rc != SQLITE_OK) {
@@ -572,11 +573,13 @@ static PyObject* connection_get_autocommit(Connection* self, void* unused)
 static int connection_set_autocommit(Connection* self, PyObject* value)
 {
     PyObject* empty;
+    PyObject* res;
 
     if (PyObject_IsTrue(value)) {
         empty = PyTuple_New(0);
-        connection_commit(self, empty);
+        res = connection_commit(self, empty);
         Py_DECREF(empty);
+        Py_DECREF(res);
 
         self->inTransaction = 0;
         self->autocommit = 1;

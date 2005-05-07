@@ -100,8 +100,7 @@ int cursor_init(Cursor* self, PyObject* args, PyObject* kwargs)
 
     self->arraysize = 1;
 
-    Py_INCREF(Py_None);
-    self->rowcount = Py_None;
+    self->rowcount = PyInt_FromLong(-1L);
 
     Py_INCREF(Py_None);
     self->row_factory = Py_None;
@@ -182,6 +181,7 @@ void build_row_cast_map(Cursor* self)
                 }
 
                 converter = PyDict_GetItem(self->connection->converters, py_decltype);
+                Py_DECREF(py_decltype);
             }
         }
 
@@ -255,10 +255,11 @@ PyObject* _build_column_name(const unsigned char* colname)
 PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
 {
     PyObject* operation;
+    PyObject* operation_bytestr = NULL;
     char* operation_cstr;
     PyObject* parameters_list = NULL;
-    PyObject* parameters_iter;
-    PyObject* parameters;
+    PyObject* parameters_iter = NULL;
+    PyObject* parameters = NULL;
     int num_params;
     const char* tail;
     int i;
@@ -339,8 +340,12 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
     if (PyString_Check(operation)) {
         operation_cstr = PyString_AsString(operation);
     } else {
-        /* FIXME: leak */
-        operation_cstr = PyString_AsString(PyUnicode_AsUTF8String(operation));
+        operation_bytestr = PyUnicode_AsUTF8String(operation);
+        if (!operation_bytestr) {
+            goto error;
+        }
+
+        operation_cstr = PyString_AsString(operation_bytestr);
     }
 
     /* reset description and rowcount */
@@ -349,8 +354,7 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
     self->description = Py_None;
 
     Py_DECREF(self->rowcount);
-    Py_INCREF(Py_None);
-    self->rowcount = Py_None;
+    self->rowcount = PyInt_FromLong(-1L);
 
     statement_type = detect_statement_type(operation_cstr);
     if (!self->connection->autocommit) {
@@ -363,6 +367,7 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
                         if (!result) {
                             return NULL;
                         }
+                        Py_DECREF(result);
                     }
                     break;
                 case STATEMENT_OTHER:
@@ -375,6 +380,7 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
                         if (!result) {
                             return NULL;
                         }
+                        Py_DECREF(result);
                     }
                     break;
                 case STATEMENT_SELECT:
@@ -398,7 +404,6 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
     Py_BEGIN_ALLOW_THREADS
     num_params_needed = sqlite3_bind_parameter_count(self->statement);
     Py_END_ALLOW_THREADS
-
     while (1) {
         parameters = PyIter_Next(parameters_iter);
         if (!parameters) {
@@ -413,34 +418,33 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
                 Py_END_ALLOW_THREADS
                 if (!binding_name) {
                     PyErr_Format(ProgrammingError, "Binding %d has no name, but you supplied a dictionary (which has only names).", i);
-                    return NULL;
+                    goto error;
                 }
 
                 binding_name++; /* skip first char (the colon) */
                 current_param = PyDict_GetItemString(parameters, binding_name);
                 if (!current_param) {
                     PyErr_Format(ProgrammingError, "You did not supply a value for binding %d.", i);
-                    return NULL;
+                    goto error;
                 }
-
 
                 Py_INCREF(current_param);
                 adapted = microprotocols_adapt(current_param, (PyObject*)self->connection->prepareProtocol, NULL);
-                Py_DECREF(current_param);
                 if (adapted) {
+                    Py_DECREF(current_param);
                 } else {
                     PyErr_Clear();
                     adapted = current_param;
-                    Py_INCREF(adapted);
                 }
 
                 rc = _bind_parameter(self, i, adapted);
+                Py_DECREF(adapted);
+
                 if (rc != SQLITE_OK) {
                     /* TODO: fail */
-                    return NULL;
-                }
-
-                Py_DECREF(adapted);
+                    PyErr_Format(InterfaceError, "Error binding parameter %d.", i);
+                    goto error;
+               }
             }
         } else {
             /* parameters passed as sequence */
@@ -448,18 +452,17 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
             if (num_params != num_params_needed) {
                 PyErr_Format(ProgrammingError, "Incorrect number of bindings supplied.  The current statement uses %d, and there are %d supplied.",
                              num_params_needed, num_params);
-                return NULL;
+                goto error;
             }
             for (i = 0; i < num_params; i++) {
                 current_param = PySequence_GetItem(parameters, i);
                 adapted = microprotocols_adapt(current_param, (PyObject*)self->connection->prepareProtocol, NULL);
-                Py_DECREF(current_param);
 
                 if (adapted) {
+                    Py_DECREF(current_param);
                 } else {
                     PyErr_Clear();
                     adapted = current_param;
-                    Py_INCREF(adapted);
                 }
 
                 rc = _bind_parameter(self, i + 1, adapted);
@@ -536,10 +539,12 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
             rc = sqlite3_reset(self->statement);
             Py_END_ALLOW_THREADS
         }
-        Py_DECREF(parameters);
+        Py_XDECREF(parameters);
     }
 
 error:
+    Py_XDECREF(operation_bytestr);
+    Py_XDECREF(parameters);
     Py_DECREF(parameters_iter);
     Py_XDECREF(parameters_list);
 
@@ -582,8 +587,6 @@ PyObject* cursor_iternext(Cursor *self)
     void* raw_buffer;
     const char* val_str;
 
-    PyObject* factory_args;
-
     if (!check_thread(self->connection)) {
         return NULL;
     }
@@ -614,15 +617,12 @@ PyObject* cursor_iternext(Cursor *self)
     row = PyTuple_New(numcols);
 
     for (i = 0; i < numcols; i++) {
-        /* Use SQLite's primitive type system (default) */
         if (self->connection->detect_types) {
             converter = PyList_GetItem(self->row_cast_map, i);
             if (!converter) {
-                Py_INCREF(Py_None);
                 converter = Py_None;
             }
         } else {
-            Py_INCREF(Py_None);
             converter = Py_None;
         }
 
@@ -679,11 +679,7 @@ PyObject* cursor_iternext(Cursor *self)
     self->step_rc = UNKNOWN;
 
     if (self->row_factory != Py_None) {
-        factory_args = PyTuple_New(1);
-        Py_INCREF(row);
-        PyTuple_SetItem(factory_args, 0, row);
-        converted_row = PyObject_CallObject(self->row_factory, factory_args);
-        Py_DECREF(factory_args);
+        converted_row = PyObject_CallFunction(self->row_factory, "OO", self, row);
         Py_DECREF(row);
     } else {
         converted_row = row;

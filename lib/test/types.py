@@ -205,11 +205,33 @@ class ColNamesTests(unittest.TestCase):
         # whitespace should be stripped.
         self.failUnlessEqual(self.cur.description[0][0], "x")
 
+class PrepareProtocolTests(unittest.TestCase):
+    class P(sqlite.PrepareProtocol):
+        def __adapt__(self, obj):
+            if type(obj) is int:
+                return float(obj)
+            else:
+                return None
+
+    def setUp(self):
+        self.con = sqlite.connect(":memory:", prepareProtocol=PrepareProtocolTests.P())
+        self.cur = self.con.cursor()
+
+    def tearDown(self):
+        self.cur.close()
+        self.con.close()
+
+    def CheckProtocolIsUsed(self):
+        self.cur.execute("select ?", (4,))
+        val = self.cur.fetchone()[0]
+        self.failUnlessEqual(type(val), float)
+
 def suite():
     sqlite_type_suite = unittest.makeSuite(SqliteTypeTests, "Check")
     decltypes_type_suite = unittest.makeSuite(DeclTypesTests, "Check")
     colnames_type_suite = unittest.makeSuite(ColNamesTests, "Check")
-    return unittest.TestSuite((sqlite_type_suite, decltypes_type_suite, colnames_type_suite))
+    prepareprotocol_suite = unittest.makeSuite(PrepareProtocolTests, "Check")
+    return unittest.TestSuite((sqlite_type_suite, decltypes_type_suite, colnames_type_suite, prepareprotocol_suite))
 
 def test():
     runner = unittest.TextTestRunner()

@@ -143,7 +143,7 @@ int _seterror(sqlite3* db)
             PyErr_SetString(DatabaseError, sqlite3_errmsg(db));
             break;
         case SQLITE_CANTOPEN:
-            PyErr_SetString(DatabaseError, sqlite3_errmsg(db));
+            PyErr_SetString(OperationalError, sqlite3_errmsg(db));
             break;
         case SQLITE_PROTOCOL:
             PyErr_SetString(OperationalError, sqlite3_errmsg(db));

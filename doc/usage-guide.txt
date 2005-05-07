@@ -384,7 +384,7 @@ Python DB API.
       class DictCursor(sqlite.Cursor):
           def __init__(self, *args, **kwargs):
               sqlite.Cursor.__init__(self, *args, **kwargs)
-              self.row_factory = lambda row: dict_factory(self, row)
+              self.row_factory = dict_factory
 
 
       con = sqlite.connect(":memory:")

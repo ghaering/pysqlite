@@ -35,15 +35,27 @@ PyObject* sqlite_NUMBER;
 PyObject* sqlite_DATETIME;
 PyObject* sqlite_ROWID;
 
-static PyObject* module_connect(PyObject* self, PyObject* args, PyObject* kwargs)
+static PyObject* module_connect(PyObject* self, PyObject* args, PyObject*
+        kwargs)
 {
-    PyObject* factory = NULL;
-    PyObject* dontcare = NULL;
+    /* Python seems to have no way of extracting a single keyword-arg at
+     * C-level, so this code is redundant with the one in connection_init in
+     * connection.c and must always be copied from there ... */
+
     static char *kwlist[] = {"database", "timeout", "detect_types", "autocommit", "check_same_thread", "prepareProtocol", "factory", NULL, NULL};
+    char* database;
+    int detect_types = 0;
+    int autocommit = 0;
+    PyObject* prepare_protocol = NULL;
+    PyObject* factory = NULL;
+    int check_same_thread = 1;
+    double timeout = 5.0;
+
     PyObject* result;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|diiiOO", kwlist,
-                                     &dontcare, &dontcare, &dontcare, &dontcare, &dontcare, &dontcare, &factory)) {
+                                     &database, &timeout, &detect_types, &autocommit, &check_same_thread, &prepare_protocol, &factory))
+    {
         return NULL; 
     }
 
