@@ -27,7 +27,7 @@ from distutils.extension import Extension
 
 # If you need to change anything, it should be enough to change setup.cfg.
 
-PYSQLITE_VERSION = "2.0.alpha4"
+PYSQLITE_VERSION = "2.0.beta1"
 
 sqlite = "sqlite"
 
@@ -43,11 +43,11 @@ extra_objects = []
 define_macros = []
 
 long_description = \
-"""Python interface to SQLite 3.x
+"""Python interface to SQLite 3
 
 pysqlite is an interface to the SQLite 3.x embedded relational database engine.
-It will be fully compliant with Python database API version 2.0 while also
-exploiting the unique features of SQLite."""
+It is almost fully compliant with the Python database API version 2.0 also
+exposes the unique features of SQLite."""
 
 if sys.platform != "win32":
     define_macros.append(('PYSQLITE_VERSION', '"%s"' % PYSQLITE_VERSION))
@@ -84,7 +84,7 @@ def main():
                                       define_macros=define_macros
                                       )],
             classifiers = [
-            "Development Status :: 3 - Alpha",
+            "Development Status :: 4 - Beta",
             "Intended Audience :: Developers",
             "License :: OSI Approved :: zlib/libpng License",
             "Operating System :: MacOS :: MacOS X",
