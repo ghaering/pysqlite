@@ -56,7 +56,38 @@ else:
 define_macros.append(('PY_MAJOR_VERSION', str(sys.version_info[0])))
 define_macros.append(('PY_MINOR_VERSION', str(sys.version_info[1])))
 
+def build_docs():
+    import os, stat
+
+    try:
+        import docutils.core
+        import docutilsupport
+        CAN_BUILD_DOCS = True
+    except ImportError:
+        CAN_BUILD_DOCS = False
+
+    docfiles = {
+        "usage-guide.html": "usage-guide.txt",
+        "install-source.html": "install-source.txt"
+    }
+
+    os.chdir("doc")
+    for dest, source in docfiles.items():
+        build = False
+        if not os.path.exists(dest) or os.stat(dest)[stat.ST_MTIME] < os.stat(source)[stat.ST_MTIME]:
+            if not CAN_BUILD_DOCS:
+                print "Not building documentation file %s, because docutils and/or SilverCity is not installed." % dest
+            else:
+                print "Building documentation file %s." % dest
+                docutils.core.publish_cmdline(
+                    writer_name='html',
+                    argv=[source, dest])
+
+    os.chdir("..")
+
 def main():
+    build_docs()
+
     py_modules = ["sqlite"]
     setup ( # Distribution meta-data
             name = "pysqlite",

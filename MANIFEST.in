@@ -1,2 +1,8 @@
 include MANIFEST.in
 include src/*.h
+include doc/install-source.html
+include doc/usage-guide.html
+include doc/*.txt
+include doc/*.css
+include doc/*.css
+include doc/code/*.py
