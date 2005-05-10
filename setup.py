@@ -94,7 +94,7 @@ def main():
             version = PYSQLITE_VERSION,
             description = "DB-API 2.0 interface for SQLite 3.x",
             long_description=long_description,
-            author = "Gerhard Häring",
+            author = "Gerhard Haering",
             author_email = "gh@ghaering.de",
             license = "zlib/libpng license",
             platforms = "ALL",

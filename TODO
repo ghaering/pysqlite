@@ -6,6 +6,12 @@ TODO list for pysqlite
 Open items:
 -----------
 
+N/A
+
+-------------
+Closed items:
+-------------
+
 Summary:        cursor grows row factory
 Priority:       low
 Status:         open
@@ -14,16 +20,12 @@ Description:
 
 Summary:        Connection.cursor() grows a factory parameter
 Priority:       low
-Status:         open
+Status:         done
 Description:
     The cursor method of the connection object gets an optional cursor factory
     parameter for creating nonstandard cursor classes. One use-case is to
     create cursors where the returned rows are accessible by name instead of
     index.
-
--------------
-Closed items:
--------------
 
 Summary:        "autocommit" mode
 Priority:       medium

@@ -168,6 +168,28 @@ class DeclTypesTests(unittest.TestCase):
         row = self.cur.fetchone()
         self.failUnlessEqual(row[0], val)
 
+    def CheckUnsupportedSeq(self):
+        class Bar: pass
+        val = Bar()
+        try:
+            self.cur.execute("insert into test(f) values (?)", (val,))
+            self.fail("should have raised an InterfaceError")
+        except sqlite.InterfaceError:
+            pass
+        except:
+            self.fail("should have raised an InterfaceError")
+
+    def CheckUnsupportedDict(self):
+        class Bar: pass
+        val = Bar()
+        try:
+            self.cur.execute("insert into test(f) values (:val)", {"val": val})
+            self.fail("should have raised an InterfaceError")
+        except sqlite.InterfaceError:
+            pass
+        except:
+            self.fail("should have raised an InterfaceError")
+
     def CheckBlob(self):
         # default
         val = buffer("Guglhupf")
@@ -184,6 +206,7 @@ class ColNamesTests(unittest.TestCase):
 
         self.con.converters["foo"] = lambda x: "[%s]" % x
         self.con.converters["bar"] = lambda x: "<%s>" % x
+        self.con.converters["exc"] = lambda x: 5/0
 
     def tearDown(self):
         self.cur.close()
@@ -194,6 +217,12 @@ class ColNamesTests(unittest.TestCase):
         self.cur.execute("select x from test")
         val = self.cur.fetchone()[0]
         self.failUnlessEqual(val, "[xxx]")
+
+    def CheckExc(self):
+        # Exceptions in type converters result in returned Nones
+        self.cur.execute('select 5 as "x [exc]"')
+        val = self.cur.fetchone()[0]
+        self.failUnlessEqual(val, None)
 
     def CheckColName(self):
         self.cur.execute("insert into test(x) values (?)", ("xxx",))

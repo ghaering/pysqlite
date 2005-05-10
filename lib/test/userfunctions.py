@@ -27,6 +27,8 @@ import pysqlite2.dbapi2 as sqlite
 
 def func_returntext():
     return "foo"
+def func_returnunicode():
+    return u"bar"
 def func_returnint():
     return 42
 def func_returnfloat():
@@ -116,6 +118,7 @@ class FunctionTests(unittest.TestCase):
         self.con = sqlite.connect(":memory:")
 
         self.con.create_function("returntext", 0, func_returntext)
+        self.con.create_function("returnunicode", 0, func_returnunicode)
         self.con.create_function("returnint", 0, func_returnint)
         self.con.create_function("returnfloat", 0, func_returnfloat)
         self.con.create_function("returnnull", 0, func_returnnull)
@@ -137,6 +140,13 @@ class FunctionTests(unittest.TestCase):
         val = cur.fetchone()[0]
         self.failUnlessEqual(type(val), unicode)
         self.failUnlessEqual(val, "foo")
+
+    def CheckFuncReturnUnicode(self):
+        cur = self.con.cursor()
+        cur.execute("select returnunicode()")
+        val = cur.fetchone()[0]
+        self.failUnlessEqual(type(val), unicode)
+        self.failUnlessEqual(val, u"bar")
 
     def CheckFuncReturnInt(self):
         cur = self.con.cursor()

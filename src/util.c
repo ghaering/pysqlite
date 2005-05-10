@@ -104,7 +104,7 @@ int _seterror(sqlite3* db)
             PyErr_Clear();
             break;
         case SQLITE_ERROR:
-            PyErr_SetString(DatabaseError, sqlite3_errmsg(db));
+            PyErr_SetString(OperationalError, sqlite3_errmsg(db));
             break;
         case SQLITE_INTERNAL:
             PyErr_SetString(InternalError, sqlite3_errmsg(db));
@@ -125,7 +125,7 @@ int _seterror(sqlite3* db)
             (void)PyErr_NoMemory();
             break;
         case SQLITE_READONLY:
-            PyErr_SetString(DatabaseError, sqlite3_errmsg(db));
+            PyErr_SetString(OperationalError, sqlite3_errmsg(db));
             break;
         case SQLITE_INTERRUPT:
             PyErr_SetString(OperationalError, sqlite3_errmsg(db));
@@ -140,7 +140,7 @@ int _seterror(sqlite3* db)
             PyErr_SetString(InternalError, sqlite3_errmsg(db));
             break;
         case SQLITE_FULL:
-            PyErr_SetString(DatabaseError, sqlite3_errmsg(db));
+            PyErr_SetString(OperationalError, sqlite3_errmsg(db));
             break;
         case SQLITE_CANTOPEN:
             PyErr_SetString(OperationalError, sqlite3_errmsg(db));
@@ -149,10 +149,10 @@ int _seterror(sqlite3* db)
             PyErr_SetString(OperationalError, sqlite3_errmsg(db));
             break;
         case SQLITE_EMPTY:
-            PyErr_SetString(InternalError, sqlite3_errmsg(db));
+            PyErr_SetString(OperationalError, sqlite3_errmsg(db));
             break;
         case SQLITE_SCHEMA:
-            PyErr_SetString(DatabaseError, sqlite3_errmsg(db));
+            PyErr_SetString(OperationalError, sqlite3_errmsg(db));
             break;
         case SQLITE_TOOBIG:
             PyErr_SetString(DataError, sqlite3_errmsg(db));

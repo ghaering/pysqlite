@@ -28,18 +28,6 @@
 #include "util.h"
 #include "pythread.h"
 
-PyObject* connection_alloc(PyTypeObject* type, int aware)
-{
-    PyObject *self;
-
-    self = (PyObject*)PyObject_MALLOC(sizeof(Connection));
-    if (self == NULL)
-        return (PyObject *)PyErr_NoMemory();
-    PyObject_INIT(self, type);
-
-    return self;
-}
-
 int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
 {
     static char *kwlist[] = {"database", "timeout", "detect_types", "autocommit", "check_same_thread", "prepareProtocol", "factory", NULL, NULL};
@@ -97,15 +85,6 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
     }
 
     return 0;
-}
-
-PyObject* connection_new(PyTypeObject* type, PyObject* args, PyObject* kw)
-{
-    Connection* self = NULL;
-
-    self = (Connection*) (type->tp_alloc(type, 0));
-
-    return (PyObject*)self;
 }
 
 void connection_dealloc(Connection* self)
@@ -174,10 +153,6 @@ PyObject* _connection_begin(Connection* self)
     int rc;
     const char* tail;
     sqlite3_stmt* statement;
-
-    if (!check_thread(self)) {
-        return NULL;
-    }
 
     Py_BEGIN_ALLOW_THREADS
     rc = sqlite3_prepare(self->db, "BEGIN", -1, &statement, &tail);

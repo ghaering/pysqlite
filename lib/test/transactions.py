@@ -34,10 +34,10 @@ class TransactionTests(unittest.TestCase):
         except:
             pass
 
-        self.con1 = sqlite.connect(get_db_path())
+        self.con1 = sqlite.connect(get_db_path(), timeout=0.1)
         self.cur1 = self.con1.cursor()
 
-        self.con2 = sqlite.connect(get_db_path())
+        self.con2 = sqlite.connect(get_db_path(), timeout=0.1)
         self.cur2 = self.con2.cursor()
 
     def tearDown(self):
@@ -80,19 +80,42 @@ class TransactionTests(unittest.TestCase):
         res = self.cur2.fetchall()
         self.failUnlessEqual(len(res), 1)
 
+    def CheckReplaceStartsTransaction(self):
+        self.cur1.execute("create table test(i)")
+        self.cur1.execute("insert into test(i) values (5)")
+        self.con1.commit()
+        self.cur1.execute("replace into test(i) values (6)")
+        self.cur2.execute("select i from test")
+        res = self.cur2.fetchall()
+        self.failUnlessEqual(len(res), 1)
+        self.failUnlessEqual(res[0][0], 5)
+
     def CheckToggleAutoCommit(self):
         self.cur1.execute("create table test(i)")
         self.cur1.execute("insert into test(i) values (5)")
         self.con1.autocommit = True
+        self.failUnlessEqual(self.con1.autocommit, True)
         self.cur2.execute("select i from test")
         res = self.cur2.fetchall()
         self.failUnlessEqual(len(res), 1)
 
         self.con1.autocommit = False
+        self.failUnlessEqual(self.con1.autocommit, False)
         self.cur1.execute("insert into test(i) values (5)")
         self.cur2.execute("select i from test")
         res = self.cur2.fetchall()
         self.failUnlessEqual(len(res), 1)
+
+    def CheckRaiseTimeout(self):
+        self.cur1.execute("create table test(i)")
+        self.cur1.execute("insert into test(i) values (5)")
+        try:
+            self.cur2.execute("insert into test(i) values (5)")
+            self.fail("should have raised an OperationalError")
+        except sqlite.OperationalError:
+            pass
+        except:
+            self.fail("should have raised an OperationalError")
 
 def suite():
     default_suite = unittest.makeSuite(TransactionTests, "Check")

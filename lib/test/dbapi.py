@@ -22,6 +22,7 @@
 # 3. This notice may not be removed or altered from any source distribution.
 
 import unittest
+import threading
 import pysqlite2.dbapi2 as sqlite
 
 class ModuleTests(unittest.TestCase):
@@ -123,6 +124,17 @@ class ConnectionTests(unittest.TestCase):
     def CheckClose(self):
         self.cx.close()
 
+    def CheckCloseException(self):
+        cu = self.cx.cursor()
+        cu.execute("select * from test")
+        try:
+            self.cx.close()
+            self.fail("should have raised an OperationalError")
+        except sqlite.OperationalError:
+            pass
+        except:
+            self.fail("should have raised an OperationalError")
+
     def CheckExceptions(self):
         # Optional DB-API extension.
         self.failUnlessEqual(self.cx.Warning, sqlite.Warning)
@@ -149,6 +161,45 @@ class CursorTests(unittest.TestCase):
 
     def CheckExecuteNoArgs(self):
         self.cu.execute("delete from test")
+
+    def CheckExecuteIllegalSql(self):
+        try:
+            self.cu.execute("select asdf")
+            self.fail("should have raised an OperationalError")
+        except sqlite.OperationalError:
+            return
+        except:
+            self.fail("raised wrong exception")
+
+    def CheckExecuteTooMuchSql(self):
+        try:
+            self.cu.execute("select 5+4; select 4+5")
+            self.fail("should have raised a Warning")
+        except sqlite.Warning:
+            return
+        except:
+            self.fail("raised wrong exception")
+
+    def CheckExecuteTooMuchSql2(self):
+        self.cu.execute("select 5+4; -- foo bar")
+
+    def CheckExecuteTooMuchSql3(self):
+        self.cu.execute("""
+            select 5+4;
+
+            /*
+            foo
+            */
+            """)
+
+    def CheckExecuteWrongSqlArg(self):
+        try:
+            self.cu.execute(42)
+            self.fail("should have raised a ValueError")
+        except ValueError:
+            return
+        except:
+            self.fail("raised wrong exception.")
 
     def CheckExecuteArgInt(self):
         self.cu.execute("insert into test(id) values (?)", (42,))
@@ -256,6 +307,34 @@ class CursorTests(unittest.TestCase):
 
         self.cu.executemany("insert into test(income) values (?)", mygen())
 
+    def CheckExecuteManyWrongSqlArg(self):
+        try:
+            self.cu.executemany(42, [(3,)])
+            self.fail("should have raised a ValueError")
+        except ValueError:
+            return
+        except:
+            self.fail("raised wrong exception.")
+
+    def CheckExecuteManySelect(self):
+        try:
+            self.cu.executemany("select ?", [(3,)])
+            self.fail("should have raised a ProgrammingError")
+        except sqlite.ProgrammingError:
+            return
+        except:
+            self.fail("raised wrong exception.")
+
+    def CheckExecuteManyNotIterable(self):
+        try:
+            self.cu.executemany("insert into test(income) values (?)", 42)
+            self.fail("should have raised a TypeError")
+        except TypeError:
+            return
+        except Exception, e:
+            print "raised", e.__class__
+            self.fail("raised wrong exception.")
+
     def CheckFetchIter(self):
         # Optional DB-API extension.
         self.cu.execute("delete from test")
@@ -274,6 +353,16 @@ class CursorTests(unittest.TestCase):
         self.failUnlessEqual(row[0], "foo")
         row = self.cu.fetchone()
         self.failUnlessEqual(row, None)
+
+    def CheckFetchoneNoStatement(self):
+        try:
+            cur = self.cx.cursor()
+            row = cur.fetchone()
+            self.fail("should have raised a ProgrammingError")
+        except sqlite.ProgrammingError:
+            pass
+        except:
+            self.fail("should have raised a ProgrammingError")
 
     def CheckArraySize(self):
         # must default ot 1
@@ -315,16 +404,180 @@ class CursorTests(unittest.TestCase):
         # Optional DB-API extension.
         self.failUnlessEqual(self.cu.connection, self.cx)
 
+    def CheckWrongCursorCallable(self):
+        try:
+            def f(): pass
+            cur = self.cx.cursor(f)
+            self.fail("should have raised a TypeError")
+        except TypeError:
+            return
+        self.fail("should have raised a ValueError")
 
-class TypeTests(unittest.TestCase):
+    def CheckCursorWrongClass(self):
+        class Foo: pass
+        foo = Foo()
+        try:
+            cur = sqlite.Cursor(foo)
+            self.fail("should have raised a ValueError")
+        except ValueError:
+            pass
+
+class ThreadTests(unittest.TestCase):
     def setUp(self):
-        self.cx = sqlite.connect(":memory:")
-        self.cu = self.cx.cursor()
-        self.cu.execute("create table test(id integer primary key, name text, bin binary, ratio number, ts timestamp)")
+        self.con = sqlite.connect(":memory:")
+        self.cur = self.con.cursor()
+        self.cur.execute("create table test(id integer primary key, name text, bin binary, ratio number, ts timestamp)")
+
+    def CheckConCursor(self):
+        def run(con, errors):
+            try:
+                cur = con.cursor()
+                errors.append("did not raise ProgrammingError")
+                return
+            except sqlite.ProgrammingError:
+                return
+            except:
+                errors.append("raised wrong exception")
+
+        errors = []
+        t = threading.Thread(target=run, kwargs={"con": self.con, "errors": errors})
+        t.start()
+        t.join()
+        if len(errors) > 0:
+            self.fail("\n".join(errors))
+
+    def CheckConCommit(self):
+        def run(con, errors):
+            try:
+                con.commit()
+                errors.append("did not raise ProgrammingError")
+                return
+            except sqlite.ProgrammingError:
+                return
+            except:
+                errors.append("raised wrong exception")
+
+        errors = []
+        t = threading.Thread(target=run, kwargs={"con": self.con, "errors": errors})
+        t.start()
+        t.join()
+        if len(errors) > 0:
+            self.fail("\n".join(errors))
+
+    def CheckConRollback(self):
+        def run(con, errors):
+            try:
+                con.rollback()
+                errors.append("did not raise ProgrammingError")
+                return
+            except sqlite.ProgrammingError:
+                return
+            except:
+                errors.append("raised wrong exception")
+
+        errors = []
+        t = threading.Thread(target=run, kwargs={"con": self.con, "errors": errors})
+        t.start()
+        t.join()
+        if len(errors) > 0:
+            self.fail("\n".join(errors))
+
+    def CheckConClose(self):
+        def run(con, errors):
+            try:
+                con.close()
+                errors.append("did not raise ProgrammingError")
+                return
+            except sqlite.ProgrammingError:
+                return
+            except:
+                errors.append("raised wrong exception")
+
+        errors = []
+        t = threading.Thread(target=run, kwargs={"con": self.con, "errors": errors})
+        t.start()
+        t.join()
+        if len(errors) > 0:
+            self.fail("\n".join(errors))
+
+    def CheckCurImplicitBegin(self):
+        def run(cur, errors):
+            try:
+                cur.execute("insert into test(name) values ('a')")
+                errors.append("did not raise ProgrammingError")
+                return
+            except sqlite.ProgrammingError:
+                return
+            except:
+                errors.append("raised wrong exception")
+
+        errors = []
+        t = threading.Thread(target=run, kwargs={"cur": self.cur, "errors": errors})
+        t.start()
+        t.join()
+        if len(errors) > 0:
+            self.fail("\n".join(errors))
+
+    def CheckCurClose(self):
+        def run(cur, errors):
+            try:
+                cur.close()
+                errors.append("did not raise ProgrammingError")
+                return
+            except sqlite.ProgrammingError:
+                return
+            except:
+                errors.append("raised wrong exception")
+
+        errors = []
+        t = threading.Thread(target=run, kwargs={"cur": self.cur, "errors": errors})
+        t.start()
+        t.join()
+        if len(errors) > 0:
+            self.fail("\n".join(errors))
+
+    def CheckCurExecute(self):
+        def run(cur, errors):
+            try:
+                cur.execute("select name from test")
+                errors.append("did not raise ProgrammingError")
+                return
+            except sqlite.ProgrammingError:
+                return
+            except:
+                errors.append("raised wrong exception")
+
+        errors = []
+        self.cur.execute("insert into test(name) values ('a')")
+        t = threading.Thread(target=run, kwargs={"cur": self.cur, "errors": errors})
+        t.start()
+        t.join()
+        if len(errors) > 0:
+            self.fail("\n".join(errors))
+
+    def CheckCurIterNext(self):
+        def run(cur, errors):
+            try:
+                row = cur.fetchone()
+                errors.append("did not raise ProgrammingError")
+                return
+            except sqlite.ProgrammingError:
+                return
+            except:
+                errors.append("raised wrong exception")
+
+        errors = []
+        self.cur.execute("insert into test(name) values ('a')")
+        self.cur.execute("select name from test")
+        t = threading.Thread(target=run, kwargs={"cur": self.cur, "errors": errors})
+        t.start()
+        t.join()
+        if len(errors) > 0:
+            self.fail("\n".join(errors))
 
     def tearDown(self):
-        self.cu.close()
-        self.cx.close()
+        self.cur.close()
+        self.con.close()
 
 class ConstructorTests(unittest.TestCase):
     def CheckDate(self):
@@ -352,9 +605,9 @@ def suite():
     module_suite = unittest.makeSuite(ModuleTests, "Check")
     connection_suite = unittest.makeSuite(ConnectionTests, "Check")
     cursor_suite = unittest.makeSuite(CursorTests, "Check")
-    type_suite = unittest.makeSuite(TypeTests, "Check")
+    thread_suite = unittest.makeSuite(ThreadTests, "Check")
     constructor_suite = unittest.makeSuite(ConstructorTests, "Check")
-    return unittest.TestSuite((module_suite, connection_suite, cursor_suite, type_suite, constructor_suite))
+    return unittest.TestSuite((module_suite, connection_suite, cursor_suite, thread_suite, constructor_suite))
 
 def test():
     runner = unittest.TextTestRunner()

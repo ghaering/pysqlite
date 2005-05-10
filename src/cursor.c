@@ -65,6 +65,8 @@ static StatementType detect_statement_type(char* statement)
         return STATEMENT_UPDATE;
     } else if (!strcmp(buf, "delete")) {
         return STATEMENT_DELETE;
+    } else if (!strcmp(buf, "replace")) {
+        return STATEMENT_REPLACE;
     } else {
         return STATEMENT_OTHER;
     }
@@ -219,12 +221,12 @@ int _bind_parameter(Cursor* self, int pos, PyObject* parameter)
     } else if (PyFloat_Check(parameter)) {
         rc = sqlite3_bind_double(self->statement, pos, PyFloat_AsDouble(parameter));
     } else if (PyBuffer_Check(parameter)) {
-        if (PyObject_AsCharBuffer(parameter, &buffer, &buflen) != 0) {
-            /* TODO: decide what error to raise */
+        if (PyObject_AsCharBuffer(parameter, &buffer, &buflen) == 0) {
+            rc = sqlite3_bind_blob(self->statement, pos, buffer, buflen, SQLITE_TRANSIENT);
+        } else {
             PyErr_SetString(PyExc_ValueError, "could not convert BLOB to buffer");
-            return -1;
+            rc = -1;
         }
-        rc = sqlite3_bind_blob(self->statement, pos, buffer, buflen, SQLITE_TRANSIENT);
     } else if PyString_Check(parameter) {
         string = PyString_AsString(parameter);
         rc = sqlite3_bind_text(self->statement, pos, string, -1, SQLITE_TRANSIENT);
@@ -234,7 +236,7 @@ int _bind_parameter(Cursor* self, int pos, PyObject* parameter)
         rc = sqlite3_bind_text(self->statement, pos, string, -1, SQLITE_TRANSIENT);
         Py_DECREF(stringval);
     } else {
-        PyErr_SetString(PyExc_ValueError, "Tried to bind non-supported value. Supported types are NoneType, int, long (on most platforms), float, str, unicode and buffer.");
+        rc = -1;
     }
 
     return rc;
@@ -251,6 +253,84 @@ PyObject* _build_column_name(const unsigned char* colname)
     }
 }
 
+typedef enum {
+    LINECOMMENT_1,
+    IN_LINECOMMENT,
+    COMMENTSTART_1,
+    IN_COMMENT,
+    COMMENTEND_1,
+    NORMAL
+} parse_remaining_sql_state;
+
+/*
+ * Checks if there is anything left in an SQL string after SQLite compiled it.
+ * This is used to check if somebody tried to execute more than one SQL command
+ * with one execute()/executemany() command, which the DB-API and we don't
+ * allow.
+ *
+ * Returns 1 if there is more left than should be. 0 if ok.
+ */
+int check_remaining_sql(const char* tail)
+{
+    const char* pos = tail;
+
+    parse_remaining_sql_state state = NORMAL;
+
+    for (;;) {
+        switch (*pos) {
+            case 0:
+                return 0;
+            case '-':
+                if (state == NORMAL) {
+                    state  = LINECOMMENT_1;
+                } else if (state == LINECOMMENT_1) {
+                    state = IN_LINECOMMENT;
+                }
+                break;
+            case ' ':
+            case '\t':
+                break;
+            case '\n':
+            case 13:
+                if (state == IN_LINECOMMENT) {
+                    state = NORMAL;
+                }
+                break;
+            case '/':
+                if (state == NORMAL) {
+                    state = COMMENTSTART_1;
+                } else if (state == COMMENTEND_1) {
+                    state = NORMAL;
+                } else if (state == COMMENTSTART_1) {
+                    return 1;
+                }
+                break;
+            case '*':
+                if (state == NORMAL) {
+                    return 1;
+                } else if (state == LINECOMMENT_1) {
+                    return 1;
+                } else if (state == COMMENTSTART_1) {
+                    state = IN_COMMENT;
+                } else if (state == IN_COMMENT) {
+                    state = COMMENTEND_1;
+                }
+                break;
+            default:
+                if (state == COMMENTEND_1) {
+                    state = IN_COMMENT;
+                } else if (state == IN_LINECOMMENT) {
+                } else if (state == IN_COMMENT) {
+                } else {
+                    return 1;
+                }
+        }
+
+        pos++;
+    }
+
+    return 0;
+}
 
 PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
 {
@@ -358,35 +438,39 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
 
     statement_type = detect_statement_type(operation_cstr);
     if (!self->connection->autocommit) {
-            switch (statement_type) {
-                case STATEMENT_UPDATE:
-                case STATEMENT_DELETE:
-                case STATEMENT_INSERT:
-                    if (!self->connection->inTransaction) {
-                        result = _connection_begin(self->connection);
-                        if (!result) {
-                            return NULL;
-                        }
-                        Py_DECREF(result);
+        switch (statement_type) {
+            case STATEMENT_UPDATE:
+            case STATEMENT_DELETE:
+            case STATEMENT_INSERT:
+            case STATEMENT_REPLACE:
+                if (!self->connection->inTransaction) {
+                    result = _connection_begin(self->connection);
+                    if (!result) {
+                        goto error;
                     }
-                    break;
-                case STATEMENT_OTHER:
-                    /* it's a DDL statement or something similar
-                       - we better COMMIT first so it works for all cases */
-                    if (self->connection->inTransaction) {
-                        func_args = PyTuple_New(0);
-                        result = connection_commit(self->connection, func_args);
-                        Py_DECREF(func_args);
-                        if (!result) {
-                            return NULL;
-                        }
-                        Py_DECREF(result);
+                    Py_DECREF(result);
+                }
+                break;
+            case STATEMENT_OTHER:
+                /* it's a DDL statement or something similar
+                   - we better COMMIT first so it works for all cases */
+                if (self->connection->inTransaction) {
+                    func_args = PyTuple_New(0);
+                    result = connection_commit(self->connection, func_args);
+                    Py_DECREF(func_args);
+                    if (!result) {
+                        goto error;
                     }
-                    break;
-                case STATEMENT_SELECT:
-                    /* TODO: raise error in executemany() case */
-                    break;
-            }
+                    Py_DECREF(result);
+                }
+                break;
+            case STATEMENT_SELECT:
+                if (multiple) {
+                    PyErr_SetString(ProgrammingError,
+                                "You can only execute SELECT statements in executemany().");
+                    goto error;
+                }
+        }
     }
 
     Py_BEGIN_ALLOW_THREADS
@@ -398,7 +482,12 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
     Py_END_ALLOW_THREADS
     if (rc != SQLITE_OK) {
         _seterror(self->connection->db);
-        return NULL;
+        goto error;
+    }
+
+    if (check_remaining_sql(tail)) {
+        PyErr_SetString(Warning, "You can only execute one statement at a time.");
+        goto error;
     }
 
     Py_BEGIN_ALLOW_THREADS
@@ -441,8 +530,7 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
                 Py_DECREF(adapted);
 
                 if (rc != SQLITE_OK) {
-                    /* TODO: fail */
-                    PyErr_Format(InterfaceError, "Error binding parameter %d.", i);
+                    PyErr_Format(InterfaceError, "Error binding parameter :%s - probably unsupported type.", binding_name);
                     goto error;
                }
             }
@@ -450,7 +538,7 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
             /* parameters passed as sequence */
             num_params = PySequence_Length(parameters);
             if (num_params != num_params_needed) {
-                PyErr_Format(ProgrammingError, "Incorrect number of bindings supplied.  The current statement uses %d, and there are %d supplied.",
+                PyErr_Format(ProgrammingError, "Incorrect number of bindings supplied. The current statement uses %d, and there are %d supplied.",
                              num_params_needed, num_params);
                 goto error;
             }
@@ -469,14 +557,11 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
                 Py_DECREF(adapted);
 
                 if (rc != SQLITE_OK) {
+                    PyErr_Format(InterfaceError, "Error binding parameter %d - probably unsupported type.", i);
                     goto error;
                 }
 
             }
-        }
-
-        if (PyErr_Occurred()) {
-            return NULL;
         }
 
         build_row_cast_map(self);
@@ -484,12 +569,13 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
         self->step_rc = _sqlite_step_with_busyhandler(self->statement, self->connection);
         if (self->step_rc != SQLITE_DONE && self->step_rc != SQLITE_ROW) {
             _seterror(self->connection->db);
-            return NULL;
+            goto error;
         }
 
         if (self->step_rc == SQLITE_ROW) {
             if (multiple) {
-                /* TODO: raise error */
+                PyErr_SetString(ProgrammingError, "executemany() can only execute DML statements.");
+                goto error;
             }
 
             Py_BEGIN_ALLOW_THREADS
@@ -517,6 +603,7 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
             case STATEMENT_UPDATE:
             case STATEMENT_DELETE:
             case STATEMENT_INSERT:
+            case STATEMENT_REPLACE:
                 Py_BEGIN_ALLOW_THREADS
                 rowcount += (long)sqlite3_changes(self->connection->db);
                 Py_END_ALLOW_THREADS
@@ -606,7 +693,7 @@ PyObject* cursor_iternext(Cursor *self)
     if (self->step_rc == SQLITE_DONE) {
         return NULL;
     } else if (self->step_rc != SQLITE_ROW) {
-        PyErr_SetString(DatabaseError, "wrong return code :-S");
+        _seterror(self->connection->db);
         return NULL;
     }
 
@@ -655,7 +742,8 @@ PyObject* cursor_iternext(Cursor *self)
             } else if (coltype == SQLITE_TEXT) {
                 val_str = sqlite3_column_text(self->statement, i);
                 converted = PyUnicode_DecodeUTF8(val_str, strlen(val_str), NULL);
-            } else if (coltype == SQLITE_BLOB) {
+            } else {
+                /* coltype == SQLITE_BLOB */
                 nbytes = sqlite3_column_bytes(self->statement, i);
                 buffer = PyBuffer_New(nbytes);
                 if (!buffer) {
@@ -666,10 +754,6 @@ PyObject* cursor_iternext(Cursor *self)
                 }
                 memcpy(raw_buffer, sqlite3_column_blob(self->statement, i), nbytes);
                 converted = buffer;
-            } else {
-                /* should never happen */
-                Py_INCREF(Py_None);
-                converted = Py_None;
             }
         }
 
