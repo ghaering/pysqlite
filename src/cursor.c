@@ -653,6 +653,84 @@ PyObject* cursor_executemany(Cursor* self, PyObject* args)
     return _query_execute(self, 1, args);
 }
 
+PyObject* cursor_executescript(Cursor* self, PyObject* args)
+{
+    PyObject* script_obj;
+    PyObject* script_str = NULL;
+    const char* script_cstr;
+    sqlite3_stmt* statement;
+    int rc;
+    PyObject* func_args;
+    PyObject* result;
+
+    if (!PyArg_ParseTuple(args, "O", &script_obj)) {
+        return NULL; 
+    }
+
+    if (PyString_Check(script_obj)) {
+        script_cstr = PyString_AsString(script_obj);
+    } else if (PyUnicode_Check(script_obj)) {
+        script_str = PyUnicode_AsUTF8String(script_obj);
+        if (!script_obj) {
+            return NULL;
+        }
+
+        script_cstr = PyString_AsString(script_str);
+    } else {
+        PyErr_SetString(PyExc_ValueError, "script argument must be unicode or string.");
+        return NULL;
+    }
+
+    /* commit first */
+    func_args = PyTuple_New(0);
+    result = connection_commit(self->connection, func_args);
+    Py_DECREF(func_args);
+    if (!result) {
+        goto error;
+    }
+    Py_DECREF(result);
+
+    while (1) {
+        if (!sqlite3_complete(script_cstr)) {
+            break;
+        }
+
+        rc = sqlite3_prepare(self->connection->db,
+                             script_cstr,
+                             0,
+                             &statement,
+                             &script_cstr);
+        if (rc != SQLITE_OK) {
+            _seterror(self->connection->db);
+            goto error;
+        }
+
+        /* execute statement, and ignore results of SELECT statements */
+        rc = SQLITE_ROW;
+        while (rc == SQLITE_ROW) {
+            rc = _sqlite_step_with_busyhandler(statement, self->connection);
+        }
+
+        if (rc != SQLITE_DONE) {
+            (void)sqlite3_finalize(statement);
+            _seterror(self->connection->db);
+            goto error;
+        }
+
+        rc = sqlite3_finalize(statement);
+        if (rc != SQLITE_OK) {
+            _seterror(self->connection->db);
+            goto error;
+        }
+    }
+
+error:
+    Py_XDECREF(script_str);
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
 PyObject* cursor_getiter(Cursor *self)
 {
     Py_INCREF(self);
@@ -877,6 +955,8 @@ static PyMethodDef cursor_methods[] = {
         PyDoc_STR("Executes a SQL statement.")},
     {"executemany", (PyCFunction)cursor_executemany, METH_VARARGS,
         PyDoc_STR("Repeatedly executes a SQL statement.")},
+    {"executescript", (PyCFunction)cursor_executescript, METH_VARARGS,
+        PyDoc_STR("Executes a multiple SQL statements at once. Non-standard.")},
     {"fetchone", (PyCFunction)cursor_fetchone, METH_NOARGS,
         PyDoc_STR("Fetches several rows from the resultset.")},
     {"fetchmany", (PyCFunction)cursor_fetchmany, METH_VARARGS,

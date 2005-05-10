@@ -601,13 +601,42 @@ class ConstructorTests(unittest.TestCase):
     def CheckBinary(self):
         b = sqlite.Binary(chr(0) + "'")
 
+class ScriptTests(unittest.TestCase):
+    def CheckStringSql(self):
+        con = sqlite.connect(":memory:")
+        cur = con.cursor()
+        cur.executescript("""
+            -- bla bla
+            /* a stupid comment */
+            create table a(i);
+            insert into a(i) values (5);
+            """)
+        cur.execute("select i from a")
+        res = cur.fetchone()[0]
+        self.failUnlessEqual(res, 5)
+
+    def CheckStringUnicode(self):
+        con = sqlite.connect(":memory:")
+        cur = con.cursor()
+        cur.executescript(u"""
+            create table a(i);
+            insert into a(i) values (5);
+            select i from a;
+            delete from a;
+            insert into a(i) values (6);
+            """)
+        cur.execute("select i from a")
+        res = cur.fetchone()[0]
+        self.failUnlessEqual(res, 6)
+
 def suite():
     module_suite = unittest.makeSuite(ModuleTests, "Check")
     connection_suite = unittest.makeSuite(ConnectionTests, "Check")
     cursor_suite = unittest.makeSuite(CursorTests, "Check")
     thread_suite = unittest.makeSuite(ThreadTests, "Check")
     constructor_suite = unittest.makeSuite(ConstructorTests, "Check")
-    return unittest.TestSuite((module_suite, connection_suite, cursor_suite, thread_suite, constructor_suite))
+    script_suite = unittest.makeSuite(ScriptTests, "Check")
+    return unittest.TestSuite((module_suite, connection_suite, cursor_suite, thread_suite, constructor_suite, script_suite))
 
 def test():
     runner = unittest.TextTestRunner()
