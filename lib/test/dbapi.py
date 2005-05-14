@@ -419,7 +419,7 @@ class CursorTests(unittest.TestCase):
         try:
             cur = sqlite.Cursor(foo)
             self.fail("should have raised a ValueError")
-        except ValueError:
+        except TypeError:
             pass
 
 class ThreadTests(unittest.TestCase):
@@ -427,6 +427,10 @@ class ThreadTests(unittest.TestCase):
         self.con = sqlite.connect(":memory:")
         self.cur = self.con.cursor()
         self.cur.execute("create table test(id integer primary key, name text, bin binary, ratio number, ts timestamp)")
+
+    def tearDown(self):
+        self.cur.close()
+        self.con.close()
 
     def CheckConCursor(self):
         def run(con, errors):
@@ -575,10 +579,6 @@ class ThreadTests(unittest.TestCase):
         if len(errors) > 0:
             self.fail("\n".join(errors))
 
-    def tearDown(self):
-        self.cur.close()
-        self.con.close()
-
 class ConstructorTests(unittest.TestCase):
     def CheckDate(self):
         d = sqlite.Date(2004, 10, 28)
@@ -629,6 +629,58 @@ class ScriptTests(unittest.TestCase):
         res = cur.fetchone()[0]
         self.failUnlessEqual(res, 6)
 
+class ClosedTests(unittest.TestCase):
+    def setUp(self):
+        pass
+
+    def tearDown(self):
+        pass
+
+    def CheckClosedConCursor(self):
+        con = sqlite.connect(":memory:")
+        con.close()
+        try:
+            cur = con.cursor()
+            self.fail("Should have raised a ProgrammingError")
+        except sqlite.ProgrammingError:
+            pass
+        except:
+            self.fail("Should have raised a ProgrammingError")
+
+    def CheckClosedConCommit(self):
+        con = sqlite.connect(":memory:")
+        con.close()
+        try:
+            con.commit()
+            self.fail("Should have raised a ProgrammingError")
+        except sqlite.ProgrammingError:
+            pass
+        except:
+            self.fail("Should have raised a ProgrammingError")
+
+    def CheckClosedConRollback(self):
+        con = sqlite.connect(":memory:")
+        con.close()
+        try:
+            con.rollback()
+            self.fail("Should have raised a ProgrammingError")
+        except sqlite.ProgrammingError:
+            pass
+        except:
+            self.fail("Should have raised a ProgrammingError")
+
+    def CheckClosedCurExecute(self):
+        con = sqlite.connect(":memory:")
+        cur = con.cursor()
+        con.close()
+        try:
+            cur.execute("select 4")
+            self.fail("Should have raised a ProgrammingError")
+        except sqlite.ProgrammingError:
+            pass
+        except:
+            self.fail("Should have raised a ProgrammingError")
+
 def suite():
     module_suite = unittest.makeSuite(ModuleTests, "Check")
     connection_suite = unittest.makeSuite(ConnectionTests, "Check")
@@ -636,7 +688,8 @@ def suite():
     thread_suite = unittest.makeSuite(ThreadTests, "Check")
     constructor_suite = unittest.makeSuite(ConstructorTests, "Check")
     script_suite = unittest.makeSuite(ScriptTests, "Check")
-    return unittest.TestSuite((module_suite, connection_suite, cursor_suite, thread_suite, constructor_suite, script_suite))
+    closed_suite = unittest.makeSuite(ClosedTests, "Check")
+    return unittest.TestSuite((module_suite, connection_suite, cursor_suite, thread_suite, constructor_suite, script_suite, closed_suite))
 
 def test():
     runner = unittest.TextTestRunner()

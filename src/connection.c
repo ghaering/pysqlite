@@ -30,19 +30,17 @@
 
 int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
 {
-    static char *kwlist[] = {"database", "timeout", "detect_types", "autocommit", "check_same_thread", "prepareProtocol", "factory", NULL, NULL};
+    static char *kwlist[] = {"database", "timeout", "detect_types", "autocommit", "check_same_thread", "factory", NULL, NULL};
     char* database;
     int detect_types = 0;
     int autocommit = 0;
-    PyObject* prepare_protocol = NULL;
     PyObject* factory = NULL;
-    PyObject* proto_args;
     int check_same_thread = 1;
     double timeout = 5.0;
     int rc;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|diiiOO", kwlist,
-                                     &database, &timeout, &detect_types, &autocommit, &check_same_thread, &prepare_protocol, &factory))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|diiiO", kwlist,
+                                     &database, &timeout, &detect_types, &autocommit, &check_same_thread, &factory))
     {
         return -1; 
     }
@@ -62,7 +60,6 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
     self->autocommit = autocommit;
     self->thread_ident = PyThread_get_thread_ident();
     self->check_same_thread = check_same_thread;
-    self->converters = PyDict_New();
 
     self->Warning = Warning;
     self->Error = Error;
@@ -74,15 +71,6 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
     self->InternalError = InternalError;
     self->ProgrammingError = ProgrammingError;
     self->NotSupportedError = NotSupportedError;
-
-    if (prepare_protocol == NULL) {
-        proto_args = Py_BuildValue("()");
-        self->prepareProtocol = (PyObject*)PyObject_CallObject((PyObject*)&SQLitePrepareProtocolType, proto_args);
-        Py_DECREF(proto_args);
-    } else {
-        Py_INCREF(prepare_protocol);
-        self->prepareProtocol = prepare_protocol;
-    }
 
     return 0;
 }
@@ -96,9 +84,6 @@ void connection_dealloc(Connection* self)
         Py_END_ALLOW_THREADS
     }
 
-    Py_XDECREF(self->converters);
-    Py_XDECREF(self->prepareProtocol);
-
     self->ob_type->tp_free((PyObject*)self);
 }
 
@@ -111,6 +96,10 @@ PyObject* connection_cursor(Connection* self, PyObject* args, PyObject* kwargs)
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|O", kwlist,
                                      &factory)) {
+        return NULL;
+    }
+
+    if (!check_thread(self) || !check_connection(self)) {
         return NULL;
     }
 
@@ -146,6 +135,21 @@ PyObject* connection_close(Connection* self, PyObject* args)
 
     Py_INCREF(Py_None);
     return Py_None;
+}
+
+/*
+ * Checks if a connection object is usable (i. e. not closed).
+ *
+ * 0 => error; 1 => ok
+ */
+int check_connection(Connection* con)
+{
+    if (!con->db) {
+        PyErr_SetString(ProgrammingError, "Cannot operate on a closed database.");
+        return 0;
+    } else {
+        return 1;
+    }
 }
 
 PyObject* _connection_begin(Connection* self)
@@ -190,7 +194,7 @@ PyObject* connection_commit(Connection* self, PyObject* args)
     const char* tail;
     sqlite3_stmt* statement;
 
-    if (!check_thread(self)) {
+    if (!check_thread(self) || !check_connection(self)) {
         return NULL;
     }
 
@@ -236,7 +240,7 @@ PyObject* connection_rollback(Connection* self, PyObject* args)
     const char* tail;
     sqlite3_stmt* statement;
 
-    if (!check_thread(self)) {
+    if (!check_thread(self) || !check_connection(self)) {
         return NULL;
     }
 
@@ -487,7 +491,6 @@ PyObject* connection_create_function(Connection* self, PyObject* args, PyObject*
     int narg;
     int rc;
 
-
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "siO", kwlist,
                                      &name, &narg, &func))
     {
@@ -592,7 +595,6 @@ static PyMethodDef connection_methods[] = {
 
 static struct PyMemberDef connection_members[] =
 {
-    {"converters", T_OBJECT, offsetof(Connection, converters), 0},
     {"Warning", T_OBJECT, offsetof(Connection, Warning), RO},
     {"Error", T_OBJECT, offsetof(Connection, Error), RO},
     {"InterfaceError", T_OBJECT, offsetof(Connection, InterfaceError), RO},

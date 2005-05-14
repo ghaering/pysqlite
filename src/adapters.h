@@ -1,10 +1,8 @@
-/* microporotocols_proto.h - definiton for psycopg's protocols
+/* adapters.h - default adapters
  *
- * Copyright (C) 2003-2004 Federico Di Gregorio <fog@debian.org>
+ * Copyright (C) 2004 Gerhard Häring <gh@ghaering.de>
  *
- * This file is part of psycopg and was adapted for pysqlite. Federico Di
- * Gregorio gave the permission to use it within pysqlite under the following
- * license:
+ * This file is part of pysqlite.
  *
  * This software is provided 'as-is', without any express or implied
  * warranty.  In no event will the authors be held liable for any damages
@@ -23,28 +21,13 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#ifndef PSYCOPG_ISQLQUOTE_H
-#define PSYCOPG_ISQLQUOTE_H 1
+#ifndef PYSQLITE_ADAPTERS_H
+#define PYSQLITE_ADAPTERS_H
+#include "Python.h"
+#include "pythread.h"
+#include "sqlite3.h"
 
-#include <Python.h>
+PyObject* adapt_date(PyObject* self, PyObject* args, PyObject* kwargs);
+PyObject* adapt_datetime(PyObject* self, PyObject* args, PyObject* kwargs);
 
-#ifdef __cplusplus
-extern "C" {
 #endif
-    
-extern PyTypeObject isqlquoteType;
-
-typedef struct {
-    PyObject HEAD;
-
-    PyObject *wrapped;
-    
-} isqlquoteObject;
-
-extern void microprotocols_proto_init();
-    
-#ifdef __cplusplus
-}
-#endif
-
-#endif /* !defined(PSYCOPG_ISQLQUOTE_H) */

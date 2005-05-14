@@ -28,7 +28,7 @@
 
 #include "cursor.h"
 #include "microprotocols.h"
-#include "microprotocols_proto.h"
+#include "prepare_protocol.h"
 
 
 /** the adapters registry **/
@@ -43,10 +43,10 @@ microprotocols_init(PyObject *dict)
     /* create adapters dictionary and put it in module namespace */
     if ((psyco_adapters = PyDict_New()) == NULL) {
         return -1;
-    }                         
+    }
 
     PyDict_SetItemString(dict, "adapters", psyco_adapters);
-    
+
     return 0;
 }
 
@@ -56,16 +56,19 @@ microprotocols_init(PyObject *dict)
 int
 microprotocols_add(PyTypeObject *type, PyObject *proto, PyObject *cast)
 {
-    if (proto == NULL) proto = (PyObject*)&isqlquoteType;
+    PyObject* key;
+
+    if (proto == NULL) proto = (PyObject*)&SQLitePrepareProtocolType;
 
     /*
     Dprintf("microprotocols_add: cast %p for (%s, ?)",
             cast, type->tp_name);
     */
 
-    PyDict_SetItem(psyco_adapters,
-                   Py_BuildValue("(OO)", (PyObject*)type, proto),
-                   cast);
+    key = Py_BuildValue("(OO)", (PyObject*)type, proto);
+    PyDict_SetItem(psyco_adapters, key, cast);
+    Py_DECREF(key);
+
     return 0;
 }
 
@@ -77,8 +80,8 @@ microprotocols_adapt(PyObject *obj, PyObject *proto, PyObject *alt)
     PyObject *adapter, *key;
 
     /* we don't check for exact type conformance as specified in PEP 246
-       because the ISQLQuote type is abstract and there is no way to get a
-       quotable object to be its instance */
+       because the SQLitePrepareProtocolType type is abstract and there is no
+       way to get a quotable object to be its instance */
 
     /* look for an adapter in the registry */
     key = Py_BuildValue("(OO)", (PyObject*)obj->ob_type, proto);
@@ -92,20 +95,29 @@ microprotocols_adapt(PyObject *obj, PyObject *proto, PyObject *alt)
     /* try to have the protocol adapt this object*/
     if (PyObject_HasAttrString(proto, "__adapt__")) {
         PyObject *adapted = PyObject_CallMethod(proto, "__adapt__", "O", obj);
-        if (adapted && adapted != Py_None) {
-            return adapted;
-        } else {
-            Py_DECREF(Py_None);
+        if (adapted) {
+            if (adapted != Py_None) {
+                return adapted;
+            } else {
+                Py_DECREF(adapted);
+            }
         }
+
         if (PyErr_Occurred() && !PyErr_ExceptionMatches(PyExc_TypeError))
             return NULL;
     }
 
     /* and finally try to have the object adapt itself */
     if (PyObject_HasAttrString(obj, "__conform__")) {
-        /* PyObject *adapted = PyObject_CallMethod(proto, "__conform__","O", obj); */
         PyObject *adapted = PyObject_CallMethod(obj, "__conform__","O", proto);
-        if (adapted && adapted != Py_None) return adapted;
+        if (adapted) {
+            if (adapted != Py_None) {
+                return adapted;
+            } else {
+                Py_DECREF(adapted);
+            }
+        }
+
         if (PyErr_Occurred() && !PyErr_ExceptionMatches(PyExc_TypeError)) {
             return NULL;
         }
@@ -122,7 +134,7 @@ PyObject *
 psyco_microprotocols_adapt(Cursor *self, PyObject *args)
 {
     PyObject *obj, *alt = NULL;
-    PyObject *proto = (PyObject*)&isqlquoteType;
+    PyObject *proto = (PyObject*)&SQLitePrepareProtocolType;
 
     if (!PyArg_ParseTuple(args, "O|OO", &obj, &proto, &alt)) return NULL;
     return microprotocols_adapt(obj, proto, alt);

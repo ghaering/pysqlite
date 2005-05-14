@@ -32,7 +32,7 @@ PYSQLITE_VERSION = "2.0.beta1"
 sqlite = "sqlite"
 
 sources = ["src/module.c", "src/connection.c", "src/cursor.c", "src/cache.c",
-           "src/microprotocols.c", "src/microprotocols_proto.c",
+           "src/microprotocols.c", "src/adapters.c", "src/converters.c",
            "src/prepare_protocol.c", "src/util.c"]
 
 include_dirs = []

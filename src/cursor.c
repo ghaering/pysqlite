@@ -25,7 +25,6 @@
 #include "module.h"
 #include "util.h"
 #include "microprotocols.h"
-#include "microprotocols_proto.h"
 #include "prepare_protocol.h"
 
 /* used to decide wether to call PyInt_FromLong or PyLong_FromLongLong */
@@ -78,16 +77,12 @@ int cursor_init(Cursor* self, PyObject* args, PyObject* kwargs)
 
     self->statement = NULL;
 
-    if (!PyArg_ParseTuple(args, "O", &connection))
+    if (!PyArg_ParseTuple(args, "O!", &ConnectionType, &connection))
     {
         return -1; 
     }
 
-    if (!PyObject_IsInstance((PyObject*)connection, &ConnectionType)) {
-        PyErr_SetString(PyExc_ValueError, "The connection parameter must be an instance of Connection");
-        return -1;
-    }
-
+    Py_INCREF(connection);
     self->connection = connection;
     self->statement = NULL;
     self->step_rc = UNKNOWN;
@@ -125,6 +120,7 @@ void cursor_dealloc(Cursor* self)
         Py_END_ALLOW_THREADS
     }
 
+    Py_XDECREF(self->connection);
     Py_XDECREF(self->row_cast_map);
     Py_XDECREF(self->description);
     Py_XDECREF(self->lastrowid);
@@ -164,7 +160,7 @@ void build_row_cast_map(Cursor* self)
                     type_start = pos + 1;
                 } else if (*pos == ']' && type_start != (const unsigned char*)-1) {
                     key = PyString_FromStringAndSize(type_start, pos - type_start);
-                    converter = PyDict_GetItem(self->connection->converters, key);
+                    converter = PyDict_GetItem(converters, key);
                     Py_DECREF(key);
                     break;
                 }
@@ -182,7 +178,7 @@ void build_row_cast_map(Cursor* self)
                     }
                 }
 
-                converter = PyDict_GetItem(self->connection->converters, py_decltype);
+                converter = PyDict_GetItem(converters, py_decltype);
                 Py_DECREF(py_decltype);
             }
         }
@@ -356,7 +352,7 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
     const char* binding_name;
     long rowcount = 0;
 
-    if (!check_thread(self->connection)) {
+    if (!check_thread(self->connection) || !check_connection(self->connection)) {
         return NULL;
     }
 
@@ -518,7 +514,7 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
                 }
 
                 Py_INCREF(current_param);
-                adapted = microprotocols_adapt(current_param, (PyObject*)self->connection->prepareProtocol, NULL);
+                adapted = microprotocols_adapt(current_param, (PyObject*)&SQLitePrepareProtocolType, NULL);
                 if (adapted) {
                     Py_DECREF(current_param);
                 } else {
@@ -544,7 +540,7 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
             }
             for (i = 0; i < num_params; i++) {
                 current_param = PySequence_GetItem(parameters, i);
-                adapted = microprotocols_adapt(current_param, (PyObject*)self->connection->prepareProtocol, NULL);
+                adapted = microprotocols_adapt(current_param, (PyObject*)&SQLitePrepareProtocolType, NULL);
 
                 if (adapted) {
                     Py_DECREF(current_param);
@@ -667,6 +663,10 @@ PyObject* cursor_executescript(Cursor* self, PyObject* args)
         return NULL; 
     }
 
+    if (!check_thread(self->connection) || !check_connection(self->connection)) {
+        return NULL;
+    }
+
     if (PyString_Check(script_obj)) {
         script_cstr = PyString_AsString(script_obj);
     } else if (PyUnicode_Check(script_obj)) {
@@ -752,7 +752,7 @@ PyObject* cursor_iternext(Cursor *self)
     void* raw_buffer;
     const char* val_str;
 
-    if (!check_thread(self->connection)) {
+    if (!check_thread(self->connection) || !check_connection(self->connection)) {
         return NULL;
     }
 
@@ -792,15 +792,21 @@ PyObject* cursor_iternext(Cursor *self)
         }
 
         if (converter != Py_None) {
-            item = PyString_FromString(sqlite3_column_text(self->statement, i));
-            converted = PyObject_CallFunction(converter, "O", item);
-            if (!converted) {
-                /* TODO: have a way to log these errors */
+            val_str = sqlite3_column_text(self->statement, i);
+            if (!val_str) {
                 Py_INCREF(Py_None);
                 converted = Py_None;
-                PyErr_Clear();
+            } else {
+                item = PyString_FromString(val_str);
+                converted = PyObject_CallFunction(converter, "O", item);
+                if (!converted) {
+                    /* TODO: have a way to log these errors */
+                    Py_INCREF(Py_None);
+                    converted = Py_None;
+                    PyErr_Clear();
+                }
+                Py_DECREF(item);
             }
-            Py_DECREF(item);
         } else {
             Py_BEGIN_ALLOW_THREADS
             coltype = sqlite3_column_type(self->statement, i);
@@ -938,7 +944,7 @@ PyObject* cursor_close(Cursor* self, PyObject* args)
 {
     int rc;
 
-    if (!check_thread(self->connection)) {
+    if (!check_thread(self->connection) || !check_connection(self->connection)) {
         return NULL;
     }
 

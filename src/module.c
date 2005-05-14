@@ -27,7 +27,6 @@
 #include "cache.h"
 #include "prepare_protocol.h"
 #include "microprotocols.h"
-#include "microprotocols_proto.h"
 
 PyObject* sqlite_STRING;
 PyObject* sqlite_BINARY;
@@ -42,19 +41,18 @@ static PyObject* module_connect(PyObject* self, PyObject* args, PyObject*
      * C-level, so this code is redundant with the one in connection_init in
      * connection.c and must always be copied from there ... */
 
-    static char *kwlist[] = {"database", "timeout", "detect_types", "autocommit", "check_same_thread", "prepareProtocol", "factory", NULL, NULL};
+    static char *kwlist[] = {"database", "timeout", "detect_types", "autocommit", "check_same_thread", "factory", NULL, NULL};
     char* database;
     int detect_types = 0;
     int autocommit = 0;
-    PyObject* prepare_protocol = NULL;
     PyObject* factory = NULL;
     int check_same_thread = 1;
     double timeout = 5.0;
 
     PyObject* result;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|diiiOO", kwlist,
-                                     &database, &timeout, &detect_types, &autocommit, &check_same_thread, &prepare_protocol, &factory))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|diiiO", kwlist,
+                                     &database, &timeout, &detect_types, &autocommit, &check_same_thread, &factory))
     {
         return NULL; 
     }
@@ -68,8 +66,50 @@ static PyObject* module_connect(PyObject* self, PyObject* args, PyObject*
     return result;
 }
 
+static PyObject* module_register_adapter(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    PyTypeObject* type;
+    PyObject* caster;
+
+    if (!PyArg_ParseTuple(args, "OO", &type, &caster)) {
+        return NULL;
+    }
+
+    microprotocols_add(type, (PyObject*)&SQLitePrepareProtocolType, caster);
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+static PyObject* module_register_converter(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    PyObject* name;
+    PyObject* callable;
+
+    if (!PyArg_ParseTuple(args, "OO", &name, &callable)) {
+        return NULL;
+    }
+
+    PyDict_SetItem(converters, name, callable);
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+/* TODO: converters_init */
+
+void converters_init(PyObject* dict)
+{
+    converters = PyDict_New();
+
+    PyDict_SetItemString(dict, "converters", converters);
+}
+
 static PyMethodDef module_methods[] = {
     {"connect",  (PyCFunction)module_connect,  METH_VARARGS|METH_KEYWORDS, PyDoc_STR("Creates a connection.")},
+    {"register_adapter", (PyCFunction)module_register_adapter, METH_VARARGS, PyDoc_STR("Registers an adapter with pysqlite's adapter registry.")},
+    {"register_converter", (PyCFunction)module_register_converter, METH_VARARGS, PyDoc_STR("Registers a converter with pysqlite.")},
+    {"adapt",  (PyCFunction)psyco_microprotocols_adapt, METH_VARARGS, psyco_microprotocols_adapt_doc},
     {NULL, NULL}
 };
 
@@ -173,7 +213,9 @@ PyMODINIT_FUNC init_sqlite(void)
 
     /* initialize microprotocols layer */
     microprotocols_init(dict);
-    /* psyco_adapters_init(dict); */
+
+    /* initialize the default converters */
+    converters_init(dict);
 
     time_module = PyImport_ImportModule("time");
     time_time =  PyObject_GetAttrString(time_module, "time");

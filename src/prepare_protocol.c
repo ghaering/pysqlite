@@ -33,39 +33,6 @@ void prepare_protocol_dealloc(SQLitePrepareProtocol* self)
     self->ob_type->tp_free((PyObject*)self);
 }
 
-PyObject* prepare_protocol_adapt(SQLitePrepareProtocol* self, PyObject* args, PyObject* kwargs)
-{
-    PyObject* obj;
-    PyObject* ret;
-
-    if (!PyArg_ParseTuple(args, "O", &obj)) {
-        return NULL;
-    }
-
-    /* These types are supported already for the manifest typing, no need to convert them: */
-    if (obj == Py_None
-     || PyString_Check(obj)
-     || PyUnicode_Check(obj)
-     || PyInt_Check(obj)
-     || PyLong_Check(obj)
-     || PyFloat_Check(obj)
-     || PyBuffer_Check(obj)) {
-        Py_INCREF(obj);
-        ret = obj;
-    } else {
-        Py_INCREF(Py_None);
-        ret = Py_None;
-    }
-
-    return ret;
-}
-
-static PyMethodDef prepare_protocol_methods[] = {
-    {"__adapt__", (PyCFunction)prepare_protocol_adapt, METH_VARARGS,
-        PyDoc_STR("Adapts an object to the protocol.")},
-    {NULL, NULL}
-};
-
 PyTypeObject SQLitePrepareProtocolType= {
         PyObject_HEAD_INIT(NULL)
         0,                                              /* ob_size */
@@ -87,7 +54,7 @@ PyTypeObject SQLitePrepareProtocolType= {
         0,                                              /* tp_getattro */
         0,                                              /* tp_setattro */
         0,                                              /* tp_as_buffer */
-        Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE,         /* tp_flags */
+        Py_TPFLAGS_DEFAULT,                             /* tp_flags */
         0,                                              /* tp_doc */
         0,                                              /* tp_traverse */
         0,                                              /* tp_clear */
@@ -95,7 +62,7 @@ PyTypeObject SQLitePrepareProtocolType= {
         0,                                              /* tp_weaklistoffset */
         0,                                              /* tp_iter */
         0,                                              /* tp_iternext */
-        prepare_protocol_methods,                       /* tp_methods */
+        0,                                              /* tp_methods */
         0,                                              /* tp_members */
         0,                                              /* tp_getset */
         0,                                              /* tp_base */

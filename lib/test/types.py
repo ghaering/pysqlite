@@ -21,6 +21,7 @@
 #    misrepresented as being the original software.
 # 3. This notice may not be removed or altered from any source distribution.
 
+import datetime
 import unittest
 import pysqlite2.dbapi2 as sqlite
 
@@ -86,7 +87,7 @@ class DeclTypesTests(unittest.TestCase):
                 return 1
 
         def __conform__(self, protocol):
-            if isinstance(protocol, sqlite.PrepareProtocol):
+            if protocol is sqlite.PrepareProtocol:
                 return self.val
             else:
                 return None
@@ -100,13 +101,16 @@ class DeclTypesTests(unittest.TestCase):
         self.cur.execute("create table test(i int, s str, f float, b bool, u unicode, foo foo, bin blob)")
 
         # override float, make them always return the same number
-        self.con.converters["float"] = lambda x: 47.2
+        sqlite.converters["float"] = lambda x: 47.2
 
         # and implement two custom ones
-        self.con.converters["bool"] = lambda x: bool(int(x))
-        self.con.converters["foo"] = DeclTypesTests.Foo
+        sqlite.converters["bool"] = lambda x: bool(int(x))
+        sqlite.converters["foo"] = DeclTypesTests.Foo
 
     def tearDown(self):
+        del sqlite.converters["float"]
+        del sqlite.converters["bool"]
+        del sqlite.converters["foo"]
         self.cur.close()
         self.con.close()
 
@@ -204,11 +208,14 @@ class ColNamesTests(unittest.TestCase):
         self.cur = self.con.cursor()
         self.cur.execute("create table test(x foo)")
 
-        self.con.converters["foo"] = lambda x: "[%s]" % x
-        self.con.converters["bar"] = lambda x: "<%s>" % x
-        self.con.converters["exc"] = lambda x: 5/0
+        sqlite.converters["foo"] = lambda x: "[%s]" % x
+        sqlite.converters["bar"] = lambda x: "<%s>" % x
+        sqlite.converters["exc"] = lambda x: 5/0
 
     def tearDown(self):
+        del sqlite.converters["foo"]
+        del sqlite.converters["bar"]
+        del sqlite.converters["exc"]
         self.cur.close()
         self.con.close()
 
@@ -217,6 +224,12 @@ class ColNamesTests(unittest.TestCase):
         self.cur.execute("select x from test")
         val = self.cur.fetchone()[0]
         self.failUnlessEqual(val, "[xxx]")
+
+    def CheckNone(self):
+        self.cur.execute("insert into test(x) values (?)", (None,))
+        self.cur.execute("select x from test")
+        val = self.cur.fetchone()[0]
+        self.failUnlessEqual(val, None)
 
     def CheckExc(self):
         # Exceptions in type converters result in returned Nones
@@ -234,33 +247,84 @@ class ColNamesTests(unittest.TestCase):
         # whitespace should be stripped.
         self.failUnlessEqual(self.cur.description[0][0], "x")
 
-class PrepareProtocolTests(unittest.TestCase):
-    class P(sqlite.PrepareProtocol):
-        def __adapt__(self, obj):
-            if type(obj) is int:
-                return float(obj)
-            else:
-                return None
+class ObjectAdaptationTests(unittest.TestCase):
+    def cast(obj):
+        return float(obj)
+    cast = staticmethod(cast)
 
     def setUp(self):
-        self.con = sqlite.connect(":memory:", prepareProtocol=PrepareProtocolTests.P())
+        self.con = sqlite.connect(":memory:")
+        try:
+            del sqlite.adapters[int]
+        except:
+            pass
+        sqlite.register_adapter(int, ObjectAdaptationTests.cast)
         self.cur = self.con.cursor()
+
+    def tearDown(self):
+        del sqlite.adapters[(int, sqlite.PrepareProtocol)]
+        self.cur.close()
+        self.con.close()
+
+    def CheckCasterIsUsed(self):
+        self.cur.execute("select ?", (4,))
+        val = self.cur.fetchone()[0]
+        self.failUnlessEqual(type(val), float)
+
+class DateTimeTests(unittest.TestCase):
+    def setUp(self):
+        self.con = sqlite.connect(":memory:", detect_types=sqlite.PARSE_DECLTYPES)
+        self.cur = self.con.cursor()
+        self.cur.execute("create table test(d date, ts timestamp)")
 
     def tearDown(self):
         self.cur.close()
         self.con.close()
 
-    def CheckProtocolIsUsed(self):
-        self.cur.execute("select ?", (4,))
-        val = self.cur.fetchone()[0]
-        self.failUnlessEqual(type(val), float)
+    def CheckSqliteDate(self):
+        d = sqlite.Date(2004, 2, 14)
+        self.cur.execute("insert into test(d) values (?)", (d,))
+        self.cur.execute("select d from test")
+        d2 = self.cur.fetchone()[0]
+        self.failUnlessEqual(d, d2)
+
+    def CheckSqlDate(self):
+        d = datetime.date.today()
+        self.cur.execute("insert into test(d) values (current_date)")
+        self.cur.execute("select d from test")
+        d2 = self.cur.fetchone()[0]
+        self.failUnlessEqual(d, d2)
+
+    def CheckSqliteTimestamp(self):
+        ts = sqlite.Timestamp(2004, 2, 14, 7, 15, 0)
+        self.cur.execute("insert into test(ts) values (?)", (ts,))
+        self.cur.execute("select ts from test")
+        ts2 = self.cur.fetchone()[0]
+        self.failUnlessEqual(ts, ts2)
+
+    def CheckSqlTimestamp(self):
+        # SQLite's current_timestamp uses UTC time, while datetime.datetime.now() uses local time.
+        now = datetime.datetime.now()
+        self.cur.execute("insert into test(ts) values (current_timestamp)")
+        self.cur.execute("select ts from test")
+        ts = self.cur.fetchone()[0]
+        self.failUnlessEqual(type(ts), datetime.datetime)
+        self.failUnlessEqual(ts.year, now.year)
+
+    def CheckDateTimeSubSeconds(self):
+        ts = sqlite.Timestamp(2004, 2, 14, 7, 15, 0, 500000)
+        self.cur.execute("insert into test(ts) values (?)", (ts,))
+        self.cur.execute("select ts from test")
+        ts2 = self.cur.fetchone()[0]
+        self.failUnlessEqual(ts, ts2)
 
 def suite():
     sqlite_type_suite = unittest.makeSuite(SqliteTypeTests, "Check")
     decltypes_type_suite = unittest.makeSuite(DeclTypesTests, "Check")
     colnames_type_suite = unittest.makeSuite(ColNamesTests, "Check")
-    prepareprotocol_suite = unittest.makeSuite(PrepareProtocolTests, "Check")
-    return unittest.TestSuite((sqlite_type_suite, decltypes_type_suite, colnames_type_suite, prepareprotocol_suite))
+    adaptation_suite = unittest.makeSuite(ObjectAdaptationTests, "Check")
+    date_suite = unittest.makeSuite(DateTimeTests, "Check")
+    return unittest.TestSuite((sqlite_type_suite, decltypes_type_suite, colnames_type_suite, adaptation_suite, date_suite))
 
 def test():
     runner = unittest.TextTestRunner()

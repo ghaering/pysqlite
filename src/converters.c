@@ -1,4 +1,4 @@
-/* module.h - definitions for the module
+/* converters.c - default converters
  *
  * Copyright (C) 2004 Gerhard Häring <gh@ghaering.de>
  *
@@ -21,32 +21,20 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#ifndef PYSQLITE_MODULE_H
-#define PYSQLITE_MODULE_H
-#include "Python.h"
-
 #include "util.h"
-PyObject* Error;
-PyObject* Warning;
-PyObject* InterfaceError;
-PyObject* DatabaseError;
-PyObject* InternalError;
-PyObject* OperationalError;
-PyObject* ProgrammingError;
-PyObject* IntegrityError;
-PyObject* DataError;
-PyObject* NotSupportedError;
+#include "module.h"
+#include "adapters.h"
 
-/* the functions time.time() and time.sleep() */
-PyObject* time_time;
-PyObject* time_sleep;
+/* dummy, will be implemented in a later version */
 
-/* A dictionary, mapping colum types (INTEGER, VARCHAR, etc.) to converter
- * functions, that convert the SQL value to the appropriate Python value.
- * The key is uppercase.
- */
-PyObject* converters;
+PyObject* convert_date(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    Py_INCREF(Py_None);
+    return Py_None;
+}
 
-#define PARSE_DECLTYPES 1
-#define PARSE_COLNAMES 2
-#endif
+PyObject* convert_timestamp(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    Py_INCREF(Py_None);
+    return Py_None;
+}

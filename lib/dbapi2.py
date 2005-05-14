@@ -21,6 +21,8 @@
 #    misrepresented as being the original software.
 # 3. This notice may not be removed or altered from any source distribution.
 
+import datetime
+
 paramstyle = "qmark"
 
 threadsafety = 1
@@ -52,3 +54,33 @@ _major, _minor, _micro = sqlite_version.split(".")
 sqlite_version_info = (int(_major), int(_minor), _micro)
 
 Binary = buffer
+
+def adapt_date(val):
+    return val.isoformat()
+
+def adapt_datetime(val):
+    return val.isoformat(" ")
+
+def convert_date(val):
+    return datetime.date(*map(int, val.split("-")))
+
+def convert_timestamp(val):
+    datepart, timepart = val.split(" ")
+    year, month, day = map(int, datepart.split("-"))
+    timepart_full = timepart.split(".")
+    hours, minutes, seconds = map(int, timepart_full[0].split(":"))
+    if len(timepart_full) == 2:
+        microseconds = int(float("0." + timepart_full[1]) * 1000000)
+    else:
+        microseconds = 0
+
+    val = datetime.datetime(year, month, day, hours, minutes, seconds, microseconds)
+    return val
+
+
+register_adapter(datetime.date, adapt_date)
+register_adapter(datetime.datetime, adapt_datetime)
+register_converter("date", convert_date)
+register_converter("timestamp", convert_timestamp)
+
+

@@ -50,15 +50,7 @@ typedef struct
     int autocommit;
 
     int check_same_thread;
-    int thread_ident;
-
-    PyObject* prepareProtocol;
-
-    /* A dictionary, mapping colum types (INTEGER, VARCHAR, etc.) to converter
-     * functions, that convert the SQL value to the appropriate Python value.
-     * The key is uppercase.
-     */
-    PyObject* converters;
+    long thread_ident;
 
     /* Exception objects */
     PyObject* Warning;
@@ -87,5 +79,6 @@ PyObject* connection_new(PyTypeObject* type, PyObject* args, PyObject* kw);
 int connection_init(Connection* self, PyObject* args, PyObject* kwargs);
 
 int check_thread(Connection* self);
+int check_connection(Connection* con);
 
 #endif
