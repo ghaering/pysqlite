@@ -1,6 +1,6 @@
 /* cursor.c - the cursor type
  *
- * Copyright (C) 2004 Gerhard Häring <gh@ghaering.de>
+ * Copyright (C) 2004-2005 Gerhard Häring <gh@ghaering.de>
  *
  * This file is part of pysqlite.
  *

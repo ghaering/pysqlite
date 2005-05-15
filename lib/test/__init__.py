@@ -1,7 +1,7 @@
 #-*- coding: ISO-8859-1 -*-
 # pysqlite2/test/__init__.py: the package containing the test suite
 #
-# Copyright (C) 2004 Gerhard Häring <gh@ghaering.de>
+# Copyright (C) 2004-2005 Gerhard Häring <gh@ghaering.de>
 #
 # This file is part of pysqlite.
 #
