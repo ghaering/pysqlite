@@ -831,10 +831,10 @@ PyObject* cursor_iternext(Cursor *self)
                 nbytes = sqlite3_column_bytes(self->statement, i);
                 buffer = PyBuffer_New(nbytes);
                 if (!buffer) {
-                    /* TODO: error */
+                    break;
                 }
                 if (PyObject_AsWriteBuffer(buffer, &raw_buffer, &nbytes)) {
-                    /* TODO: error */
+                    break;
                 }
                 memcpy(raw_buffer, sqlite3_column_blob(self->statement, i), nbytes);
                 converted = buffer;
@@ -844,16 +844,21 @@ PyObject* cursor_iternext(Cursor *self)
         PyTuple_SetItem(row, i, converted);
     }
 
-    self->step_rc = UNKNOWN;
-
-    if (self->row_factory != Py_None) {
-        converted_row = PyObject_CallFunction(self->row_factory, "OO", self, row);
-        Py_DECREF(row);
+    if (PyErr_Occurred()) {
+        self->step_rc = UNKNOWN;
+        return NULL;
     } else {
-        converted_row = row;
-    }
+        self->step_rc = UNKNOWN;
 
-    return converted_row;
+        if (self->row_factory != Py_None) {
+            converted_row = PyObject_CallFunction(self->row_factory, "OO", self, row);
+            Py_DECREF(row);
+        } else {
+            converted_row = row;
+        }
+
+        return converted_row;
+    }
 }
 
 PyObject* cursor_fetchone(Cursor* self, PyObject* args)

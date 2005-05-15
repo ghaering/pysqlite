@@ -295,7 +295,6 @@ void _set_result(sqlite3_context* context, PyObject* py_val)
         sqlite3_result_double(context, PyFloat_AsDouble(py_val));
     } else if (PyBuffer_Check(py_val)) {
         if (PyObject_AsCharBuffer(py_val, &buffer, &buflen) != 0) {
-            /* TODO: decide what error to raise */
             PyErr_SetString(PyExc_ValueError, "could not convert BLOB to buffer");
         }
         sqlite3_result_blob(context, buffer, buflen, SQLITE_TRANSIENT);
@@ -336,7 +335,11 @@ PyObject* _build_py_params(sqlite3_context *context, int argc, sqlite3_value** a
             case SQLITE_TEXT:
                 val_str = sqlite3_value_text(cur_value);
                 cur_py_value = PyUnicode_DecodeUTF8(val_str, strlen(val_str), NULL);
-                /* TODO: error handling, check cur_py_value for NULL */
+                /* TODO: have a way to show errors here */
+                if (!cur_py_value) {
+                    Py_INCREF(Py_None);
+                    cur_py_value = Py_None;
+                }
                 break;
             case SQLITE_BLOB:
                 buflen = sqlite3_value_bytes(cur_value);
