@@ -28,22 +28,26 @@
 #include "util.h"
 #include "pythread.h"
 
+static int connection_set_isolation_level(Connection* self, PyObject* isolation_level);
+
 int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
 {
-    static char *kwlist[] = {"database", "timeout", "detect_types", "autocommit", "check_same_thread", "factory", NULL, NULL};
+    static char *kwlist[] = {"database", "timeout", "detect_types", "isolation_level", "check_same_thread", "factory", NULL, NULL};
     char* database;
     int detect_types = 0;
-    int autocommit = 0;
+    PyObject* isolation_level = NULL;
     PyObject* factory = NULL;
     int check_same_thread = 1;
     double timeout = 5.0;
     int rc;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|diiiO", kwlist,
-                                     &database, &timeout, &detect_types, &autocommit, &check_same_thread, &factory))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|diOiO", kwlist,
+                                     &database, &timeout, &detect_types, &isolation_level, &check_same_thread, &factory))
     {
         return -1; 
     }
+
+    self->begin_statement = NULL;
 
     Py_BEGIN_ALLOW_THREADS
     rc = sqlite3_open(database, &self->db);
@@ -54,10 +58,18 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
         return -1;
     }
 
+    if (!isolation_level) {
+        isolation_level = PyString_FromString("");
+    } else {
+        Py_INCREF(isolation_level);
+    }
+    self->isolation_level = NULL;
+    connection_set_isolation_level(self, isolation_level);
+    Py_DECREF(isolation_level);
+
     self->inTransaction = 0;
     self->detect_types = detect_types;
     self->timeout = timeout;
-    self->autocommit = autocommit;
     self->thread_ident = PyThread_get_thread_ident();
     self->check_same_thread = check_same_thread;
 
@@ -83,6 +95,11 @@ void connection_dealloc(Connection* self)
         sqlite3_close(self->db);
         Py_END_ALLOW_THREADS
     }
+
+    if (self->begin_statement) {
+        PyMem_Free(self->begin_statement);
+    }
+    Py_XDECREF(self->isolation_level);
 
     self->ob_type->tp_free((PyObject*)self);
 }
@@ -159,7 +176,7 @@ PyObject* _connection_begin(Connection* self)
     sqlite3_stmt* statement;
 
     Py_BEGIN_ALLOW_THREADS
-    rc = sqlite3_prepare(self->db, "BEGIN", -1, &statement, &tail);
+    rc = sqlite3_prepare(self->db, self->begin_statement, -1, &statement, &tail);
     Py_END_ALLOW_THREADS
 
     if (rc != SQLITE_OK) {
@@ -546,26 +563,51 @@ int check_thread(Connection* self)
     return 1;
 }
 
-static PyObject* connection_get_autocommit(Connection* self, void* unused)
+static PyObject* connection_get_isolation_level(Connection* self, void* unused)
 {
-    return PyBool_FromLong(self->autocommit);
+    Py_INCREF(self->isolation_level);
+    return self->isolation_level;
 }
 
-static int connection_set_autocommit(Connection* self, PyObject* value)
+static int connection_set_isolation_level(Connection* self, PyObject* isolation_level)
 {
     PyObject* empty;
     PyObject* res;
+    PyObject* begin_statement;
 
-    if (PyObject_IsTrue(value)) {
+    Py_XDECREF(self->isolation_level);
+
+    if (isolation_level == Py_None) {
+        Py_INCREF(Py_None);
+        self->begin_statement = NULL;
+        self->isolation_level = Py_None;
+
         empty = PyTuple_New(0);
         res = connection_commit(self, empty);
         Py_DECREF(empty);
         Py_DECREF(res);
 
         self->inTransaction = 0;
-        self->autocommit = 1;
     } else {
-        self->autocommit = 0;
+        Py_INCREF(isolation_level);
+        self->isolation_level = isolation_level;
+
+        begin_statement = PyString_FromString("BEGIN ");
+        if (!begin_statement) {
+            return -1;
+        }
+        PyString_Concat(&begin_statement, isolation_level);
+        if (!begin_statement) {
+            return -1;
+        }
+
+        self->begin_statement = PyMem_Malloc(PyString_Size(begin_statement) + 2);
+        if (!self->begin_statement) {
+            return -1;
+        }
+
+        strcpy(self->begin_statement, PyString_AsString(begin_statement));
+        Py_DECREF(begin_statement);
     }
 
     return 0;
@@ -576,7 +618,7 @@ static char connection_doc[] =
 PyDoc_STR("<missing docstring>");
 
 static PyGetSetDef connection_getset[] = {
-    {"autocommit",  (getter)connection_get_autocommit, (setter)connection_set_autocommit},
+    {"isolation_level",  (getter)connection_get_isolation_level, (setter)connection_set_isolation_level},
     {NULL}
 };
 

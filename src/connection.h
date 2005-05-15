@@ -46,8 +46,12 @@ typedef struct
      * first get called with count=0? */
     double timeout_started;
 
-    /* 0: normal mode; 1: "autocommit" mode */
-    int autocommit;
+    /* None for autocommit, otherwise a PyString with the isolation level */
+    PyObject* isolation_level;
+
+    /* NULL for autocommit, otherwise a string with the BEGIN statment; will be
+     * freed in connection destructor */
+    char* begin_statement;
 
     int check_same_thread;
     long thread_ident;

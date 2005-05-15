@@ -288,13 +288,6 @@ class DateTimeTests(unittest.TestCase):
         d2 = self.cur.fetchone()[0]
         self.failUnlessEqual(d, d2)
 
-    def CheckSqlDate(self):
-        d = datetime.date.today()
-        self.cur.execute("insert into test(d) values (current_date)")
-        self.cur.execute("select d from test")
-        d2 = self.cur.fetchone()[0]
-        self.failUnlessEqual(d, d2)
-
     def CheckSqliteTimestamp(self):
         ts = sqlite.Timestamp(2004, 2, 14, 7, 15, 0)
         self.cur.execute("insert into test(ts) values (?)", (ts,))

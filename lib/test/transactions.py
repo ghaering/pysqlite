@@ -93,14 +93,14 @@ class TransactionTests(unittest.TestCase):
     def CheckToggleAutoCommit(self):
         self.cur1.execute("create table test(i)")
         self.cur1.execute("insert into test(i) values (5)")
-        self.con1.autocommit = True
-        self.failUnlessEqual(self.con1.autocommit, True)
+        self.con1.isolation_level = None
+        self.failUnlessEqual(self.con1.isolation_level, None)
         self.cur2.execute("select i from test")
         res = self.cur2.fetchall()
         self.failUnlessEqual(len(res), 1)
 
-        self.con1.autocommit = False
-        self.failUnlessEqual(self.con1.autocommit, False)
+        self.con1.isolation_level = "DEFERRED"
+        self.failUnlessEqual(self.con1.isolation_level , "DEFERRED")
         self.cur1.execute("insert into test(i) values (5)")
         self.cur2.execute("select i from test")
         res = self.cur2.fetchall()
@@ -117,9 +117,34 @@ class TransactionTests(unittest.TestCase):
         except:
             self.fail("should have raised an OperationalError")
 
+class SpecialCommandTests(unittest.TestCase):
+    def setUp(self):
+        self.con = sqlite.connect(":memory:")
+        self.cur = self.con.cursor()
+
+    def CheckVacuum(self):
+        self.cur.execute("create table test(i)")
+        self.cur.execute("insert into test(i) values (5)")
+        self.cur.execute("vacuum")
+
+    def CheckDropTable(self):
+        self.cur.execute("create table test(i)")
+        self.cur.execute("insert into test(i) values (5)")
+        self.cur.execute("drop table test")
+
+    def CheckPragma(self):
+        self.cur.execute("create table test(i)")
+        self.cur.execute("insert into test(i) values (5)")
+        self.cur.execute("pragma count_changes=1")
+
+    def tearDown(self):
+        self.cur.close()
+        self.con.close()
+
 def suite():
     default_suite = unittest.makeSuite(TransactionTests, "Check")
-    return unittest.TestSuite((default_suite,))
+    special_command_suite = unittest.makeSuite(SpecialCommandTests, "Check")
+    return unittest.TestSuite((default_suite, special_command_suite))
 
 def test():
     runner = unittest.TextTestRunner()
