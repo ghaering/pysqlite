@@ -5,7 +5,7 @@ pysqlite usage guide
 | (c) 2004-2005 David Rushby
 | (c) 2005 Gerhard Häring
 
-Last updated for pysqlite 2.0beta1.
+Last updated for pysqlite 2.0.0
 
 Table Of Contents
 =================
@@ -22,7 +22,13 @@ Table Of Contents
 | `3. Native Database Engine Features and Extensions Beyond the Python DB API`_
 |   `3.1 Creating user-defined functions`_
 |   `3.2 Creating user-defined aggregates`_
-
+| `4. SQlite and Python types`_
+|   `4.1 Introduction`_
+|   `4.2 Using adapters to store additional Python types in SQLite databases`_
+|     `4.2.1 Letting your object adapt itself`_
+|     `4.2.2 Registering an adapter callable`_
+|   `4.3 Converting SQLite values to custom Python types`_
+|   `4.4 Default pysqlite adapters and converters`_
 
 0. Introduction
 ===============
@@ -112,9 +118,9 @@ Python DB API.
     5.0 (five seconds).
 
     Example:
-        .. code-block:: Python
+     .. code-block:: Python
 
-          sqlite.connect(database="mydb", timeout=10.0)
+      sqlite.connect(database="mydb", timeout=10.0)
 
 
   * **autocommit** - Some users don't want to work with transactions, or
@@ -124,89 +130,28 @@ Python DB API.
     can toggle the autocommit attribute of connections also.
 
     Example:
-
-    .. code-block:: Python
+     .. code-block:: Python
 
       sqlite.connect("mydb", autocommit=True)
 
-  * **prepareProtocol** - SQLite natively supports only the types TEXT (str
-    and unicode), INTEGER (int and long), FLOAT (float), BLOB (buffer)
-    and NULL (None). The names in brackets are the corresponding Python
-    types.
-
-    For using other Python types with SQLite, you need to add support to
-    them using pysqlite. You can do that by giving your custom Python
-    type a __conform__ method with this signature:
-
-     .. code-block:: Python
-
-      def __conform__(self, protocol):
-          ...
-
-    The Python type then can check if protocol is an instance of
-    pysqlite.dbapi2.PrepareProtocol and adapt itself to one of SQLite's
-    supported Python types: str, unicode, int, long, float, buffer. Or
-    return None if it cannot adapt itself.
-
-    Normally, it's more practical to extend pysqlite's PrepareProtocol
-    instead so it supports your type.
-
-    For example if you wanted to add support for the standard Python
-    datetime.datetime type to pysqlite, you could do it like this:
-
-     .. code-block:: Python
-      import pysqlite2.dbapi2 as sqlite
-      import datetime, time
-
-      class MyProtocol:
-          def __adapt__(self, val):
-              if type(val) is datetime.datetime:
-                  return time.mktime(val.timetuple())
-
-      con = sqlite.connect("mydb", prepareProtocol=MyProtocol())
-      cur = con.cursor()
-      cur.execute("insert into mytable(ts) values (?)", (datetime.datetime.now(),))
-
   * **detect_types** - SQLite natively supports only the types TEXT,
-    INTEGER, FLOAT, BLOB and NULL. If you want to use other types, like
-    date/time related ones, you have to add support for them yourself.
-    The *detect_types* parameter and the *converters* attribute of
-    connections allow you to easily do that.
+    INTEGER, FLOAT, BLOB and NULL. If you want to use other types, like you
+    have to add support for them yourself.  The *detect_types* parameter and
+    the using custom *converters* registered with the module-level
+    *register_converter* function allow you to easily do that.
 
     *detect_types* defaults to 0 (i. e. off, no type detection), you can
     set it to any combination of *PARSE_DECLTYPES* and *PARSE_COLNAMES* to turn
     type detection on.
 
+    Consult the section `4. SQlite and Python types`_ of this manual for
+    details.
+
     * **sqlite.PARSE_DECLTYPES** - This makes pysqlite parse the declared
-      type for each column it returns. It will parse out the first word
-      of the declared type, i. e. for "integer primary key", it will
-      parse out "integer". Then for that column, it will look into the
-      converters property of the connection (a dictionary that you can
-      modify at will) and use the converter function registered for
-      that type there.
-
-      Example:
-
-      .. code-block:: Python
-
-        class MyProtocol:
-            def __adapt__(self, val):
-                if type(val) is datetime.datetime:
-                    return time.mktime(val.timetuple())
-
-        def dt_from_float(val):
-            return datetime.datetime.fromtimestamp(float(val))
-
-        con = sqlite.connect(":memory:", prepareProtocol=MyProtocol(), detect_types=sqlite.PARSE_DECLTYPES)
-        con.converters["datetime"] = dt_from_float
-        cur = con.cursor()
-        cur.execute("create table test(ts datetime)")
-        cur.execute("insert into test(ts) values (?)", (datetime.datetime.now(),))
-        cur.execute("select ts from test")
-        dt = cur.fetchone()[0]
-        print dt, type(dt)
-        dt = cur.fetchone()[0]
-        print dt, type(dt)
+      type for each column it returns. It will parse out the first word of the
+      declared type, i. e. for "integer primary key", it will parse out
+      "integer". Then for that column, it will look into pysqlite's converters
+      dictionary and use the converter function registered for that type there.
 
     * **sqlite.PARSE_COLNAMES** - This makes pysqlite parse the column name
       for each column it returns. It will look for a string formed
@@ -219,14 +164,15 @@ Python DB API.
       then pysqlite will parse out everything until the first blank for
       the column name: the column name would simply be "x".
 
+      The following example uses the column name *timestamp*, which is already
+      registered by default in the converters dictionary with an appropriate
+      converter!
+
       Example:
 
-      .. code-block:: Python
-
-        cur = con.cursor()
-        cur.execute('select ? as "x [datetime]"', (datetime.datetime.now(),))
-        dt = cur.fetchone()[0]
-        print dt, type(dt)
+      .. code-block::
+       :language: Python
+       :source-file: code/parse_colnames.py
 
   * **check_same_thread** - SQLite connections/cursors can only safely be
     used in the same thread they were created in. pysqlite checks for
@@ -241,26 +187,25 @@ Python DB API.
 
     Example:
 
-    .. code-block:: Python
-
-      from pysqlite2 import dbapi2 as sqlite
-
-      class CountCursorsConnection(sqlite.Connection):
-          def __init__(self, *args, **kwargs):
-              sqlite.Connection.__init__(self, *args, **kwargs)
-              self.numcursors = 0
-
-          def cursor(self, *args, **kwargs):
-              self.numcursors += 1
-              return sqlite.Connection.cursor(self, *args, **kwargs)
-
-      con = sqlite.connect(":memory:", factory=CountCursorsConnection)
-      cur1 = con.cursor()
-      cur2 = con.cursor()
-      print con.numcursors
+    .. code-block::
+     :language: Python
+     :source-file: code/countcursors.py
 
   |
   |
+
+* **register_converter** function - ``register_converter(typename, callable)``
+  registers a callable to convert a bytestring from the database into a custom
+  Python type. The converter will be invoked for all database values that are
+  of the type ``typename``. Confer the parameter **detect_types** of the
+  **connect** method for how the type detection works.
+
+* **register_adapter** function - ``register_adapter(type, callable)``
+  registers a callable to convert the custom Python **type** into one of
+  SQLite's supported types. The callable accepts as single parameter the Python
+  value, and must return a value of the following types: int, long, float, str
+  (UTF-8 encoded), unicode or buffer.
+
 * **Connection** class
 
   * **autocommit** attribute (read-write)
@@ -270,11 +215,6 @@ Python DB API.
     issue BEGIN statements automatically any more. Note that you set the
     autocommit value at connection creation time using the autocommit
     parameter to connect also.
-
-  * **converters** attribute (read-write)
-    This dictionary maps type names to converter functions, it's empty by
-    default, and you can replace it with your own dictionary or modify
-    it.
 
   * **cursor method** - The cursor method accepts a single optional parameter:
     a custom cursor class extending pysqlite's *Cursor* class that you can
@@ -364,28 +304,9 @@ Python DB API.
 
     Example:
 
-    .. code-block:: Python
-
-        cur.executescript("""
-            create table person(
-                firstname,
-                lastname,
-                age
-            );
-
-            create table book(
-                title,
-                author,
-                published
-            );
-
-            insert into book(title, author, published)
-            values (
-                'Dirk Gently''s Holistic Detective Agency
-                'Douglas Adams',
-                1987
-            );
-            """)
+    .. code-block::
+     :language: Python
+     :source-file: code/executescript.py
 
   * **rowcount** attribute
 
@@ -416,26 +337,9 @@ Python DB API.
 
     Example:
 
-    .. code-block:: Python
-
-      from pysqlite2 import dbapi2 as sqlite
-
-      def dict_factory(cursor, row):
-          d = {}
-          for idx, col in enumerate(cursor.description):
-              d[col[0]] = row[idx]
-          return d
-
-      class DictCursor(sqlite.Cursor):
-          def __init__(self, *args, **kwargs):
-              sqlite.Cursor.__init__(self, *args, **kwargs)
-              self.row_factory = dict_factory
-
-
-      con = sqlite.connect(":memory:")
-      cur = con.cursor(factory=DictCursor)
-      cur.execute("select 1 as a")
-      print cur.fetchone()["a"]
+    .. code-block::
+     :language: Python
+     :source-file: code/row_factory.py
 
 |
 
@@ -601,18 +505,9 @@ functions with the connection's **create_function** method:
 
   Example:
 
-  .. code-block:: Python
-    from pysqlite2 import dbapi2 as sqlite
-    import md5
-
-    def md5sum(t):
-        return md5.md5(t).hexdigest()
-
-    con = sqlite.connect(":memory:")
-    con.create_function("md5", 1, md5sum)
-    cur = con.cursor()
-    cur.execute("select md5(?)", ("foo",))
-    print cur.fetchone()[0]
+  .. code-block::
+   :language: Python
+   :source-file: code/md5func.py
 
 3.2 Creating user-defined aggregates
 ------------------------------------
@@ -634,27 +529,167 @@ create new aggregate functions with the connection's *create_aggregate* method.
 
   Example:
 
+  .. code-block::
+   :language: Python
+   :source-file: code/mysumaggr.py
+
+
+--------------------------------
+
+4. SQLite and Python types
+==========================
+
+4.1 Introduction
+----------------
+
+http://sqlite.org/datatype3.html
+
+SQLite natively supports the following types: NULL, INTEGER, REAL, TEXT, BLOB.
+
+The following Python types can thus be sent to SQLite without any problem:
+
+======================  ===========
+Python type             SQLite type
+======================  ===========
+NoneType                NULL
+int                     INTEGER
+long                    INTEGER
+float                   REAL
+str (utf-8 encoded)     TEXT
+unicode                 TEXT
+buffer                  BLOB
+======================  ===========
+
+This is how SQLite types are converted to Python types by default:
+
+===========  ==============================
+SQLite type  Python type
+===========  ==============================
+NULL         NoneType
+INTEGER      int or long, depending on size
+REAL         float
+TEXT         unicode
+BLOB         buffer
+===========  ==============================
+
+pysqlite's type system is extensible in both ways: you can store additional
+Python types in a SQLite database via object adaptation, and you can let
+pysqlite convert SQLite types to different Python types via pysqlite's
+converters.
+
+4.2 Using adapters to store additional Python types in SQLite databases
+-----------------------------------------------------------------------
+
+Like described before, SQLite supports only a limited set of types natively. To
+use other Python types with SQLite, you must *adapt* them to one of pysqlite's
+supported types for SQLite. So, one of NoneType, int, long, float, str,
+unicode, buffer.
+
+pysqlite uses the Python object adaptation, like described in PEP 246 for this.
+The protocol to use is ``PrepareProtocol``.
+
+There are two ways to enable pysqlite to adapt a custom Python type to one of
+the supported ones.
+
+4.2.1 Letting your object adapt itself
+--------------------------------------
+
+This is a good approach if you write the class yourself. Let's suppose you have
+a class like this:
+
   .. code-block:: Python
 
-    from pysqlite2 import dbapi2 as sqlite
+    class Point(object):
+        def __init__(self, x, y):
+            self.x, self.y = x, y
 
-    class MySum:
-        def __init__(self):
-            self.count = 0
+Now you want to store the point in a single SQLite column. You'll have to
+choose one of the supported types first that you use to represent the point in.
+Let's just use str and separate the coordinates using a semicolon. Then you
+need to give your class a method ``__conform__(self, protocol)`` which must
+return the converted value. The parameter ``protocol`` will be
+``PrepareProtocol``.
 
-        def step(self, value):
-            self.count += value
+.. code-block::
+ :language: Python
+ :source-file: code/adapter_point_1.py
 
-        def finalize(self):
-            return self.count
+4.2.2 Registering an adapter callable
+-------------------------------------
 
-    con = sqlite.connect(":memory:")
-    con.create_aggregate("mysum", 1, MySum)
-    cur = con.cursor()
-    cur.execute("create table test(i)")
-    cur.execute("insert into test(i) values (1)")
-    cur.execute("insert into test(i) values (2)")
-    cur.execute("select mysum(i) from test")
-    print cur.fetchone()[0]
+The other possibility is to create a function that converts the type to the
+string representation and register the function with ``register_adapter``.
 
+.. code-block::
+ :language: Python
+ :source-file: code/adapter_point_2.py
+
+The type/class to adapt must be a new-style class, i. e. it must have
+``object`` as one of its bases!!!
+
+pysqlite has two default adapters for Python's builtin *date* and *datetime*
+types. Now let's suppose we want to store *datetime* objects not in ISO
+representation, but as Unix timestamp.
+
+.. code-block::
+ :language: Python
+ :source-file: code/adapter_datetime.py
+
+4.3 Converting SQLite values to custom Python types
+---------------------------------------------------
+
+Now that's all nice and dandy that you can send custom Python types to SQLite.
+But to make it really useful we need to make the Python to SQLite to Python
+roundtrip work.
+
+Enter pysqlite converters.
+
+Let's go back to the Point class. We stored the x and y coordinates separated
+via semicolons as strings in SQLite.
+
+Let's first define a converter function that accepts the string as a parameter and constructs a Point object from it.
+
+!!! Note that converter functions *always* get called with a string, no matter
+under which data type you sent the value to SQLite !!!
+
+  .. code-block:: Python
+
+    def convert_point(s):
+        x, y = map(float, s.split(";"))
+        return Point(x, y)
+
+Now you need to make pysqlite know that what you select from the database is
+actually a point. There are two ways of doing this:
+
+ * Implicitly via the declared type
+ * Explicitly via the column name
+
+Both ways are described in section `1.4 Extensions and Caveats`_ in the
+paragraphs describing the connect function, and specifically the meaning of the
+*detect_types* parameter.
+
+The following example illustrates both ways.
+
+.. code-block::
+ :language: Python
+ :source-file: code/converter_point.py
+
+4.4 Default pysqlite adapters and converters
+--------------------------------------------
+
+pysqlite has default adapters for the date and datetime types in the datetime
+module. They will be sent as ISO dates/ISO timestamps to SQLite.
+
+pysqlite has default converters registered under the name "date" for
+datetime.date and under the name "timestamp" for datetime.datetime.
+
+This way, you can use date/timestamps from pysqlite without any additional
+fiddling in most cases. The format of the adapters is also compatible with the
+experimental SQLite date/time functions.
+
+The following example demonstrates this.
+
+.. code-block::
+ :language: Python
+ :source-file: code/pysqlite_datetime.py
 

@@ -27,7 +27,7 @@ from distutils.extension import Extension
 
 # If you need to change anything, it should be enough to change setup.cfg.
 
-PYSQLITE_VERSION = "2.0.beta1"
+PYSQLITE_VERSION = "2.0.0"
 
 sqlite = "sqlite"
 
@@ -115,7 +115,7 @@ def main():
                                       define_macros=define_macros
                                       )],
             classifiers = [
-            "Development Status :: 4 - Beta",
+            "Development Status :: 5 - Production/Stable",
             "Intended Audience :: Developers",
             "License :: OSI Approved :: zlib/libpng License",
             "Operating System :: MacOS :: MacOS X",
