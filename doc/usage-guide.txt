@@ -29,6 +29,7 @@ Table Of Contents
 |     `4.2.2 Registering an adapter callable`_
 |   `4.3 Converting SQLite values to custom Python types`_
 |   `4.4 Default pysqlite adapters and converters`_
+| `5. Controlling Transactions`_
 
 0. Introduction
 ===============
@@ -123,16 +124,25 @@ Python DB API.
       sqlite.connect(database="mydb", timeout=10.0)
 
 
-  * **autocommit** - Some users don't want to work with transactions, or
-    want to write a layer on top of pysqlite that implementes transaction
-    management differently than pysqlite. With autocommit=True, pysqlite
-    does not issue BEGIN statements automatically any more. Note that you
-    can toggle the autocommit attribute of connections also.
+  * **isolation_level** - pysqlite will by default open transactions with a
+    "BEGIN" statement, when it encounters a DML statement like
+    INSERT/UPDATE/DELETE/REPLACE. Some users don't want pysqlite to implicitly
+    open transactions for them - they want an autocommit mode. Other users want
+    pysqlite to open different kinds of transactions, like with "BEGIN
+    IMMEDIATE". See `5. Controlling Transactions`_  for a more detailed
+    explanation.
+
+    Note that you can also switch to a different isolation level by setting the
+    **isolation_level** property of connections.
 
     Example:
      .. code-block:: Python
 
-      sqlite.connect("mydb", autocommit=True)
+      # Turn on autocommit mode
+      con = sqlite.connect("mydb", isolation_level=None)
+
+      # Set isolation_level to "IMMEDIATE"
+      con.isolation_level = "IMMEDIATE"
 
   * **detect_types** - SQLite natively supports only the types TEXT,
     INTEGER, FLOAT, BLOB and NULL. If you want to use other types, like you
@@ -208,13 +218,11 @@ Python DB API.
 
 * **Connection** class
 
-  * **autocommit** attribute (read-write)
-    Some users don't want to work with transactions, or want to write a
-    layer on top of pysqlite that implementes transaction management
-    differently than pysqlite. With autocommit=True, pysqlite does not
-    issue BEGIN statements automatically any more. Note that you set the
-    autocommit value at connection creation time using the autocommit
-    parameter to connect also.
+  * **isolation_level** attribute (read-write)
+
+    Get or set the current *isolation level*: None for autocommit mode or one
+    of "DEFERRED", "IMMEDIATE" or "EXLUSIVE". See `5. Controlling
+    Transactions`_ for a more detailed explanation.
 
   * **cursor method** - The cursor method accepts a single optional parameter:
     a custom cursor class extending pysqlite's *Cursor* class that you can
@@ -693,3 +701,27 @@ The following example demonstrates this.
  :language: Python
  :source-file: code/pysqlite_datetime.py
 
+5. Controlling Transactions
+---------------------------
+
+By default, pysqlite opens transactions implicitly before a DML statement
+(*INSERT/UPDATE/DELETE/REPLACE*), and commits transactions implicitly before a
+non-DML, non-DQL statement (i. e. anything other than
+*SELECT/INSERT/UPDATE/DELETE/REPLACE*).
+
+So if you are within a transaction, and issue a command like ``CREATE TABLE
+...``, ``VACUUM``, ``PRAGMA``, pysqlite will commit implicitly before executing
+that command. There are two reasons for doing that. The first is that most of
+these commands don't work within transactions. The other reason is that
+pysqlite needs to keep track of the transaction state (if a transaction is
+active or not).
+
+You can control which kind of "BEGIN" statements pysqlite implicitly executes
+(or none at all) via the **isolation_level** parameter to the *connect* call,
+or via the **isolation_level** property of connections.
+
+If you want *autocommit mode*, then set **isolation_level** to None.
+
+Otherwise leave it at it's default, which will result in a plain "BEGIN"
+statement, or set it to one of SQLite's supported isolation levels: DEFERRED,
+IMMEDIATE or EXCLUSIVE.
