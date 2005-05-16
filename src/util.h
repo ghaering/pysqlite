@@ -27,7 +27,7 @@
 #include "pythread.h"
 #include "sqlite3.h"
 
-void pysqlite_sleep(float seconds);
+void pysqlite_sleep(double seconds);
 
 int _sqlite_step_with_busyhandler(sqlite3_stmt* statement, void* connection);
 

@@ -29,11 +29,11 @@
  * it's not so trivial to write a portable sleep in C. For now, the simplest
  * solution is to just use Python's sleep().
  */
-void pysqlite_sleep(float seconds)
+void pysqlite_sleep(double seconds)
 {
     PyObject* ret;
 
-    ret = PyObject_CallFunction(time_sleep, "f", seconds);
+    ret = PyObject_CallFunction(time_sleep, "d", seconds);
     Py_DECREF(ret);
 }
 
