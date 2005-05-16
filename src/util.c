@@ -37,7 +37,7 @@ void pysqlite_sleep(float seconds)
     Py_DECREF(ret);
 }
 
-double pysqlite_time()
+double pysqlite_time(void)
 {
     PyObject* ret;
     double time;

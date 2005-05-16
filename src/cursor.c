@@ -433,7 +433,7 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
     self->rowcount = PyInt_FromLong(-1L);
 
     statement_type = detect_statement_type(operation_cstr);
-    if (self->connection->begin_statement != Py_None) {
+    if (self->connection->begin_statement) {
         switch (statement_type) {
             case STATEMENT_UPDATE:
             case STATEMENT_DELETE:
