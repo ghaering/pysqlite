@@ -21,7 +21,7 @@
 #    misrepresented as being the original software.
 # 3. This notice may not be removed or altered from any source distribution.
 
-import os, sys
+import glob, os, sys
 from distutils.core import setup
 from distutils.extension import Extension
 
@@ -87,6 +87,12 @@ def build_docs():
 
 def main():
     build_docs()
+    data_files = [("pysqlite2-doc",
+                        glob.glob("doc/*.html") \
+                      + glob.glob("doc/*.txt") \
+                      + glob.glob("doc/*.css")),
+                   ("pysqlite2-doc/code",
+                        glob.glob("doc/code/*.py"))]
 
     py_modules = ["sqlite"]
     setup ( # Distribution meta-data
@@ -104,6 +110,7 @@ def main():
             package_dir = {"pysqlite2": "lib"},
             packages = ["pysqlite2", "pysqlite2.test"],
             scripts=["scripts/test-pysqlite"],
+            data_files = data_files,
 
             ext_modules = [Extension( name="pysqlite2._sqlite",
                                       sources=sources,
