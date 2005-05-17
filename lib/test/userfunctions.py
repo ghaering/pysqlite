@@ -134,6 +134,15 @@ class FunctionTests(unittest.TestCase):
     def tearDown(self):
         self.con.close()
 
+    def CheckFuncRefCount(self):
+        def getfunc():
+            def f():
+                return val
+            return f
+        self.con.create_function("reftest", 0, getfunc())
+        cur = self.con.cursor()
+        cur.execute("select reftest()")
+
     def CheckFuncReturnText(self):
         cur = self.con.cursor()
         cur.execute("select returntext()")

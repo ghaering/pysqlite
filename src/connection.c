@@ -73,6 +73,8 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
     self->thread_ident = PyThread_get_thread_ident();
     self->check_same_thread = check_same_thread;
 
+    self->function_pinboard = PyDict_New();
+
     self->Warning = Warning;
     self->Error = Error;
     self->InterfaceError = InterfaceError;
@@ -100,6 +102,7 @@ void connection_dealloc(Connection* self)
         PyMem_Free(self->begin_statement);
     }
     Py_XDECREF(self->isolation_level);
+    Py_XDECREF(self->function_pinboard);
 
     self->ob_type->tp_free((PyObject*)self);
 }
@@ -518,7 +521,9 @@ PyObject* connection_create_function(Connection* self, PyObject* args, PyObject*
     }
 
     rc = sqlite3_create_function(self->db, name, narg, SQLITE_UTF8, (void*)func, _func_callback, NULL, NULL);
-;
+
+    PyDict_SetItem(self->function_pinboard, func, Py_None);
+
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -542,6 +547,8 @@ PyObject* connection_create_aggregate(Connection* self, PyObject* args, PyObject
         _seterror(self->db);
         return NULL;
     } else {
+        PyDict_SetItem(self->function_pinboard, aggregate_class, Py_None);
+
         Py_INCREF(Py_None);
         return Py_None;
     }

@@ -56,6 +56,12 @@ typedef struct
     int check_same_thread;
     long thread_ident;
 
+    /* remember references to functions/classes used in
+     * create_function/create/aggregate, use these as dictionary keys, so we
+     * can keep the total system refcount constant by clearing that dictionary
+     * in connection_dealloc */
+    PyObject* function_pinboard;
+
     /* Exception objects */
     PyObject* Warning;
     PyObject* Error;
