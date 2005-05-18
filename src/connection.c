@@ -353,7 +353,7 @@ PyObject* _build_py_params(sqlite3_context *context, int argc, sqlite3_value** a
                 cur_py_value = PyFloat_FromDouble(sqlite3_value_double(cur_value));
                 break;
             case SQLITE_TEXT:
-                val_str = sqlite3_value_text(cur_value);
+                val_str = (const char*)sqlite3_value_text(cur_value);
                 cur_py_value = PyUnicode_DecodeUTF8(val_str, strlen(val_str), NULL);
                 /* TODO: have a way to show errors here */
                 if (!cur_py_value) {

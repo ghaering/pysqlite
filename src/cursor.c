@@ -133,11 +133,11 @@ void cursor_dealloc(Cursor* self)
 void build_row_cast_map(Cursor* self)
 {
     int i;
-    const unsigned char* type_start = (const unsigned char*)-1;
-    const unsigned char* pos;
+    const char* type_start = (const char*)-1;
+    const char* pos;
 
-    const unsigned char* colname;
-    const unsigned char* decltype;
+    const char* colname;
+    const char* decltype;
     PyObject* py_decltype;
     PyObject* converter;
     PyObject* key;
@@ -158,7 +158,7 @@ void build_row_cast_map(Cursor* self)
             for (pos = colname; *pos != 0; pos++) {
                 if (*pos == '[') {
                     type_start = pos + 1;
-                } else if (*pos == ']' && type_start != (const unsigned char*)-1) {
+                } else if (*pos == ']' && type_start != (const char*)-1) {
                     key = PyString_FromStringAndSize(type_start, pos - type_start);
                     converter = PyDict_GetItem(converters, key);
                     Py_DECREF(key);
@@ -238,9 +238,9 @@ int _bind_parameter(Cursor* self, int pos, PyObject* parameter)
     return rc;
 }
 
-PyObject* _build_column_name(const unsigned char* colname)
+PyObject* _build_column_name(const char* colname)
 {
-    const unsigned char* pos;
+    const char* pos;
 
     for (pos = colname;; pos++) {
         if (*pos == 0 || *pos == ' ') {
@@ -792,7 +792,7 @@ PyObject* cursor_iternext(Cursor *self)
         }
 
         if (converter != Py_None) {
-            val_str = sqlite3_column_text(self->statement, i);
+            val_str = (const char*)sqlite3_column_text(self->statement, i);
             if (!val_str) {
                 Py_INCREF(Py_None);
                 converted = Py_None;
@@ -824,7 +824,7 @@ PyObject* cursor_iternext(Cursor *self)
             } else if (coltype == SQLITE_FLOAT) {
                 converted = PyFloat_FromDouble(sqlite3_column_double(self->statement, i));
             } else if (coltype == SQLITE_TEXT) {
-                val_str = sqlite3_column_text(self->statement, i);
+                val_str = (const char*)sqlite3_column_text(self->statement, i);
                 converted = PyUnicode_DecodeUTF8(val_str, strlen(val_str), NULL);
             } else {
                 /* coltype == SQLITE_BLOB */
