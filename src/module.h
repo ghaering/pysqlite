@@ -24,28 +24,28 @@
 #ifndef PYSQLITE_MODULE_H
 #define PYSQLITE_MODULE_H
 #include "Python.h"
-
 #include "util.h"
-PyObject* Error;
-PyObject* Warning;
-PyObject* InterfaceError;
-PyObject* DatabaseError;
-PyObject* InternalError;
-PyObject* OperationalError;
-PyObject* ProgrammingError;
-PyObject* IntegrityError;
-PyObject* DataError;
-PyObject* NotSupportedError;
+
+extern PyObject* Error;
+extern PyObject* Warning;
+extern PyObject* InterfaceError;
+extern PyObject* DatabaseError;
+extern PyObject* InternalError;
+extern PyObject* OperationalError;
+extern PyObject* ProgrammingError;
+extern PyObject* IntegrityError;
+extern PyObject* DataError;
+extern PyObject* NotSupportedError;
 
 /* the functions time.time() and time.sleep() */
-PyObject* time_time;
-PyObject* time_sleep;
+extern PyObject* time_time;
+extern PyObject* time_sleep;
 
 /* A dictionary, mapping colum types (INTEGER, VARCHAR, etc.) to converter
  * functions, that convert the SQL value to the appropriate Python value.
  * The key is uppercase.
  */
-PyObject* converters;
+extern PyObject* converters;
 
 #define PARSE_DECLTYPES 1
 #define PARSE_COLNAMES 2

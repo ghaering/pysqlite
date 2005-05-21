@@ -41,8 +41,8 @@ typedef struct
     PyObject* row_factory;
     sqlite3_stmt* statement;
 
-    /* return code of the last call to sqlite3_step */
-    int step_rc;
+    /* the next row to be returned, NULL if no next row available */
+    PyObject* next_row;
 } Cursor;
 
 typedef enum {

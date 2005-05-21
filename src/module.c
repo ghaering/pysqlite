@@ -21,18 +21,22 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "module.h"
 #include "connection.h"
 #include "cursor.h"
 #include "cache.h"
 #include "prepare_protocol.h"
 #include "microprotocols.h"
 
-PyObject* sqlite_STRING;
-PyObject* sqlite_BINARY;
-PyObject* sqlite_NUMBER;
-PyObject* sqlite_DATETIME;
-PyObject* sqlite_ROWID;
+/* static objects at module-level */
+
+PyObject* Error, *Warning, *InterfaceError, *DatabaseError, *InternalError,
+    *OperationalError, *ProgrammingError, *IntegrityError, *DataError,
+    *NotSupportedError;
+
+PyObject* time_time;
+PyObject* time_sleep;
+
+PyObject* converters;
 
 static PyObject* module_connect(PyObject* self, PyObject* args, PyObject*
         kwargs)
@@ -191,19 +195,6 @@ PyMODINIT_FUNC init_sqlite(void)
 
     NotSupportedError = PyErr_NewException("pysqlite2.dbapi2.NotSupportedError", DatabaseError, NULL);
     PyDict_SetItemString(dict, "NotSupportedError", NotSupportedError);
-
-    sqlite_STRING = PyInt_FromLong(1L);
-    sqlite_BINARY = PyInt_FromLong(2L);
-    sqlite_NUMBER = PyInt_FromLong(3L);
-    sqlite_DATETIME = PyInt_FromLong(4L);
-    Py_INCREF(sqlite_NUMBER);
-    sqlite_ROWID = sqlite_NUMBER;
-
-    PyDict_SetItemString(dict, "STRING", sqlite_STRING);
-    PyDict_SetItemString(dict, "BINARY", sqlite_BINARY);
-    PyDict_SetItemString(dict, "NUMBER", sqlite_NUMBER);
-    PyDict_SetItemString(dict, "DATETIME", sqlite_DATETIME);
-    PyDict_SetItemString(dict, "ROWID", sqlite_ROWID);
 
     PyDict_SetItemString(dict, "PARSE_DECLTYPES", PyInt_FromLong(PARSE_DECLTYPES));
     PyDict_SetItemString(dict, "PARSE_COLNAMES", PyInt_FromLong(PARSE_COLNAMES));

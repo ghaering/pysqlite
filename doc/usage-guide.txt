@@ -5,7 +5,7 @@ pysqlite usage guide
 | (c) 2004-2005 David Rushby
 | (c) 2005 Gerhard Häring
 
-Last updated for pysqlite 2.0.0
+Last updated for pysqlite 2.0.2
 
 Table Of Contents
 =================
@@ -58,6 +58,11 @@ permission to adapt it for pysqlite.
   pysqlite cannot determine any types, yet. So, the only field of
   *cursor.description* that pysqlite fills is *name*. All other fields are set to
   None.
+
+* No type objects
+
+  Consequently, there are also no type objects STRING, BINARY, NUMBER,
+  DATETIME, ROWID at module-level. They would be useless.
 
 1.2 Unsupported Optional Features
 ---------------------------------
