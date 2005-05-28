@@ -355,14 +355,9 @@ class CursorTests(unittest.TestCase):
         self.failUnlessEqual(row, None)
 
     def CheckFetchoneNoStatement(self):
-        try:
-            cur = self.cx.cursor()
-            row = cur.fetchone()
-            self.fail("should have raised a ProgrammingError")
-        except sqlite.ProgrammingError:
-            pass
-        except:
-            self.fail("should have raised a ProgrammingError")
+        cur = self.cx.cursor()
+        row = cur.fetchone()
+        self.failUnlessEqual(row, None)
 
     def CheckArraySize(self):
         # must default ot 1
@@ -385,11 +380,15 @@ class CursorTests(unittest.TestCase):
         self.cu.execute("select name from test")
         res = self.cu.fetchmany(100)
         self.failUnlessEqual(len(res), 1)
+        res = self.cu.fetchmany(100)
+        self.failUnlessEqual(res, [])
 
     def CheckFetchall(self):
         self.cu.execute("select name from test")
         res = self.cu.fetchall()
         self.failUnlessEqual(len(res), 1)
+        res = self.cu.fetchall()
+        self.failUnlessEqual(res, [])
 
     def CheckSetinputsizes(self):
         self.cu.setinputsizes([3, 4, 5])

@@ -856,16 +856,13 @@ PyObject* cursor_iternext(Cursor *self)
         return NULL;
     }
 
-    if (self->statement == NULL) {
-        PyErr_SetString(ProgrammingError, "no compiled statement - you need to execute() before you can fetch data");
-        return NULL;
-    }
-
     if (!self->next_row) {
-        Py_BEGIN_ALLOW_THREADS
-        (void)sqlite3_finalize(self->statement);
-        Py_END_ALLOW_THREADS
-        self->statement = NULL;
+        if (self->statement) {
+            Py_BEGIN_ALLOW_THREADS
+            (void)sqlite3_finalize(self->statement);
+            Py_END_ALLOW_THREADS
+            self->statement = NULL;
+        }
         return NULL;
     }
 
