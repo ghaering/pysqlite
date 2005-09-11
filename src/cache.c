@@ -58,6 +58,8 @@ int cache_init(Cache* self, PyObject* args, PyObject* kwargs)
     PyObject* factory;
     int size = 10;
 
+    self->factory = NULL;
+
     if (!PyArg_ParseTuple(args, "O|i", &factory, &size))
     {
         return -1; 
@@ -80,6 +82,11 @@ void cache_dealloc(Cache* self)
 {
     Node* node;
     Node* delete_node;
+
+    if (!self->factory) {
+        /* constructor failed, just get out of here */
+        return;
+    }
 
     node = self->first;
     while (node) {
