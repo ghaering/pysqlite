@@ -342,7 +342,7 @@ PyObject* _fetch_one_row(Cursor* self)
     PyObject* converted_row;
     PyObject* item = NULL;
     int coltype;
-    long long intval;
+    PY_LONG_LONG intval;
     PyObject* converter;
     PyObject* converted;
     int nbytes;
@@ -448,6 +448,7 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
     PyObject* func_args;
     PyObject* result;
     int numcols;
+    PY_LONG_LONG lastrowid;
     int statement_type;
     PyObject* descriptor;
     PyObject* current_param;
@@ -720,8 +721,9 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
         Py_DECREF(self->lastrowid);
         if (statement_type == STATEMENT_INSERT) {
             Py_BEGIN_ALLOW_THREADS
-            self->lastrowid = PyInt_FromLong((long)sqlite3_last_insert_rowid(self->connection->db));
+            lastrowid = sqlite3_last_insert_rowid(self->connection->db);
             Py_END_ALLOW_THREADS
+            self->lastrowid = PyInt_FromLong((long)lastrowid);
         } else {
             Py_INCREF(Py_None);
             self->lastrowid = Py_None;
@@ -978,6 +980,8 @@ PyObject* cursor_close(Cursor* self, PyObject* args)
     Py_BEGIN_ALLOW_THREADS
     rc = sqlite3_finalize(self->statement);
     Py_END_ALLOW_THREADS
+
+    self->statement = 0;
 
     Py_INCREF(Py_None);
     return Py_None;

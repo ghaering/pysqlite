@@ -310,7 +310,7 @@ void _set_result(sqlite3_context* context, PyObject* py_val)
     } else if (PyInt_Check(py_val)) {
         longval = PyInt_AsLong(py_val);
         /* TODO: investigate what to do with range overflows - long vs. long long */
-        sqlite3_result_int64(context, (long long int)longval);
+        sqlite3_result_int64(context, (PY_LONG_LONG)longval);
     } else if (PyFloat_Check(py_val)) {
         sqlite3_result_double(context, PyFloat_AsDouble(py_val));
     } else if (PyBuffer_Check(py_val)) {
@@ -336,7 +336,7 @@ PyObject* _build_py_params(sqlite3_context *context, int argc, sqlite3_value** a
     sqlite3_value* cur_value;
     PyObject* cur_py_value;
     const char* val_str;
-    long long int val_int;
+    PY_LONG_LONG val_int;
     int buflen;
     void* raw_buffer;
 
