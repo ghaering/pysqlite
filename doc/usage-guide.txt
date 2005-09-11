@@ -5,7 +5,7 @@ pysqlite usage guide
 | (c) 2004-2005 David Rushby
 | (c) 2005 Gerhard Häring
 
-Last updated for pysqlite 2.0.2
+Last updated for pysqlite 2.0.4
 
 Table Of Contents
 =================
@@ -167,6 +167,7 @@ Python DB API.
       declared type, i. e. for "integer primary key", it will parse out
       "integer". Then for that column, it will look into pysqlite's converters
       dictionary and use the converter function registered for that type there.
+      Converter names are case-sensitive!
 
     * **sqlite.PARSE_COLNAMES** - This makes pysqlite parse the column name
       for each column it returns. It will look for a string formed
@@ -181,7 +182,7 @@ Python DB API.
 
       The following example uses the column name *timestamp*, which is already
       registered by default in the converters dictionary with an appropriate
-      converter!
+      converter! Note that converter names are case-sensitive!
 
       Example:
 
@@ -213,7 +214,8 @@ Python DB API.
   registers a callable to convert a bytestring from the database into a custom
   Python type. The converter will be invoked for all database values that are
   of the type ``typename``. Confer the parameter **detect_types** of the
-  **connect** method for how the type detection works.
+  **connect** method for how the type detection works. Note that the case
+  ``typename`` and the name of the type in your query must match!
 
 * **register_adapter** function - ``register_adapter(type, callable)``
   registers a callable to convert the custom Python **type** into one of
@@ -664,6 +666,8 @@ Let's first define a converter function that accepts the string as a parameter a
 
 !!! Note that converter functions *always* get called with a string, no matter
 under which data type you sent the value to SQLite !!!
+
+!!! Also note that converter names are looked up in a case-sensitive manner !!!
 
   .. code-block:: Python
 
