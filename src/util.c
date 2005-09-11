@@ -80,6 +80,9 @@ int _sqlite_step_with_busyhandler(sqlite3_stmt* statement, void* _connection)
         }
 
         how_long = 0.01* (1 << counter);
+        if (how_long > 1.0) {
+            how_long = 1.0;
+        }
         pysqlite_sleep(how_long);
 
         counter++;
