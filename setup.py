@@ -94,6 +94,9 @@ def main():
                    ("pysqlite2-doc/code",
                         glob.glob("doc/code/*.py"))]
 
+    if sys.platform == "win32":
+        data_files += [(r"lib\site-packages\pysqlite2", ["sqlite3.dll"])]
+
     py_modules = ["sqlite"]
     setup ( # Distribution meta-data
             name = "pysqlite",
