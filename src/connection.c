@@ -184,28 +184,31 @@ PyObject* _connection_begin(Connection* self)
 
     if (rc != SQLITE_OK) {
         _seterror(self->db);
-        return NULL;
+        goto error;
     }
 
     rc = _sqlite_step_with_busyhandler(statement, self);
-    if (rc != SQLITE_DONE) {
+    if (rc == SQLITE_DONE) {
+        self->inTransaction = 1;
+    } else {
         _seterror(self->db);
-        return NULL;
     }
 
     Py_BEGIN_ALLOW_THREADS
     rc = sqlite3_finalize(statement);
     Py_END_ALLOW_THREADS
 
-    if (rc != SQLITE_OK) {
+    if (rc != SQLITE_OK && !PyErr_Occurred()) {
         _seterror(self->db);
-        return NULL;
     }
 
-    self->inTransaction = 1;
-
-    Py_INCREF(Py_None);
-    return Py_None;
+error:
+    if (PyErr_Occurred()) {
+        return NULL;
+    } else {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
 }
 
 PyObject* connection_commit(Connection* self, PyObject* args)
@@ -228,21 +231,19 @@ PyObject* connection_commit(Connection* self, PyObject* args)
         }
 
         rc = _sqlite_step_with_busyhandler(statement, self);
-
-        if (rc != SQLITE_DONE) {
+        if (rc == SQLITE_DONE) {
+            self->inTransaction = 0;
+        } else {
             _seterror(self->db);
-            goto error;
         }
 
         Py_BEGIN_ALLOW_THREADS
         rc = sqlite3_finalize(statement);
         Py_END_ALLOW_THREADS
-        if (rc != SQLITE_OK) {
+        if (rc != SQLITE_OK && !PyErr_Occurred()) {
             _seterror(self->db);
-            goto error;
         }
 
-        self->inTransaction = 0;
     }
 
 error:
@@ -270,28 +271,32 @@ PyObject* connection_rollback(Connection* self, PyObject* args)
         Py_END_ALLOW_THREADS
         if (rc != SQLITE_OK) {
             _seterror(self->db);
-            return NULL;
+            goto error;
         }
 
         rc = _sqlite_step_with_busyhandler(statement, self);
-        if (rc != SQLITE_DONE) {
+        if (rc == SQLITE_DONE) {
+            self->inTransaction = 0;
+        } else {
             _seterror(self->db);
-            return NULL;
         }
 
         Py_BEGIN_ALLOW_THREADS
         rc = sqlite3_finalize(statement);
         Py_END_ALLOW_THREADS
-        if (rc != SQLITE_OK) {
+        if (rc != SQLITE_OK && !PyErr_Occurred()) {
             _seterror(self->db);
-            return NULL;
         }
 
-        self->inTransaction = 0;
     }
 
-    Py_INCREF(Py_None);
-    return Py_None;
+error:
+    if (PyErr_Occurred()) {
+        return NULL;
+    } else {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
 }
 
 void _set_result(sqlite3_context* context, PyObject* py_val)

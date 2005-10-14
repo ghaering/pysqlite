@@ -24,7 +24,6 @@
 #ifndef PYSQLITE_MODULE_H
 #define PYSQLITE_MODULE_H
 #include "Python.h"
-#include "util.h"
 
 extern PyObject* Error;
 extern PyObject* Warning;

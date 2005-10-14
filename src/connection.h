@@ -27,7 +27,6 @@
 #include "pythread.h"
 #include "structmember.h"
 
-#include "util.h"
 #include "module.h"
 
 #include "sqlite3.h"

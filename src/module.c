@@ -70,6 +70,30 @@ static PyObject* module_connect(PyObject* self, PyObject* args, PyObject*
     return result;
 }
 
+static PyObject* module_complete(PyObject* self, PyObject* args, PyObject*
+        kwargs)
+{
+    static char *kwlist[] = {"statement", NULL, NULL};
+    char* statement;
+
+    PyObject* result;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s", kwlist, &statement))
+    {
+        return NULL; 
+    }
+
+    if (sqlite3_complete(statement)) {
+        result = Py_True;
+    } else {
+        result = Py_False;
+    }
+    
+    Py_INCREF(result);
+
+    return result;
+}
+
 static PyObject* module_register_adapter(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     PyTypeObject* type;
@@ -111,6 +135,7 @@ void converters_init(PyObject* dict)
 
 static PyMethodDef module_methods[] = {
     {"connect",  (PyCFunction)module_connect,  METH_VARARGS|METH_KEYWORDS, PyDoc_STR("Creates a connection.")},
+    {"complete_statement",  (PyCFunction)module_complete,  METH_VARARGS|METH_KEYWORDS, PyDoc_STR("Checks if a string contains a complete SQL statement.")},
     {"register_adapter", (PyCFunction)module_register_adapter, METH_VARARGS, PyDoc_STR("Registers an adapter with pysqlite's adapter registry.")},
     {"register_converter", (PyCFunction)module_register_converter, METH_VARARGS, PyDoc_STR("Registers a converter with pysqlite.")},
     {"adapt",  (PyCFunction)psyco_microprotocols_adapt, METH_VARARGS, psyco_microprotocols_adapt_doc},

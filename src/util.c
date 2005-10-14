@@ -21,7 +21,6 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "util.h"
 #include "module.h"
 #include "connection.h"
 
@@ -49,11 +48,8 @@ double pysqlite_time(void)
     return time;
 }
 
-/* TODO: find a way to avoid the circular dependency connection.h <-> util.h
- * and the stupid casting */
-int _sqlite_step_with_busyhandler(sqlite3_stmt* statement, void* _connection)
+int _sqlite_step_with_busyhandler(sqlite3_stmt* statement, Connection* connection)
 {
-    Connection* connection = (Connection*)_connection;
     int counter = 0;
     int rc;
     double how_long;
@@ -79,13 +75,15 @@ int _sqlite_step_with_busyhandler(sqlite3_stmt* statement, void* _connection)
             break;
         }
 
-        how_long = 0.01* (1 << counter);
-        if (how_long > 1.0) {
-            how_long = 1.0;
-        }
+        how_long = 0.01 * (1 << counter);
         pysqlite_sleep(how_long);
 
-        counter++;
+        if (counter < 7) {
+            /* Make sure the sleep interval does not grow indefinitely.
+             * This way, there is a cap of 0.01 ** 7 == 1.28 seconds.
+             */
+            counter++;
+        }
     }
 
     return rc;

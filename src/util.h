@@ -26,14 +26,15 @@
 #include "Python.h"
 #include "pythread.h"
 #include "sqlite3.h"
+#include "connection.h"
 
 void pysqlite_sleep(double seconds);
 
-int _sqlite_step_with_busyhandler(sqlite3_stmt* statement, void* connection);
+int _sqlite_step_with_busyhandler(sqlite3_stmt* statement, Connection* connection);
 
 /**
- *  * Checks the SQLite error code and sets the appropriate DB-API exception.
- *   * Returns the error code (0 means no error occured).
- *    */
+ * Checks the SQLite error code and sets the appropriate DB-API exception.
+ * Returns the error code (0 means no error occured).
+ */
 int _seterror(sqlite3* db);
 #endif
