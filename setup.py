@@ -112,7 +112,7 @@ def main():
             # Description of the modules and packages in the distribution
             package_dir = {"pysqlite2": "lib"},
             packages = ["pysqlite2", "pysqlite2.test"],
-            scripts=["scripts/test-pysqlite"],
+            scripts=[],
             data_files = data_files,
 
             ext_modules = [Extension( name="pysqlite2._sqlite",
