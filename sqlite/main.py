@@ -46,7 +46,9 @@ def _quote(value):
 
     if value is None:
         return 'NULL'
-    elif type(value) in (IntType, LongType, FloatType):
+    elif isinstance(value, IntType): # backwards-compatible check for int and bool
+        return int(value)
+    elif type(value) in (LongType, FloatType):
         return value
     elif isinstance(value, StringType):
         return "'%s'" % value.replace("'", "''")
