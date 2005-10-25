@@ -22,12 +22,15 @@
 # 3. This notice may not be removed or altered from any source distribution.
 
 import glob, os, sys
-from distutils.core import setup
-from distutils.extension import Extension
+
+from ez_setup import use_setuptools
+use_setuptools()
+
+from setuptools import setup, Extension
 
 # If you need to change anything, it should be enough to change setup.cfg.
 
-PYSQLITE_VERSION = "2.0.5"
+PYSQLITE_VERSION = "2.0.6"
 
 sqlite = "sqlite"
 
