@@ -99,6 +99,9 @@ def main():
 
     if sys.platform == "win32":
         data_files += [(r"lib\site-packages\pysqlite2", ["sqlite3.dll"])]
+        package_data = {"pysqlite2": ["sqlite3.dll"]}
+    else:
+        package_data = {}
 
     py_modules = ["sqlite"]
     setup ( # Distribution meta-data
@@ -117,6 +120,7 @@ def main():
             packages = ["pysqlite2", "pysqlite2.test"],
             scripts=[],
             data_files = data_files,
+            package_data = package_data,
 
             ext_modules = [Extension( name="pysqlite2._sqlite",
                                       sources=sources,
