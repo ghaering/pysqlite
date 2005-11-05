@@ -22,6 +22,7 @@
  */
 
 #include "connection.h"
+#include "statement.h"
 #include "cursor.h"
 #include "cache.h"
 #include "prepare_protocol.h"
@@ -88,7 +89,7 @@ static PyObject* module_complete(PyObject* self, PyObject* args, PyObject*
     } else {
         result = Py_False;
     }
-    
+
     Py_INCREF(result);
 
     return result;
@@ -153,6 +154,7 @@ PyMODINIT_FUNC init_sqlite(void)
     CursorType.tp_new = PyType_GenericNew;
     NodeType.tp_new = PyType_GenericNew;
     CacheType.tp_new = PyType_GenericNew;
+    StatementType.tp_new = PyType_GenericNew;
     SQLitePrepareProtocolType.tp_new = PyType_GenericNew;
     SQLitePrepareProtocolType.ob_type    = &PyType_Type;
     if (PyType_Ready(&NodeType) < 0) {
@@ -170,12 +172,17 @@ PyMODINIT_FUNC init_sqlite(void)
     if (PyType_Ready(&SQLitePrepareProtocolType) == -1) {
         return;
     }
+    if (PyType_Ready(&StatementType) == -1) {
+        return;
+    }
 
     Py_INCREF(&ConnectionType);
     PyModule_AddObject(module, "Connection", (PyObject*) &ConnectionType);
     Py_INCREF(&CursorType);
     PyModule_AddObject(module, "Cursor", (PyObject*) &CursorType);
     Py_INCREF(&CacheType);
+    PyModule_AddObject(module, "Statement", (PyObject*)&StatementType);
+    Py_INCREF(&StatementType);
     PyModule_AddObject(module, "Cache", (PyObject*) &CacheType);
     Py_INCREF(&SQLitePrepareProtocolType);
     PyModule_AddObject(module, "PrepareProtocol", (PyObject*) &SQLitePrepareProtocolType);

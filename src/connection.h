@@ -27,6 +27,7 @@
 #include "pythread.h"
 #include "structmember.h"
 
+#include "cache.h"
 #include "module.h"
 
 #include "sqlite3.h"
@@ -54,6 +55,8 @@ typedef struct
 
     int check_same_thread;
     long thread_ident;
+
+    Cache* statement_cache;
 
     /* remember references to functions/classes used in
      * create_function/create/aggregate, use these as dictionary keys, so we

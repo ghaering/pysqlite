@@ -21,8 +21,10 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
+#include "cache.h"
 #include "module.h"
 #include "connection.h"
+#include "statement.h"
 #include "cursor.h"
 #include "prepare_protocol.h"
 #include "util.h"
@@ -49,6 +51,8 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
 
     self->begin_statement = NULL;
 
+    self->statement_cache = NULL;
+
     Py_BEGIN_ALLOW_THREADS
     rc = sqlite3_open(database, &self->db);
     Py_END_ALLOW_THREADS
@@ -66,6 +70,11 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
     self->isolation_level = NULL;
     connection_set_isolation_level(self, isolation_level);
     Py_DECREF(isolation_level);
+
+    self->statement_cache = (Cache*)PyObject_CallFunction((PyObject*)&CacheType, "O", self);
+    if (PyErr_Occurred()) {
+        /* TODO: handle error */
+    }
 
     self->inTransaction = 0;
     self->detect_types = detect_types;
@@ -87,6 +96,23 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
     self->NotSupportedError = NotSupportedError;
 
     return 0;
+}
+
+void flush_statement_cache(Connection* self)
+{
+    Node* node;
+    Statement* statement;
+
+    node = self->statement_cache->first;
+
+    while (node) {
+        statement = (Statement*)(node->data);
+        (void)pysqlite_finalize(statement);
+        node = node->next;
+    }
+
+    Py_DECREF(self->statement_cache);
+    self->statement_cache = (Cache*)PyObject_CallFunction((PyObject*)&CacheType, "O", self);
 }
 
 void connection_dealloc(Connection* self)
@@ -139,6 +165,8 @@ PyObject* connection_close(Connection* self, PyObject* args)
     if (!check_thread(self)) {
         return NULL;
     }
+
+    flush_statement_cache(self);
 
     if (self->db) {
         Py_BEGIN_ALLOW_THREADS
@@ -625,6 +653,49 @@ static int connection_set_isolation_level(Connection* self, PyObject* isolation_
     return 0;
 }
 
+PyObject* connection_call(Connection* self, PyObject* args, PyObject* kwargs)
+{
+    PyObject* sql;
+    PyObject* sql_str;
+    unsigned char* sql_cstr;
+
+    Statement* statement;
+    int rc;
+
+    if (!PyArg_ParseTuple(args, "O", &sql)) {
+        return NULL;
+    }
+
+    if (PyString_Check(sql)) {
+        sql_str = sql;
+        Py_INCREF(sql_str);
+    } else if (PyUnicode_Check(sql)) {
+        sql_str = PyUnicode_AsUTF8String(sql);
+    } else {
+        PyErr_SetString(PyExc_ValueError, "The SQL statement must be of type str or unicode.");
+        return NULL;
+    }
+
+    sql_cstr = PyString_AsString(sql_str);
+    Py_DECREF(sql_str);
+
+    statement = PyObject_New(Statement, &StatementType);
+    if (!statement) {
+        return NULL;
+    }
+
+    rc = statement_create(statement, self, sql_cstr);
+
+    if (rc == SQLITE_OK) {
+        statement->in_use = 1;
+    } else {
+        _seterror(self->db);
+        Py_DECREF(statement);
+        statement = 0;
+    }
+
+    return (PyObject*)statement;
+}
 
 static char connection_doc[] =
 PyDoc_STR("<missing docstring>");
@@ -681,7 +752,7 @@ PyTypeObject ConnectionType = {
         0,                                              /* tp_as_sequence */
         0,                                              /* tp_as_mapping */
         0,                                              /* tp_hash */
-        0,                                              /* tp_call */
+        connection_call,                                /* tp_call */
         0,                                              /* tp_str */
         0,                                              /* tp_getattro */
         0,                                              /* tp_setattro */

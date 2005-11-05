@@ -25,6 +25,7 @@
 #define PYSQLITE_CURSOR_H
 #include "Python.h"
 
+#include "statement.h"
 #include "connection.h"
 #include "module.h"
 
@@ -38,7 +39,7 @@ typedef struct
     PyObject* lastrowid;
     PyObject* rowcount;
     PyObject* row_factory;
-    sqlite3_stmt* statement;
+    Statement* statement;
 
     /* the next row to be returned, NULL if no next row available */
     PyObject* next_row;
@@ -48,7 +49,7 @@ typedef enum {
     STATEMENT_INVALID, STATEMENT_INSERT, STATEMENT_DELETE,
     STATEMENT_UPDATE, STATEMENT_REPLACE, STATEMENT_SELECT,
     STATEMENT_OTHER
-} StatementType;
+} StatementKind;
 
 extern PyTypeObject CursorType;
 
