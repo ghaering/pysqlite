@@ -43,6 +43,7 @@ typedef struct
     PyObject* factory;
     Node* first;
     Node* last;
+    int decref_factory;
 } Cache;
 
 extern PyTypeObject NodeType;

@@ -75,6 +75,8 @@ int cache_init(Cache* self, PyObject* args, PyObject* kwargs)
     Py_INCREF(factory);
     self->factory = factory;
 
+    self->decref_factory = 1;
+
     return 0;
 }
 
@@ -92,12 +94,14 @@ void cache_dealloc(Cache* self)
     while (node) {
         delete_node = node;
         node = node->next;
-        /*node_dealloc(delete_node);*/
         Py_DECREF(delete_node);
     }
 
-    Py_DECREF(self->factory);
+    if (self->decref_factory) {
+        Py_DECREF(self->factory);
+    }
     Py_DECREF(self->mapping);
+
     self->ob_type->tp_free((PyObject*)self);
 }
 
@@ -154,6 +158,8 @@ PyObject* cache_get(Cache* self, PyObject* args)
                 }
                 self->last = node->prev;
                 node->prev = NULL;
+
+                Py_DECREF(node);
             }
         }
 
