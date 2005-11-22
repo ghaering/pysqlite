@@ -113,7 +113,7 @@ void cursor_dealloc(Cursor* self)
 
     /* Reset the statement if the user has not closed the cursor */
     if (self->statement) {
-        rc = pysqlite_reset(self->statement);
+        rc = statement_reset(self->statement);
     }
 
     Py_XDECREF(self->connection);
@@ -123,6 +123,7 @@ void cursor_dealloc(Cursor* self)
     Py_XDECREF(self->rowcount);
     Py_XDECREF(self->row_factory);
     Py_XDECREF(self->next_row);
+    Py_XDECREF(self->statement);
 
     self->ob_type->tp_free((PyObject*)self);
 }
@@ -246,85 +247,6 @@ PyObject* _build_column_name(const char* colname)
     }
 }
 
-typedef enum {
-    LINECOMMENT_1,
-    IN_LINECOMMENT,
-    COMMENTSTART_1,
-    IN_COMMENT,
-    COMMENTEND_1,
-    NORMAL
-} parse_remaining_sql_state;
-
-/*
- * Checks if there is anything left in an SQL string after SQLite compiled it.
- * This is used to check if somebody tried to execute more than one SQL command
- * with one execute()/executemany() command, which the DB-API and we don't
- * allow.
- *
- * Returns 1 if there is more left than should be. 0 if ok.
- */
-int check_remaining_sql(const char* tail)
-{
-    const char* pos = tail;
-
-    parse_remaining_sql_state state = NORMAL;
-
-    for (;;) {
-        switch (*pos) {
-            case 0:
-                return 0;
-            case '-':
-                if (state == NORMAL) {
-                    state  = LINECOMMENT_1;
-                } else if (state == LINECOMMENT_1) {
-                    state = IN_LINECOMMENT;
-                }
-                break;
-            case ' ':
-            case '\t':
-                break;
-            case '\n':
-            case 13:
-                if (state == IN_LINECOMMENT) {
-                    state = NORMAL;
-                }
-                break;
-            case '/':
-                if (state == NORMAL) {
-                    state = COMMENTSTART_1;
-                } else if (state == COMMENTEND_1) {
-                    state = NORMAL;
-                } else if (state == COMMENTSTART_1) {
-                    return 1;
-                }
-                break;
-            case '*':
-                if (state == NORMAL) {
-                    return 1;
-                } else if (state == LINECOMMENT_1) {
-                    return 1;
-                } else if (state == COMMENTSTART_1) {
-                    state = IN_COMMENT;
-                } else if (state == IN_COMMENT) {
-                    state = COMMENTEND_1;
-                }
-                break;
-            default:
-                if (state == COMMENTEND_1) {
-                    state = IN_COMMENT;
-                } else if (state == IN_LINECOMMENT) {
-                } else if (state == IN_COMMENT) {
-                } else {
-                    return 1;
-                }
-        }
-
-        pos++;
-    }
-
-    return 0;
-}
-
 /*
  * Returns a row from the currently active SQLite statement
  *
@@ -438,7 +360,6 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
     PyObject* parameters_iter = NULL;
     PyObject* parameters = NULL;
     int num_params;
-    const char* tail;
     int i;
     int rc;
     PyObject* func_args;
@@ -513,7 +434,7 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
 
     if (self->statement != NULL) {
         /* There is an active statement */
-        rc = pysqlite_reset(self->statement);
+        rc = statement_reset(self->statement);
     }
 
     if (PyString_Check(operation)) {
@@ -572,17 +493,10 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
         }
     }
 
-    /*
-    rc = sqlite3_prepare(self->connection->db,
-                         operation_cstr,
-                         0,
-                         &self->statement,
-                         &tail);
-    */
-
     func_args = PyTuple_New(1);
     Py_INCREF(operation);
     PyTuple_SetItem(func_args, 0, operation);
+    Py_XDECREF(self->statement);
     self->statement = (Statement*)cache_get(self->connection->statement_cache, func_args);
     Py_DECREF(func_args);
 
@@ -590,21 +504,20 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
         goto error;
     }
 
-    /*
-    if (check_remaining_sql(tail)) {
-        PyErr_SetString(Warning, "You can only execute one statement at a time.");
-        goto error;
-    }
-    */
+    statement_reset(self->statement);
+    statement_mark_dirty(self->statement);
 
     Py_BEGIN_ALLOW_THREADS
     num_params_needed = sqlite3_bind_parameter_count(self->statement->st);
     Py_END_ALLOW_THREADS
+
     while (1) {
         parameters = PyIter_Next(parameters_iter);
         if (!parameters) {
             break;
         }
+
+        statement_mark_dirty(self->statement);
 
         if (PyDict_Check(parameters)) {
             /* parameters passed as dictionary */
@@ -732,7 +645,7 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
         }
 
         if (multiple) {
-            rc = pysqlite_reset(self->statement);
+            rc = statement_reset(self->statement);
         }
         Py_XDECREF(parameters);
     }
@@ -860,7 +773,7 @@ PyObject* cursor_iternext(Cursor *self)
 
     if (!self->next_row) {
          if (self->statement) {
-            (void)pysqlite_reset(self->statement);
+            (void)statement_reset(self->statement);
             Py_DECREF(self->statement);
             self->statement = NULL;
         }
@@ -974,10 +887,7 @@ PyObject* cursor_close(Cursor* self, PyObject* args)
         return NULL;
     }
 
-    if (self->statement) {
-        (void)pysqlite_reset(self->statement);
-    }
-
+    Py_XDECREF(self->statement);
     self->statement = 0;
 
     Py_INCREF(Py_None);

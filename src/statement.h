@@ -28,6 +28,8 @@
 #include "connection.h"
 #include "sqlite3.h"
 
+#define PYSQLITE_TOO_MUCH_SQL (-100)
+
 typedef struct
 {
     PyObject_HEAD
@@ -40,7 +42,8 @@ extern PyTypeObject StatementType;
 int statement_create(Statement *self, Connection* connection, unsigned char* sql);
 void statement_dealloc(Statement* self);
 
-int pysqlite_finalize(Statement* self);
-int pysqlite_reset(Statement* self);
+int statement_finalize(Statement* self);
+int statement_reset(Statement* self);
+void statement_mark_dirty(Statement* self);
 
 #endif

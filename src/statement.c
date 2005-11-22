@@ -24,6 +24,18 @@
 #include "statement.h"
 #include "connection.h"
 
+/* prototypes */
+int check_remaining_sql(const char* tail);
+
+typedef enum {
+    LINECOMMENT_1,
+    IN_LINECOMMENT,
+    COMMENTSTART_1,
+    IN_COMMENT,
+    COMMENTEND_1,
+    NORMAL
+} parse_remaining_sql_state;
+
 int statement_create(Statement* self, Connection* connection, unsigned char* sql)
 {
     const unsigned char* tail;
@@ -40,10 +52,17 @@ int statement_create(Statement* self, Connection* connection, unsigned char* sql
                          &self->st,
                          &tail);
 
+
+
+    if (rc == SQLITE_OK && check_remaining_sql(tail)) {
+        (void)sqlite3_finalize(self->st);
+        rc = PYSQLITE_TOO_MUCH_SQL;
+    }
+
     return rc;
 }
 
-int pysqlite_finalize(Statement* self)
+int statement_finalize(Statement* self)
 {
     int rc;
 
@@ -60,12 +79,12 @@ int pysqlite_finalize(Statement* self)
     return rc;
 }
 
-int pysqlite_reset(Statement* self)
+int statement_reset(Statement* self)
 {
     int rc;
 
     rc = SQLITE_OK;
-    if (self->st) {
+    if (self->in_use && self->st) {
         Py_BEGIN_ALLOW_THREADS
         rc = sqlite3_reset(self->st);
         Py_END_ALLOW_THREADS
@@ -74,6 +93,11 @@ int pysqlite_reset(Statement* self)
     self->in_use = 0;
 
     return rc;
+}
+
+void statement_mark_dirty(Statement* self)
+{
+    self->in_use = 1;
 }
 
 void statement_dealloc(Statement* self)
@@ -89,6 +113,76 @@ void statement_dealloc(Statement* self)
     self->st = NULL;
 
     self->ob_type->tp_free((PyObject*)self);
+}
+
+/*
+ * Checks if there is anything left in an SQL string after SQLite compiled it.
+ * This is used to check if somebody tried to execute more than one SQL command
+ * with one execute()/executemany() command, which the DB-API and we don't
+ * allow.
+ *
+ * Returns 1 if there is more left than should be. 0 if ok.
+ */
+int check_remaining_sql(const char* tail)
+{
+    const char* pos = tail;
+
+    parse_remaining_sql_state state = NORMAL;
+
+    for (;;) {
+        switch (*pos) {
+            case 0:
+                return 0;
+            case '-':
+                if (state == NORMAL) {
+                    state  = LINECOMMENT_1;
+                } else if (state == LINECOMMENT_1) {
+                    state = IN_LINECOMMENT;
+                }
+                break;
+            case ' ':
+            case '\t':
+                break;
+            case '\n':
+            case 13:
+                if (state == IN_LINECOMMENT) {
+                    state = NORMAL;
+                }
+                break;
+            case '/':
+                if (state == NORMAL) {
+                    state = COMMENTSTART_1;
+                } else if (state == COMMENTEND_1) {
+                    state = NORMAL;
+                } else if (state == COMMENTSTART_1) {
+                    return 1;
+                }
+                break;
+            case '*':
+                if (state == NORMAL) {
+                    return 1;
+                } else if (state == LINECOMMENT_1) {
+                    return 1;
+                } else if (state == COMMENTSTART_1) {
+                    state = IN_COMMENT;
+                } else if (state == IN_COMMENT) {
+                    state = COMMENTEND_1;
+                }
+                break;
+            default:
+                if (state == COMMENTEND_1) {
+                    state = IN_COMMENT;
+                } else if (state == IN_LINECOMMENT) {
+                } else if (state == IN_COMMENT) {
+                } else {
+                    return 1;
+                }
+        }
+
+        pos++;
+    }
+
+    return 0;
 }
 
 PyTypeObject StatementType = {

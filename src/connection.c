@@ -34,17 +34,18 @@ static int connection_set_isolation_level(Connection* self, PyObject* isolation_
 
 int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
 {
-    static char *kwlist[] = {"database", "timeout", "detect_types", "isolation_level", "check_same_thread", "factory", NULL, NULL};
+    static char *kwlist[] = {"database", "timeout", "detect_types", "isolation_level", "check_same_thread", "factory", "cached_statements", NULL, NULL};
     char* database;
     int detect_types = 0;
     PyObject* isolation_level = NULL;
     PyObject* factory = NULL;
     int check_same_thread = 1;
+    int cached_statements = 20;
     double timeout = 5.0;
     int rc;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|diOiO", kwlist,
-                                     &database, &timeout, &detect_types, &isolation_level, &check_same_thread, &factory))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|diOiOi", kwlist,
+                                     &database, &timeout, &detect_types, &isolation_level, &check_same_thread, &factory, &cached_statements))
     {
         return -1; 
     }
@@ -71,10 +72,18 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
     connection_set_isolation_level(self, isolation_level);
     Py_DECREF(isolation_level);
 
-    self->statement_cache = (Cache*)PyObject_CallFunction((PyObject*)&CacheType, "O", self);
+    self->statement_cache = (Cache*)PyObject_CallFunction((PyObject*)&CacheType, "Oi", self, cached_statements);
     if (PyErr_Occurred()) {
         /* TODO: handle error */
     }
+
+    /* By default, the Cache class INCREFs the factory in its initializer, and
+     * decrefs it in its deallocator method. Since this would create a circular
+     * reference here, we're breaking it by decrementing self, and telling the
+     * cache class to not decref the factory (self) in its deallocator.
+     */
+    self->statement_cache->decref_factory = 0;
+    Py_DECREF(self);
 
     self->inTransaction = 0;
     self->detect_types = detect_types;
@@ -107,12 +116,14 @@ void flush_statement_cache(Connection* self)
 
     while (node) {
         statement = (Statement*)(node->data);
-        (void)pysqlite_finalize(statement);
+        (void)statement_finalize(statement);
         node = node->next;
     }
 
     Py_DECREF(self->statement_cache);
     self->statement_cache = (Cache*)PyObject_CallFunction((PyObject*)&CacheType, "O", self);
+    Py_DECREF(self);
+    self->statement_cache->decref_factory = 0;
 }
 
 void connection_dealloc(Connection* self)
@@ -129,6 +140,8 @@ void connection_dealloc(Connection* self)
     }
     Py_XDECREF(self->isolation_level);
     Py_XDECREF(self->function_pinboard);
+
+    Py_XDECREF(self->statement_cache);
 
     self->ob_type->tp_free((PyObject*)self);
 }
@@ -671,25 +684,34 @@ PyObject* connection_call(Connection* self, PyObject* args, PyObject* kwargs)
         Py_INCREF(sql_str);
     } else if (PyUnicode_Check(sql)) {
         sql_str = PyUnicode_AsUTF8String(sql);
+        if (!sql_str) {
+            return NULL;
+        }
     } else {
         PyErr_SetString(PyExc_ValueError, "The SQL statement must be of type str or unicode.");
         return NULL;
     }
 
     sql_cstr = PyString_AsString(sql_str);
-    Py_DECREF(sql_str);
 
     statement = PyObject_New(Statement, &StatementType);
     if (!statement) {
+        Py_DECREF(sql_str);
         return NULL;
     }
 
     rc = statement_create(statement, self, sql_cstr);
+    Py_DECREF(sql_str);
 
     if (rc == SQLITE_OK) {
         statement->in_use = 1;
     } else {
-        _seterror(self->db);
+        if (rc == PYSQLITE_TOO_MUCH_SQL) {
+            PyErr_SetString(Warning, "You can only execute one statement at a time.");
+        } else {
+            _seterror(self->db);
+        }
+
         Py_DECREF(statement);
         statement = 0;
     }
