@@ -1,5 +1,4 @@
 import time
-import db_row
 
 def yesno(question):
     val = raw_input(question + " ")
@@ -9,7 +8,6 @@ use_pysqlite2 = yesno("Use pysqlite 2.0?")
 if use_pysqlite2:
     use_custom_types = yesno("Use custom types?")
     use_dictcursor = yesno("Use dict cursor?")
-    use_dbrowCursor = yesno("Use db_row cursor?")
 else:
     use_tuple = yesno("Use rowclass=tuple?")
 
@@ -25,27 +23,25 @@ def dict_factory(cursor, row):
     return d
 
 if use_pysqlite2:
+    def dict_factory(cursor, row):
+        d = {}
+        for idx, col in enumerate(cursor.description):
+            d[col[0]] = row[idx]
+        return d
+
     class DictCursor(sqlite.Cursor):
         def __init__(self, *args, **kwargs):
             sqlite.Cursor.__init__(self, *args, **kwargs)
-            self.row_factory = lambda row: dict_factory(self, row)
-
-    class DbRowCursor(sqlite.Cursor):
-        def execute(self, *args, **kwargs):
-            sqlite.Cursor.execute(self, *args, **kwargs)
-            if self.description:
-                self.row_factory = db_row.IMetaRow(self.description)
+            self.row_factory = dict_factory
 
 def create_db():
     if sqlite.version_info > (2, 0):
         if use_custom_types:
             con = sqlite.connect(":memory:", detect_types=sqlite.PARSE_DECLTYPES|sqlite.PARSE_COLNAMES)
-            con.converters["text"] = lambda x: "<%s>" % x
+            sqlite.register_converter("text", lambda x: "<%s>" % x)
         else:
             con = sqlite.connect(":memory:")
-        if use_dbrowCursor:
-            cur = con.cursor(factory=DbRowCursor)
-        elif use_dictcursor:
+        if use_dictcursor:
             cur = con.cursor(factory=DictCursor)
         else:
             cur = con.cursor()
