@@ -124,17 +124,6 @@ class ConnectionTests(unittest.TestCase):
     def CheckClose(self):
         self.cx.close()
 
-    def CheckCloseException(self):
-        cu = self.cx.cursor()
-        cu.execute("select * from test")
-        try:
-            self.cx.close()
-            self.fail("should have raised an OperationalError")
-        except sqlite.OperationalError:
-            pass
-        except:
-            self.fail("should have raised an OperationalError")
-
     def CheckExceptions(self):
         # Optional DB-API extension.
         self.failUnlessEqual(self.cx.Warning, sqlite.Warning)
