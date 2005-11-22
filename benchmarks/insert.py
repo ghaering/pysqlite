@@ -17,7 +17,10 @@ else:
 def create_db():
     con = sqlite.connect(":memory:")
     if use_autocommit:
-        con.autocommit = True
+        if use_pysqlite2:
+            con.isolation_level = None
+        else:
+            con.autocommit = True
     cur = con.cursor()
     cur.execute("""
         create table test(v text, f float, i integer)
@@ -46,6 +49,7 @@ def test():
         else:
             for r in l:
                 cur.execute(sql, r)
+    endtime = time.time()
 
     print "elapsed", endtime - starttime
 
