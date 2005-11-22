@@ -5,7 +5,7 @@ pysqlite usage guide
 | (c) 2004-2005 David Rushby
 | (c) 2005 Gerhard Häring
 
-Last updated for pysqlite 2.0.4
+Last updated for pysqlite 2.1.0
 
 Table Of Contents
 =================
@@ -206,6 +206,11 @@ Python DB API.
     .. code-block::
      :language: Python
      :source-file: code/countcursors.py
+
+  * **cached_statements** - pysqlite internally uses a statement cache to avoid
+    SQL parsing overhead. If you want to explicitly set the number of
+    statements that are cached for the connection, you can set this parameter.
+    The currently implemented default is to cache 20 statements.
 
   |
   |
