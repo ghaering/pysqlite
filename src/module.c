@@ -27,6 +27,7 @@
 #include "cache.h"
 #include "prepare_protocol.h"
 #include "microprotocols.h"
+#include "row.h"
 
 /* static objects at module-level */
 
@@ -156,6 +157,8 @@ PyMODINIT_FUNC init_sqlite(void)
     NodeType.tp_new = PyType_GenericNew;
     CacheType.tp_new = PyType_GenericNew;
     StatementType.tp_new = PyType_GenericNew;
+    row_initmodule();
+    RowType.tp_new = PyType_GenericNew;
     SQLitePrepareProtocolType.tp_new = PyType_GenericNew;
     SQLitePrepareProtocolType.ob_type    = &PyType_Type;
     if (PyType_Ready(&NodeType) < 0) {
@@ -176,6 +179,9 @@ PyMODINIT_FUNC init_sqlite(void)
     if (PyType_Ready(&StatementType) == -1) {
         return;
     }
+    if (PyType_Ready(&RowType) == -1) {
+        return;
+    }
 
     Py_INCREF(&ConnectionType);
     PyModule_AddObject(module, "Connection", (PyObject*) &ConnectionType);
@@ -187,6 +193,8 @@ PyMODINIT_FUNC init_sqlite(void)
     PyModule_AddObject(module, "Cache", (PyObject*) &CacheType);
     Py_INCREF(&SQLitePrepareProtocolType);
     PyModule_AddObject(module, "PrepareProtocol", (PyObject*) &SQLitePrepareProtocolType);
+    Py_INCREF(&RowType);
+    PyModule_AddObject(module, "Row", (PyObject*) &RowType);
 
     if (!(dict = PyModule_GetDict(module)))
     {
