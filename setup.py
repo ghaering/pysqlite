@@ -36,7 +36,7 @@ sqlite = "sqlite"
 
 sources = ["src/module.c", "src/connection.c", "src/cursor.c", "src/cache.c",
            "src/microprotocols.c", "src/adapters.c", "src/converters.c",
-           "src/prepare_protocol.c", "src/statement.c", "src/util.c"]
+           "src/prepare_protocol.c", "src/statement.c", "src/util.c", "src/row.c"]
 
 include_dirs = []
 library_dirs = []
