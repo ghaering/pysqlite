@@ -75,3 +75,10 @@ PyTypeObject SQLitePrepareProtocolType= {
         0,                                              /* tp_new */
         0                                               /* tp_free */
 };
+
+extern int prepare_protocol_setup_types(void)
+{
+    SQLitePrepareProtocolType.tp_new = PyType_GenericNew;
+    SQLitePrepareProtocolType.ob_type= &PyType_Type;
+    return PyType_Ready(&SQLitePrepareProtocolType);
+}

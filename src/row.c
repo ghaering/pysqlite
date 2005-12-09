@@ -1,6 +1,6 @@
 /* row.c - an enhanced tuple for database rows
  *
- * Copyright (C) 2004-2005 Gerhard Häring <gh@ghaering.de>
+ * Copyright (C) 2005 Gerhard Häring <gh@ghaering.de>
  *
  * This file is part of pysqlite.
  *
@@ -26,8 +26,8 @@
 
 void row_dealloc(Row* self)
 {
-    Py_DECREF(self->data);
-    Py_DECREF(self->description);
+    Py_XDECREF(self->data);
+    Py_XDECREF(self->description);
 
     self->ob_type->tp_free((PyObject*)self);
 }
@@ -37,18 +37,29 @@ int row_init(Row* self, PyObject* args, PyObject* kwargs)
     PyObject* data;
     Cursor* cursor;
 
+    self->data = 0;
+    self->description = 0;
+
     if (!PyArg_ParseTuple(args, "OO", &cursor, &data)) {
         return -1;
     }
 
-    /* TODO: check if really cursor */
-    
+    if (!PyObject_IsInstance((PyObject*)cursor, (PyObject*)&CursorType)) {
+        PyErr_SetString(PyExc_TypeError, "instance of cursor required for first argument");
+        return -1;
+    }
+
+    if (!PyTuple_Check(data)) {
+        PyErr_SetString(PyExc_TypeError, "tuple required for second argument");
+        return -1;
+    }
+
     Py_INCREF(data);
     self->data = data;
 
     Py_INCREF(cursor->description);
     self->description = cursor->description;
-    
+
     return 0;
 }
 
@@ -62,9 +73,13 @@ PyObject* row_subscript(Row* self, PyObject* idx)
     char* p1;
     char* p2;
 
+    PyObject* item;
+
     if (PyInt_Check(idx)) {
         _idx = PyInt_AsLong(idx);
-        return PyTuple_GetItem(self->data, _idx);
+        item = PyTuple_GetItem(self->data, _idx);
+        Py_INCREF(item);
+        return item;
     } else if (PyString_Check(idx)) {
         key = PyString_AsString(idx);
 
@@ -91,7 +106,9 @@ PyObject* row_subscript(Row* self, PyObject* idx)
 
             if ((*p1 == (char)0) && (*p2 == (char)0)) {
                 /* found item */
-                return PyTuple_GetItem(self->data, i);
+                item = PyTuple_GetItem(self->data, i);
+                Py_INCREF(item);
+                return item;
             }
 
         }
@@ -100,6 +117,7 @@ PyObject* row_subscript(Row* self, PyObject* idx)
         return NULL;
     } else if (PySlice_Check(idx)) {
         PyErr_SetString(PyExc_ValueError, "slices not implemented, yet");
+        return NULL;
     } else {
         PyErr_SetString(PyExc_IndexError, "Index must be int or string");
         return NULL;
@@ -167,7 +185,9 @@ PyTypeObject RowType = {
         0                                               /* tp_free */
 };
 
-void row_initmodule()
+extern int row_setup_types(void)
 {
+    RowType.tp_new = PyType_GenericNew;
     RowType.tp_as_mapping = &row_as_mapping;
+    return PyType_Ready(&RowType);
 }

@@ -50,6 +50,7 @@ void node_dealloc(Node* self)
 {
     Py_DECREF(self->key);
     Py_DECREF(self->data);
+
     self->ob_type->tp_free((PyObject*)self);
 }
 
@@ -324,3 +325,19 @@ PyTypeObject CacheType = {
         0,                                              /* tp_new */
         0                                               /* tp_free */
 };
+
+extern int cache_setup_types(void)
+{
+    int rc;
+
+    NodeType.tp_new = PyType_GenericNew;
+    CacheType.tp_new = PyType_GenericNew;
+
+    rc = PyType_Ready(&NodeType);
+    if (rc < 0) {
+        return rc;
+    }
+
+    rc = PyType_Ready(&CacheType);
+    return rc;
+}

@@ -36,6 +36,7 @@ typedef struct
 {
     PyObject_HEAD
     sqlite3* db;
+
     int inTransaction;
     int detect_types;
 
@@ -92,5 +93,7 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs);
 
 int check_thread(Connection* self);
 int check_connection(Connection* con);
+
+int connection_setup_types(void);
 
 #endif

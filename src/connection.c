@@ -35,6 +35,7 @@ static int connection_set_isolation_level(Connection* self, PyObject* isolation_
 int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
 {
     static char *kwlist[] = {"database", "timeout", "detect_types", "isolation_level", "check_same_thread", "factory", "cached_statements", NULL, NULL};
+
     char* database;
     int detect_types = 0;
     PyObject* isolation_level = NULL;
@@ -88,6 +89,8 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
     self->inTransaction = 0;
     self->detect_types = detect_types;
     self->timeout = timeout;
+    (void)sqlite3_busy_timeout(self->db, (int)(timeout*1000));
+
     self->thread_ident = PyThread_get_thread_ident();
     self->check_same_thread = check_same_thread;
 
@@ -124,6 +127,20 @@ void flush_statement_cache(Connection* self)
     self->statement_cache = (Cache*)PyObject_CallFunction((PyObject*)&CacheType, "O", self);
     Py_DECREF(self);
     self->statement_cache->decref_factory = 0;
+}
+
+void reset_all_statements(Connection* self)
+{
+    Node* node;
+    Statement* statement;
+
+    node = self->statement_cache->first;
+
+    while (node) {
+        statement = (Statement*)(node->data);
+        (void)statement_reset(statement);
+        node = node->next;
+    }
 }
 
 void connection_dealloc(Connection* self)
@@ -307,6 +324,8 @@ PyObject* connection_rollback(Connection* self, PyObject* args)
     }
 
     if (self->inTransaction) {
+        reset_all_statements(self);
+
         Py_BEGIN_ALLOW_THREADS
         rc = sqlite3_prepare(self->db, "ROLLBACK", -1, &statement, &tail);
         Py_END_ALLOW_THREADS
@@ -719,6 +738,68 @@ PyObject* connection_call(Connection* self, PyObject* args, PyObject* kwargs)
     return (PyObject*)statement;
 }
 
+PyObject* connection_execute(Connection* self, PyObject* args, PyObject* kwargs)
+{
+    PyObject* cursor = 0;
+    PyObject* result = 0;
+    PyObject* method = 0;
+
+    cursor = PyObject_CallMethod((PyObject*)self, "cursor", "");
+    if (!cursor) {
+        goto error;
+    }
+
+    method = PyObject_GetAttrString(cursor, "execute");
+    if (!method) {
+        Py_DECREF(cursor);
+        cursor = 0;
+        goto error;
+    }
+
+    result = PyObject_Call(method, args, kwargs);
+    if (!result) {
+        Py_DECREF(cursor);
+        cursor = 0;
+    }
+
+error:
+    Py_XDECREF(result);
+    Py_XDECREF(method);
+
+    return cursor;
+}
+
+PyObject* connection_executemany(Connection* self, PyObject* args, PyObject* kwargs)
+{
+    PyObject* cursor = 0;
+    PyObject* result = 0;
+    PyObject* method = 0;
+
+    cursor = PyObject_CallMethod((PyObject*)self, "cursor", "");
+    if (!cursor) {
+        goto error;
+    }
+
+    method = PyObject_GetAttrString(cursor, "executemany");
+    if (!method) {
+        Py_DECREF(cursor);
+        cursor = 0;
+        goto error;
+    }
+
+    result = PyObject_Call(method, args, kwargs);
+    if (!result) {
+        Py_DECREF(cursor);
+        cursor = 0;
+    }
+
+error:
+    Py_XDECREF(result);
+    Py_XDECREF(method);
+
+    return cursor;
+}
+
 static char connection_doc[] =
 PyDoc_STR("<missing docstring>");
 
@@ -740,6 +821,10 @@ static PyMethodDef connection_methods[] = {
         PyDoc_STR("Creates a new function.")},
     {"create_aggregate", (PyCFunction)connection_create_aggregate, METH_VARARGS|METH_KEYWORDS,
         PyDoc_STR("Creates a new aggregate.")},
+    {"execute", (PyCFunction)connection_execute, METH_VARARGS,
+        PyDoc_STR("Executes a SQL statement.")},
+    {"executemany", (PyCFunction)connection_executemany, METH_VARARGS,
+        PyDoc_STR("Repeatedly executes a SQL statement.")},
     {NULL, NULL}
 };
 
@@ -800,4 +885,9 @@ PyTypeObject ConnectionType = {
         0,                                              /* tp_new */
         0                                               /* tp_free */
 };
- 
+
+extern int connection_setup_types(void)
+{
+    ConnectionType.tp_new = PyType_GenericNew;
+    return PyType_Ready(&ConnectionType);
+}

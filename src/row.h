@@ -1,6 +1,6 @@
 /* row.h - an enhanced tuple for database rows
  *
- * Copyright (C) 2004-2005 Gerhard Häring <gh@ghaering.de>
+ * Copyright (C) 2005 Gerhard Häring <gh@ghaering.de>
  *
  * This file is part of pysqlite.
  *
@@ -33,5 +33,8 @@ typedef struct _Row
 } Row;
 
 extern PyTypeObject RowType;
+extern PyMappingMethods row_as_mapping;
+
+int row_setup_types(void);
 
 #endif

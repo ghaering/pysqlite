@@ -48,43 +48,14 @@ double pysqlite_time(void)
     return time;
 }
 
-int _sqlite_step_with_busyhandler(sqlite3_stmt* statement, Connection* connection)
+int _sqlite_step_with_busyhandler(sqlite3_stmt* statement, Connection* connection
+)
 {
-    int counter = 0;
     int rc;
-    double how_long;
 
     Py_BEGIN_ALLOW_THREADS
     rc = sqlite3_step(statement);
     Py_END_ALLOW_THREADS
-
-    if (rc != SQLITE_BUSY) {
-        return rc;
-    }
-
-    connection->timeout_started = pysqlite_time();
-    while (1) {
-        Py_BEGIN_ALLOW_THREADS
-        rc = sqlite3_step(statement);
-        Py_END_ALLOW_THREADS
-        if (rc != SQLITE_BUSY) {
-            break;
-        }
-
-        if (pysqlite_time() - connection->timeout_started > connection->timeout) {
-            break;
-        }
-
-        how_long = 0.01 * (1 << counter);
-        pysqlite_sleep(how_long);
-
-        if (counter < 7) {
-            /* Make sure the sleep interval does not grow indefinitely.
-             * This way, there is a cap of 0.01 ** 7 == 1.28 seconds.
-             */
-            counter++;
-        }
-    }
 
     return rc;
 }

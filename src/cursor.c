@@ -114,6 +114,7 @@ void cursor_dealloc(Cursor* self)
     /* Reset the statement if the user has not closed the cursor */
     if (self->statement) {
         rc = statement_reset(self->statement);
+        Py_DECREF(self->statement);
     }
 
     Py_XDECREF(self->connection);
@@ -123,7 +124,6 @@ void cursor_dealloc(Cursor* self)
     Py_XDECREF(self->rowcount);
     Py_XDECREF(self->row_factory);
     Py_XDECREF(self->next_row);
-    Py_XDECREF(self->statement);
 
     self->ob_type->tp_free((PyObject*)self);
 }
@@ -257,7 +257,6 @@ PyObject* _fetch_one_row(Cursor* self)
 {
     int i, numcols;
     PyObject* row;
-    PyObject* converted_row;
     PyObject* item = NULL;
     int coltype;
     PY_LONG_LONG intval;
@@ -340,14 +339,7 @@ PyObject* _fetch_one_row(Cursor* self)
     if (PyErr_Occurred()) {
         return NULL;
     } else {
-        if (self->row_factory != Py_None) {
-            converted_row = PyObject_CallFunction(self->row_factory, "OO", self, row);
-            Py_DECREF(row);
-        } else {
-            converted_row = row;
-        }
-
-        return converted_row;
+        return row;
     }
 }
 
@@ -496,7 +488,12 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
     func_args = PyTuple_New(1);
     Py_INCREF(operation);
     PyTuple_SetItem(func_args, 0, operation);
-    Py_XDECREF(self->statement);
+
+    if (self->statement) {
+        (void)statement_reset(self->statement);
+        Py_DECREF(self->statement);
+    }
+
     self->statement = (Statement*)cache_get(self->connection->statement_cache, func_args);
     Py_DECREF(func_args);
 
@@ -619,6 +616,10 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
             }
 
             self->next_row = _fetch_one_row(self);
+        } else if (rc == SQLITE_DONE && !multiple) {
+            statement_reset(self->statement);
+            Py_DECREF(self->statement);
+            self->statement = 0;
         }
 
         switch (statement_type) {
@@ -764,6 +765,7 @@ PyObject* cursor_getiter(Cursor *self)
 
 PyObject* cursor_iternext(Cursor *self)
 {
+    PyObject* next_row_tuple;
     PyObject* next_row;
     int rc;
 
@@ -780,8 +782,15 @@ PyObject* cursor_iternext(Cursor *self)
         return NULL;
     }
 
-    next_row = self->next_row;
+    next_row_tuple = self->next_row;
     self->next_row = NULL;
+
+    if (self->row_factory != Py_None) {
+        next_row = PyObject_CallFunction(self->row_factory, "OO", self, next_row_tuple);
+        Py_DECREF(next_row_tuple);
+    } else {
+        next_row = next_row_tuple;
+    }
 
     rc = _sqlite_step_with_busyhandler(self->statement->st, self->connection);
     if (rc != SQLITE_DONE && rc != SQLITE_ROW) {
@@ -887,8 +896,11 @@ PyObject* cursor_close(Cursor* self, PyObject* args)
         return NULL;
     }
 
-    Py_XDECREF(self->statement);
-    self->statement = 0;
+    if (self->statement) {
+        (void)statement_reset(self->statement);
+        Py_DECREF(self->statement);
+        self->statement = 0;
+    }
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -969,3 +981,9 @@ PyTypeObject CursorType = {
         0,                                              /* tp_new */
         0                                               /* tp_free */
 };
+
+extern int cursor_setup_types(void)
+{
+    CursorType.tp_new = PyType_GenericNew;
+    return PyType_Ready(&CursorType);
+}

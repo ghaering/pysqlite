@@ -35,5 +35,7 @@ extern PyTypeObject SQLitePrepareProtocolType;
 int prepare_protocol_init(SQLitePrepareProtocol* self, PyObject* args, PyObject* kwargs);
 void prepare_protocol_dealloc(SQLitePrepareProtocol* self);
 
+int prepare_protocol_setup_types(void);
+
 #define UNKNOWN (-1)
 #endif

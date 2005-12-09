@@ -8,6 +8,7 @@ use_pysqlite2 = yesno("Use pysqlite 2.0?")
 if use_pysqlite2:
     use_custom_types = yesno("Use custom types?")
     use_dictcursor = yesno("Use dict cursor?")
+    use_rowcursor = yesno("Use row cursor?")
 else:
     use_tuple = yesno("Use rowclass=tuple?")
 
@@ -34,6 +35,11 @@ if use_pysqlite2:
             sqlite.Cursor.__init__(self, *args, **kwargs)
             self.row_factory = dict_factory
 
+    class RowCursor(sqlite.Cursor):
+        def __init__(self, *args, **kwargs):
+            sqlite.Cursor.__init__(self, *args, **kwargs)
+            self.row_factory = sqlite.Row
+
 def create_db():
     if sqlite.version_info > (2, 0):
         if use_custom_types:
@@ -43,6 +49,8 @@ def create_db():
             con = sqlite.connect(":memory:")
         if use_dictcursor:
             cur = con.cursor(factory=DictCursor)
+        elif use_rowcursor:
+            cur = con.cursor(factory=RowCursor)
         else:
             cur = con.cursor()
     else:

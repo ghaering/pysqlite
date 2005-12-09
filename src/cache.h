@@ -56,4 +56,6 @@ int cache_init(Cache* self, PyObject* args, PyObject* kwargs);
 void cache_dealloc(Cache* self);
 PyObject* cache_get(Cache* self, PyObject* args);
 
+int cache_setup_types(void);
+
 #endif

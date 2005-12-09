@@ -152,34 +152,14 @@ PyMODINIT_FUNC init_sqlite(void)
 
     module = Py_InitModule("pysqlite2._sqlite", module_methods);
 
-    ConnectionType.tp_new = PyType_GenericNew;
-    CursorType.tp_new = PyType_GenericNew;
-    NodeType.tp_new = PyType_GenericNew;
-    CacheType.tp_new = PyType_GenericNew;
-    StatementType.tp_new = PyType_GenericNew;
-    row_initmodule();
-    RowType.tp_new = PyType_GenericNew;
-    SQLitePrepareProtocolType.tp_new = PyType_GenericNew;
-    SQLitePrepareProtocolType.ob_type    = &PyType_Type;
-    if (PyType_Ready(&NodeType) < 0) {
-        return;
-    }
-    if (PyType_Ready(&CacheType) < 0) {
-        return;
-    }
-    if (PyType_Ready(&ConnectionType) < 0) {
-        return;
-    }
-    if (PyType_Ready(&CursorType) < 0) {
-        return;
-    }
-    if (PyType_Ready(&SQLitePrepareProtocolType) == -1) {
-        return;
-    }
-    if (PyType_Ready(&StatementType) == -1) {
-        return;
-    }
-    if (PyType_Ready(&RowType) == -1) {
+    if (
+        (row_setup_types() < 0) ||
+        (cursor_setup_types() < 0) ||
+        (connection_setup_types() < 0) ||
+        (cache_setup_types() < 0) ||
+        (statement_setup_types() < 0) ||
+        (prepare_protocol_setup_types() < 0)
+       ) {
         return;
     }
 
@@ -274,4 +254,3 @@ error:
         PyErr_SetString(PyExc_ImportError, "pysqlite2._sqlite: init failed");
     }
 }
-

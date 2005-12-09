@@ -84,6 +84,7 @@ int statement_reset(Statement* self)
     int rc;
 
     rc = SQLITE_OK;
+
     if (self->in_use && self->st) {
         Py_BEGIN_ALLOW_THREADS
         rc = sqlite3_reset(self->st);
@@ -227,3 +228,9 @@ PyTypeObject StatementType = {
         0,                                              /* tp_new */
         0                                               /* tp_free */
 };
+
+extern int statement_setup_types(void)
+{
+    StatementType.tp_new = PyType_GenericNew;
+    return PyType_Ready(&StatementType);
+}

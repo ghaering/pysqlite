@@ -65,5 +65,7 @@ PyObject* cursor_fetchall(Cursor* self, PyObject* args);
 PyObject* pysqlite_noop(Connection* self, PyObject* args);
 PyObject* cursor_close(Cursor* self, PyObject* args);
 
+int cursor_setup_types(void);
+
 #define UNKNOWN (-1)
 #endif

@@ -46,4 +46,6 @@ int statement_finalize(Statement* self);
 int statement_reset(Statement* self);
 void statement_mark_dirty(Statement* self);
 
+int statement_setup_types(void);
+
 #endif
