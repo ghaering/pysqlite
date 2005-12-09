@@ -756,7 +756,7 @@ PyObject* connection_execute(Connection* self, PyObject* args, PyObject* kwargs)
         goto error;
     }
 
-    result = PyObject_Call(method, args, kwargs);
+    result = PyObject_CallObject(method, args);
     if (!result) {
         Py_DECREF(cursor);
         cursor = 0;
@@ -787,7 +787,38 @@ PyObject* connection_executemany(Connection* self, PyObject* args, PyObject* kwa
         goto error;
     }
 
-    result = PyObject_Call(method, args, kwargs);
+    result = PyObject_CallObject(method, args);
+    if (!result) {
+        Py_DECREF(cursor);
+        cursor = 0;
+    }
+
+error:
+    Py_XDECREF(result);
+    Py_XDECREF(method);
+
+    return cursor;
+}
+
+PyObject* connection_executescript(Connection* self, PyObject* args, PyObject* kwargs)
+{
+    PyObject* cursor = 0;
+    PyObject* result = 0;
+    PyObject* method = 0;
+
+    cursor = PyObject_CallMethod((PyObject*)self, "cursor", "");
+    if (!cursor) {
+        goto error;
+    }
+
+    method = PyObject_GetAttrString(cursor, "executescript");
+    if (!method) {
+        Py_DECREF(cursor);
+        cursor = 0;
+        goto error;
+    }
+
+    result = PyObject_CallObject(method, args);
     if (!result) {
         Py_DECREF(cursor);
         cursor = 0;
@@ -818,13 +849,15 @@ static PyMethodDef connection_methods[] = {
     {"rollback", (PyCFunction)connection_rollback, METH_NOARGS,
         PyDoc_STR("Roll back the current transaction.")},
     {"create_function", (PyCFunction)connection_create_function, METH_VARARGS|METH_KEYWORDS,
-        PyDoc_STR("Creates a new function.")},
+        PyDoc_STR("Creates a new function. Non-standard.")},
     {"create_aggregate", (PyCFunction)connection_create_aggregate, METH_VARARGS|METH_KEYWORDS,
-        PyDoc_STR("Creates a new aggregate.")},
+        PyDoc_STR("Creates a new aggregate. Non-standard.")},
     {"execute", (PyCFunction)connection_execute, METH_VARARGS,
-        PyDoc_STR("Executes a SQL statement.")},
+        PyDoc_STR("Executes a SQL statement. Non-standard.")},
     {"executemany", (PyCFunction)connection_executemany, METH_VARARGS,
-        PyDoc_STR("Repeatedly executes a SQL statement.")},
+        PyDoc_STR("Repeatedly executes a SQL statement. Non-standard.")},
+    {"executescript", (PyCFunction)connection_executescript, METH_VARARGS,
+        PyDoc_STR("Executes a multiple SQL statements at once. Non-standard.")},
     {NULL, NULL}
 };
 
