@@ -36,28 +36,70 @@ typedef enum {
     NORMAL
 } parse_remaining_sql_state;
 
-int statement_create(Statement* self, Connection* connection, unsigned char* sql)
+int statement_create(Statement* self, Connection* connection, PyObject* sql)
 {
     const unsigned char* tail;
     int rc;
+    PyObject* sql_str;
+    unsigned char* sql_cstr;
 
     self->st = NULL;
 
     self->st = NULL;
     self->in_use = 0;
 
+    if (PyString_Check(sql)) {
+        sql_str = sql;
+        Py_INCREF(sql_str);
+    } else if (PyUnicode_Check(sql)) {
+        sql_str = PyUnicode_AsUTF8String(sql);
+        if (!sql_str) {
+            rc = PYSQLITE_SQL_WRONG_TYPE;
+            return rc;
+        }
+    } else {
+        rc = PYSQLITE_SQL_WRONG_TYPE;
+        return rc;
+    }
+
+    self->sql = sql_str;
+
+    sql_cstr = PyString_AsString(sql_str);
+
     rc = sqlite3_prepare(connection->db,
-                         sql,
+                         sql_cstr,
                          0,
                          &self->st,
                          &tail);
 
-
+    self->db = connection->db;
 
     if (rc == SQLITE_OK && check_remaining_sql(tail)) {
         (void)sqlite3_finalize(self->st);
         rc = PYSQLITE_TOO_MUCH_SQL;
     }
+
+    return rc;
+}
+
+int statement_recompile(Statement* self)
+{
+    const unsigned char* tail;
+    int rc, compile_rc;
+    unsigned char* sql_cstr;
+    sqlite3_stmt* new_st;
+
+    sql_cstr = PyString_AsString(self->sql);
+
+    rc = sqlite3_prepare(self->db,
+                         sql_cstr,
+                         0,
+                         &new_st,
+                         &tail);
+
+    (void)sqlite3_transfer_bindings(self->st, new_st);
+    (void)sqlite3_finalize(self->st);
+    self->st = new_st;
 
     return rc;
 }
@@ -112,6 +154,8 @@ void statement_dealloc(Statement* self)
     }
 
     self->st = NULL;
+
+    Py_XDECREF(self->sql);
 
     self->ob_type->tp_free((PyObject*)self);
 }

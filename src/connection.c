@@ -688,9 +688,6 @@ static int connection_set_isolation_level(Connection* self, PyObject* isolation_
 PyObject* connection_call(Connection* self, PyObject* args, PyObject* kwargs)
 {
     PyObject* sql;
-    PyObject* sql_str;
-    unsigned char* sql_cstr;
-
     Statement* statement;
     int rc;
 
@@ -698,35 +695,20 @@ PyObject* connection_call(Connection* self, PyObject* args, PyObject* kwargs)
         return NULL;
     }
 
-    if (PyString_Check(sql)) {
-        sql_str = sql;
-        Py_INCREF(sql_str);
-    } else if (PyUnicode_Check(sql)) {
-        sql_str = PyUnicode_AsUTF8String(sql);
-        if (!sql_str) {
-            return NULL;
-        }
-    } else {
-        PyErr_SetString(PyExc_ValueError, "The SQL statement must be of type str or unicode.");
-        return NULL;
-    }
-
-    sql_cstr = PyString_AsString(sql_str);
-
     statement = PyObject_New(Statement, &StatementType);
     if (!statement) {
-        Py_DECREF(sql_str);
         return NULL;
     }
 
-    rc = statement_create(statement, self, sql_cstr);
-    Py_DECREF(sql_str);
+    rc = statement_create(statement, self, sql);
 
     if (rc == SQLITE_OK) {
         statement->in_use = 1;
     } else {
         if (rc == PYSQLITE_TOO_MUCH_SQL) {
             PyErr_SetString(Warning, "You can only execute one statement at a time.");
+        } else if (rc == PYSQLITE_SQL_WRONG_TYPE) {
+            PyErr_SetString(Warning, "SQL is of wrong type. Must be string or unicode.");
         } else {
             _seterror(self->db);
         }

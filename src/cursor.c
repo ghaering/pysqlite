@@ -585,8 +585,22 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
 
         rc = _sqlite_step_with_busyhandler(self->statement->st, self->connection);
         if (rc != SQLITE_DONE && rc != SQLITE_ROW) {
-            _seterror(self->connection->db);
-            goto error;
+            /* for some reason, we don't get SQLITE_SCHEMA when we expect it, and
+             * get SQLITE_ERROR instead, so let's handle the changed schema
+             * case the complicated way */
+            if (strcmp(sqlite3_errmsg(self->connection->db), "database schema has changed") == 0) {
+                rc = statement_recompile(self->statement);
+                if (rc == SQLITE_OK) {
+                    rc = _sqlite_step_with_busyhandler(self->statement->st, self->connection);
+                }
+                if (rc != SQLITE_DONE && rc != SQLITE_ROW) {
+                    _seterror(self->connection->db);
+                    goto error;
+                }
+            } else {
+                _seterror(self->connection->db);
+                goto error;
+            }
         }
 
         if (rc == SQLITE_ROW) {
