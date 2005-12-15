@@ -145,6 +145,8 @@ void reset_all_statements(Connection* self)
 
 void connection_dealloc(Connection* self)
 {
+    Py_XDECREF(self->statement_cache);
+
     /* Clean up if user has not called .close() explicitly. */
     if (self->db) {
         Py_BEGIN_ALLOW_THREADS
@@ -157,8 +159,6 @@ void connection_dealloc(Connection* self)
     }
     Py_XDECREF(self->isolation_level);
     Py_XDECREF(self->function_pinboard);
-
-    Py_XDECREF(self->statement_cache);
 
     self->ob_type->tp_free((PyObject*)self);
 }
