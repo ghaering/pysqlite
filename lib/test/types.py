@@ -247,6 +247,14 @@ class ColNamesTests(unittest.TestCase):
         # whitespace should be stripped.
         self.failUnlessEqual(self.cur.description[0][0], "x")
 
+    def CheckCursorDescriptionNoRow(self):
+        """
+        cursor.description should at least provide the column name(s), even if
+        no row returned.
+        """
+        self.cur.execute("select * from test where 0 = 1")
+        self.assert_(self.cur.description[0][0] == "x")
+
 class ObjectAdaptationTests(unittest.TestCase):
     def cast(obj):
         return float(obj)

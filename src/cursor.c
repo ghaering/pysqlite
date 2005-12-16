@@ -603,14 +603,9 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
             }
         }
 
-        if (rc == SQLITE_ROW) {
-            if (multiple) {
-                PyErr_SetString(ProgrammingError, "executemany() can only execute DML statements.");
-                goto error;
-            }
-
+        if (rc == SQLITE_ROW || (rc == SQLITE_DONE && statement_type == STATEMENT_SELECT)) {
             Py_BEGIN_ALLOW_THREADS
-            numcols = sqlite3_data_count(self->statement->st);
+            numcols = sqlite3_column_count(self->statement->st);
             Py_END_ALLOW_THREADS
 
             if (self->description == Py_None) {
@@ -627,6 +622,13 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
                     Py_INCREF(Py_None); PyTuple_SetItem(descriptor, 6, Py_None);
                     PyTuple_SetItem(self->description, i, descriptor);
                 }
+            }
+        }
+
+        if (rc == SQLITE_ROW) {
+            if (multiple) {
+                PyErr_SetString(ProgrammingError, "executemany() can only execute DML statements.");
+                goto error;
             }
 
             self->next_row = _fetch_one_row(self);
