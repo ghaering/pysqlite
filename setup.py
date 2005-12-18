@@ -97,12 +97,6 @@ def main():
                    ("pysqlite2-doc/code",
                         glob.glob("doc/code/*.py"))]
 
-    if sys.platform == "win32":
-        data_files += [(r"lib\site-packages\pysqlite2", ["sqlite3.dll"])]
-        package_data = {"pysqlite2": ["sqlite3.dll"]}
-    else:
-        package_data = {}
-
     py_modules = ["sqlite"]
     setup ( # Distribution meta-data
             name = "pysqlite",
@@ -114,13 +108,13 @@ def main():
             license = "zlib/libpng license",
             platforms = "ALL",
             url = "http://pysqlite.org/",
+            download_url = "http://initd.org/tracker/pysqlite/wiki/PysqliteDownloads",
 
             # Description of the modules and packages in the distribution
             package_dir = {"pysqlite2": "lib"},
             packages = ["pysqlite2", "pysqlite2.test"],
             scripts=[],
             data_files = data_files,
-            package_data = package_data,
 
             ext_modules = [Extension( name="pysqlite2._sqlite",
                                       sources=sources,

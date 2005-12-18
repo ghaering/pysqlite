@@ -41,7 +41,7 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
     PyObject* isolation_level = NULL;
     PyObject* factory = NULL;
     int check_same_thread = 1;
-    int cached_statements = 20;
+    int cached_statements = 100;
     double timeout = 5.0;
     int rc;
 
