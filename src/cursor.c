@@ -266,6 +266,7 @@ PyObject* _fetch_one_row(Cursor* self)
     PyObject* buffer;
     void* raw_buffer;
     const char* val_str;
+    char buf[200];
 
     Py_BEGIN_ALLOW_THREADS
     numcols = sqlite3_data_count(self->statement->st);
@@ -318,6 +319,11 @@ PyObject* _fetch_one_row(Cursor* self)
             } else if (coltype == SQLITE_TEXT) {
                 val_str = (const char*)sqlite3_column_text(self->statement->st, i);
                 converted = PyUnicode_DecodeUTF8(val_str, strlen(val_str), NULL);
+                if (!converted) {
+                    PyOS_snprintf(buf, sizeof(buf) - 1, "Could not decode to UTF-8 column %s with text %s",
+                                sqlite3_column_name(self->statement->st, i), val_str);
+                    PyErr_SetString(OperationalError, buf);
+                }
             } else {
                 /* coltype == SQLITE_BLOB */
                 nbytes = sqlite3_column_bytes(self->statement->st, i);
@@ -337,10 +343,11 @@ PyObject* _fetch_one_row(Cursor* self)
     }
 
     if (PyErr_Occurred()) {
-        return NULL;
-    } else {
-        return row;
+        Py_DECREF(row);
+        row = NULL;
     }
+
+    return row;
 }
 
 PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
