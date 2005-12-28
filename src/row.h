@@ -33,7 +33,6 @@ typedef struct _Row
 } Row;
 
 extern PyTypeObject RowType;
-extern PyMappingMethods row_as_mapping;
 
 int row_setup_types(void);
 

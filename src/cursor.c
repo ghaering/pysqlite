@@ -508,6 +508,16 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
         goto error;
     }
 
+    if (self->statement->in_use) {
+        Py_DECREF(self->statement);
+        self->statement = PyObject_New(Statement, &StatementType);
+        rc = statement_create(self->statement, self->connection, operation);
+        if (rc != SQLITE_OK) {
+            self->statement = 0;
+            goto error;
+        }
+    }
+
     statement_reset(self->statement);
     statement_mark_dirty(self->statement);
 
@@ -568,6 +578,9 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
             }
             for (i = 0; i < num_params; i++) {
                 current_param = PySequence_GetItem(parameters, i);
+                if (!current_param) {
+                    goto error;
+                }
                 adapted = microprotocols_adapt(current_param, (PyObject*)&SQLitePrepareProtocolType, NULL);
 
                 if (adapted) {
@@ -584,7 +597,6 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
                     PyErr_Format(InterfaceError, "Error binding parameter %d - probably unsupported type.", i);
                     goto error;
                 }
-
             }
         }
 

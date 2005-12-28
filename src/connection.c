@@ -702,9 +702,7 @@ PyObject* connection_call(Connection* self, PyObject* args, PyObject* kwargs)
 
     rc = statement_create(statement, self, sql);
 
-    if (rc == SQLITE_OK) {
-        statement->in_use = 1;
-    } else {
+    if (rc != SQLITE_OK) {
         if (rc == PYSQLITE_TOO_MUCH_SQL) {
             PyErr_SetString(Warning, "You can only execute one statement at a time.");
         } else if (rc == PYSQLITE_SQL_WRONG_TYPE) {
@@ -874,7 +872,7 @@ PyTypeObject ConnectionType = {
         0,                                              /* tp_as_sequence */
         0,                                              /* tp_as_mapping */
         0,                                              /* tp_hash */
-        connection_call,                                /* tp_call */
+        (ternaryfunc)connection_call,                   /* tp_call */
         0,                                              /* tp_str */
         0,                                              /* tp_getattro */
         0,                                              /* tp_setattro */

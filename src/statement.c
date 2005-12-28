@@ -38,10 +38,10 @@ typedef enum {
 
 int statement_create(Statement* self, Connection* connection, PyObject* sql)
 {
-    const unsigned char* tail;
+    const char* tail;
     int rc;
     PyObject* sql_str;
-    unsigned char* sql_cstr;
+    char* sql_cstr;
 
     self->st = NULL;
 
@@ -84,9 +84,9 @@ int statement_create(Statement* self, Connection* connection, PyObject* sql)
 
 int statement_recompile(Statement* self)
 {
-    const unsigned char* tail;
-    int rc, compile_rc;
-    unsigned char* sql_cstr;
+    const char* tail;
+    int rc;
+    char* sql_cstr;
     sqlite3_stmt* new_st;
 
     sql_cstr = PyString_AsString(self->sql);

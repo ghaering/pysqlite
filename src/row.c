@@ -135,7 +135,7 @@ static int row_print(Row* self, FILE *fp, int flags)
 }
 
 
-static PyMappingMethods row_as_mapping = {
+PyMappingMethods row_as_mapping = {
     /* mp_length        */ (inquiry)row_length,
     /* mp_subscript     */ (binaryfunc)row_subscript,
     /* mp_ass_subscript */ (objobjargproc)0,
@@ -156,7 +156,7 @@ PyTypeObject RowType = {
         0,                                              /* tp_repr */
         0,                                              /* tp_as_number */
         0,                                              /* tp_as_sequence */
-        0, /*row_as_mapping*/                           /* tp_as_mapping */
+        0,                                              /* tp_as_mapping */
         0,                                              /* tp_hash */
         0,                                              /* tp_call */
         0,                                              /* tp_str */
