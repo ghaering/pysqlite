@@ -55,6 +55,12 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
 
     self->statement_cache = NULL;
 
+    Py_INCREF(Py_None);
+    self->row_factory = Py_None;
+
+    Py_INCREF(&PyUnicode_Type);
+    self->text_factory = (PyObject*)&PyUnicode_Type;
+
     Py_BEGIN_ALLOW_THREADS
     rc = sqlite3_open(database, &self->db);
     Py_END_ALLOW_THREADS
@@ -159,6 +165,8 @@ void connection_dealloc(Connection* self)
     }
     Py_XDECREF(self->isolation_level);
     Py_XDECREF(self->function_pinboard);
+    Py_XDECREF(self->row_factory);
+    Py_XDECREF(self->text_factory);
 
     self->ob_type->tp_free((PyObject*)self);
 }
@@ -184,6 +192,12 @@ PyObject* connection_cursor(Connection* self, PyObject* args, PyObject* kwargs)
     }
 
     cursor = PyObject_CallFunction(factory, "O", self);
+
+    if (cursor && self->row_factory != Py_None) {
+        Py_XDECREF(((Cursor*)cursor)->row_factory);
+        Py_INCREF(self->row_factory);
+        ((Cursor*)cursor)->row_factory = self->row_factory;
+    }
 
     return cursor;
 }
@@ -853,6 +867,8 @@ static struct PyMemberDef connection_members[] =
     {"InternalError", T_OBJECT, offsetof(Connection, InternalError), RO},
     {"ProgrammingError", T_OBJECT, offsetof(Connection, ProgrammingError), RO},
     {"NotSupportedError", T_OBJECT, offsetof(Connection, NotSupportedError), RO},
+    {"row_factory", T_OBJECT, offsetof(Connection, row_factory)},
+    {"text_factory", T_OBJECT, offsetof(Connection, text_factory)},
     {NULL}
 };
 

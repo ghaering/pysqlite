@@ -589,8 +589,8 @@ class ConstructorTests(unittest.TestCase):
     def CheckBinary(self):
         b = sqlite.Binary(chr(0) + "'")
 
-class ScriptTests(unittest.TestCase):
-    def CheckStringSql(self):
+class ExtensionTests(unittest.TestCase):
+    def CheckScriptStringSql(self):
         con = sqlite.connect(":memory:")
         cur = con.cursor()
         cur.executescript("""
@@ -603,7 +603,7 @@ class ScriptTests(unittest.TestCase):
         res = cur.fetchone()[0]
         self.failUnlessEqual(res, 5)
 
-    def CheckStringUnicode(self):
+    def CheckScriptStringUnicode(self):
         con = sqlite.connect(":memory:")
         cur = con.cursor()
         cur.executescript(u"""
@@ -616,6 +616,25 @@ class ScriptTests(unittest.TestCase):
         cur.execute("select i from a")
         res = cur.fetchone()[0]
         self.failUnlessEqual(res, 6)
+
+    def CheckConnectionExecute(self):
+        con = sqlite.connect(":memory:")
+        result = con.execute("select 5").fetchone()[0]
+        self.failUnlessEqual(result, 5, "Basic test of Connection.execute")
+
+    def CheckConnectionExecutemany(self):
+        con = sqlite.connect(":memory:")
+        con.execute("create table test(foo)")
+        con.executemany("insert into test(foo) values (?)", [(3,), (4,)])
+        result = con.execute("select foo from test order by foo").fetchall()
+        self.failUnlessEqual(result[0][0], 3, "Basic test of Connection.executemany")
+        self.failUnlessEqual(result[1][0], 4, "Basic test of Connection.executemany")
+
+    def CheckConnectionExecutescript(self):
+        con = sqlite.connect(":memory:")
+        con.executescript("create table test(foo); insert into test(foo) values (5);")
+        result = con.execute("select foo from test").fetchone()[0]
+        self.failUnlessEqual(result, 5, "Basic test of Connection.executescript")
 
 class ClosedTests(unittest.TestCase):
     def setUp(self):
@@ -675,9 +694,9 @@ def suite():
     cursor_suite = unittest.makeSuite(CursorTests, "Check")
     thread_suite = unittest.makeSuite(ThreadTests, "Check")
     constructor_suite = unittest.makeSuite(ConstructorTests, "Check")
-    script_suite = unittest.makeSuite(ScriptTests, "Check")
+    ext_suite = unittest.makeSuite(ExtensionTests, "Check")
     closed_suite = unittest.makeSuite(ClosedTests, "Check")
-    return unittest.TestSuite((module_suite, connection_suite, cursor_suite, thread_suite, constructor_suite, script_suite, closed_suite))
+    return unittest.TestSuite((module_suite, connection_suite, cursor_suite, thread_suite, constructor_suite, ext_suite, closed_suite))
 
 def test():
     runner = unittest.TextTestRunner()

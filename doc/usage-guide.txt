@@ -30,6 +30,9 @@ Table Of Contents
 |   `4.3 Converting SQLite values to custom Python types`_
 |   `4.4 Default pysqlite adapters and converters`_
 | `5. Controlling Transactions`_
+| `6. Using pysqlite efficiently`_
+|   `6.1 Using shortcut methods`_
+|   `6.2 Accessing columns by name instead of by index`_
 
 0. Introduction
 ===============
@@ -210,7 +213,7 @@ Python DB API.
   * **cached_statements** - pysqlite internally uses a statement cache to avoid
     SQL parsing overhead. If you want to explicitly set the number of
     statements that are cached for the connection, you can set this parameter.
-    The currently implemented default is to cache 20 statements.
+    The currently implemented default is to cache 100 statements.
 
   |
   |
@@ -241,9 +244,64 @@ Python DB API.
     adapt to your needs. Note that it is required that your custom cursor class
     extends pysqlite's *Cursor* class.
 
-    For a useful example, look at the example for the *row_factory* attribute
-    of cursors.
+  * **execute method** - Nonstandard - this works as a shortcut for not having
+    to create a cursor object and is implemented like this:
 
+     .. code-block:: Python
+
+      class Connection:
+        def execute(self, *args):
+          cur = self.cursor()
+          cur.execute(*args)
+          return cur
+
+  * **executemany method** - Nonstandard - The same shortcut as the nonstandard
+    ``execute`` method.
+
+  * **executesript method** - Nonstandard - The same shortcut as the nonstandard
+    ``execute`` method.
+
+  * **row_factory** attribute (read-write)
+
+    You can change this attribute to a callable that accepts the cursor and
+    the original row as tuple and will return the real result row.  This
+    way, you can implement more advanced ways of returning results, like
+    ones that can also access columns by name.
+
+    Example:
+
+    .. code-block::
+     :language: Python
+     :source-file: code/row_factory.py
+
+    If the standard tuple types don't suffice for you, and you want name-based
+    access to columns, you should consider setting ``row_factory`` to the
+    highly-optimized ``pysqlite2.dbapi2.Row`` type. It provides both
+    index-based and case-insensitive name-based access to columns with almost
+    no memory overhead. Much better than your own custom dictionary-based
+    approach or even a ``db_row`` based solution.
+
+  * **text_factory** attribute (read-write)
+
+    Using this attribute you can control what objects pysqlite returns for the
+    TEXT data type. By default, this attribute is set to ``unicode`` and
+    pysqlite will return Unicode objects for TEXT. If you want to return
+    bytestrings instead, you can set it to ``str``.
+
+    For efficiency reasons, there's also a way to return Unicode objects only
+    for non-ASCII data, and bytestrings otherwise. To activate it, set this
+    attribute to ``pysqlite2.dbapi2.OptimizedUnicode``.
+
+    You can also set it to any other callable that accepts a single bytestring
+    parameter and returns the result object.
+
+    See the following example code for illustration:
+
+    .. code-block::
+     :language: Python
+     :source-file: code/text_factory.py
+
+  |
 * **Cursor** class
 
   * **execute** method
@@ -347,19 +405,6 @@ Python DB API.
     As required by the Python DB API Spec, the *rowcount* attribute "is -1
     in case no executeXX() has been performed on the cursor or the rowcount
     of the last operation is not determinable by the interface".
-
-  * **row_factory** attribute (read-write)
-
-    You can change this attribute to a callable that accepts the cursor and
-    the original row as tuple and will return the real result row.  This
-    way, you can implement more advanced ways of returning results, like
-    ones that can also access columns by name.
-
-    Example:
-
-    .. code-block::
-     :language: Python
-     :source-file: code/row_factory.py
 
 |
 
@@ -553,7 +598,6 @@ create new aggregate functions with the connection's *create_aggregate* method.
    :language: Python
    :source-file: code/mysumaggr.py
 
-
 --------------------------------
 
 4. SQLite and Python types
@@ -743,4 +787,35 @@ IMMEDIATE or EXCLUSIVE.
 As pysqlite needs to keep track of the transaction state, you should not use
 ``OR ROLLBACK`` or ``ON CONFLICT ROLLBACK``. Instead, catch the
 ``IntegrityError`` and call the ``rollback`` method of the connection yourself.
+
+6. Using pysqlite efficiently
+-----------------------------
+
+6.1 Using shortcut methods
+--------------------------
+
+Using the nonstandard ``execute()``, ``executemany()`` and ``executescript()``
+methods of the Connection object, your code can be written more concisely,
+because you don't have to create the - often superfluous Cursor objects
+explicitly. Instead, the Cursor objects are created implicitly and
+these shortcut methods return the cursor objects. This way, you can for
+example execute a SELECT statement and iterate over it directly using
+only a single call on the Connection object.
+
+.. code-block::
+ :language: Python
+ :source-file: code/shortcut_methods.py
+
+6.2 Accessing columns by name instead of by index
+-------------------------------------------------
+
+A cool new feature of pysqlite 2.1.0 is the new builtin sqlite.Row class
+designed to be used as a row factory.
+
+Rows wrapped with this class can be accessed both by index (like tuples) and
+case-insensitively by name:
+
+.. code-block::
+ :language: Python
+ :source-file: code/rowclass.py
 

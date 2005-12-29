@@ -6,12 +6,8 @@ def dict_factory(cursor, row):
         d[col[0]] = row[idx]
     return d
 
-class DictCursor(sqlite.Cursor):
-    def __init__(self, *args, **kwargs):
-        sqlite.Cursor.__init__(self, *args, **kwargs)
-        self.row_factory = dict_factory
-
 con = sqlite.connect(":memory:")
-cur = con.cursor(factory=DictCursor)
+con.row_factory = dict_factory
+cur = con.cursor()
 cur.execute("select 1 as a")
 print cur.fetchone()["a"]

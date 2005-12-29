@@ -59,6 +59,10 @@ typedef struct
 
     Cache* statement_cache;
 
+    PyObject* row_factory;
+
+    PyObject* text_factory;
+
     /* remember references to functions/classes used in
      * create_function/create/aggregate, use these as dictionary keys, so we
      * can keep the total system refcount constant by clearing that dictionary

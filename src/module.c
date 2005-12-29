@@ -33,7 +33,7 @@
 
 PyObject* Error, *Warning, *InterfaceError, *DatabaseError, *InternalError,
     *OperationalError, *ProgrammingError, *IntegrityError, *DataError,
-    *NotSupportedError;
+    *NotSupportedError, *OptimizedUnicode;
 
 PyObject* time_time;
 PyObject* time_sleep;
@@ -127,8 +127,6 @@ static PyObject* module_register_converter(PyObject* self, PyObject* args, PyObj
     return Py_None;
 }
 
-/* TODO: converters_init */
-
 void converters_init(PyObject* dict)
 {
     converters = PyDict_New();
@@ -216,6 +214,10 @@ PyMODINIT_FUNC init_sqlite(void)
 
     NotSupportedError = PyErr_NewException("pysqlite2.dbapi2.NotSupportedError", DatabaseError, NULL);
     PyDict_SetItemString(dict, "NotSupportedError", NotSupportedError);
+
+    Py_INCREF((PyObject*)&PyCell_Type);
+    OptimizedUnicode = (PyObject*)&PyCell_Type;
+    PyDict_SetItemString(dict, "OptimizedUnicode", OptimizedUnicode);
 
     PyDict_SetItemString(dict, "PARSE_DECLTYPES", PyInt_FromLong(PARSE_DECLTYPES));
     PyDict_SetItemString(dict, "PARSE_COLNAMES", PyInt_FromLong(PARSE_COLNAMES));

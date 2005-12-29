@@ -36,6 +36,8 @@ extern PyObject* IntegrityError;
 extern PyObject* DataError;
 extern PyObject* NotSupportedError;
 
+extern PyObject* OptimizedUnicode;
+
 /* the functions time.time() and time.sleep() */
 extern PyObject* time_time;
 extern PyObject* time_sleep;

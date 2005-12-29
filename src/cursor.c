@@ -247,6 +247,32 @@ PyObject* _build_column_name(const char* colname)
     }
 }
 
+PyObject* unicode_from_string(const char* val_str, int optimize)
+{
+    const char* check;
+    int is_ascii = 0;
+
+    if (optimize) {
+        is_ascii = 1;
+
+        check = val_str;
+        while (*check) {
+            if (*check & 0x80) {
+                is_ascii = 0;
+                break;
+            }
+
+            check++;
+        }
+    }
+
+    if (is_ascii) {
+        return PyString_FromString(val_str);
+    } else {
+        return PyUnicode_DecodeUTF8(val_str, strlen(val_str), NULL);
+    }
+}
+
 /*
  * Returns a row from the currently active SQLite statement
  *
@@ -318,11 +344,21 @@ PyObject* _fetch_one_row(Cursor* self)
                 converted = PyFloat_FromDouble(sqlite3_column_double(self->statement->st, i));
             } else if (coltype == SQLITE_TEXT) {
                 val_str = (const char*)sqlite3_column_text(self->statement->st, i);
-                converted = PyUnicode_DecodeUTF8(val_str, strlen(val_str), NULL);
-                if (!converted) {
-                    PyOS_snprintf(buf, sizeof(buf) - 1, "Could not decode to UTF-8 column %s with text %s",
-                                sqlite3_column_name(self->statement->st, i), val_str);
-                    PyErr_SetString(OperationalError, buf);
+                if ((self->connection->text_factory == (PyObject*)&PyUnicode_Type)
+                    || (self->connection->text_factory == OptimizedUnicode)) {
+
+                    converted = unicode_from_string(val_str,
+                        self->connection->text_factory == OptimizedUnicode ? 1 : 0);
+
+                    if (!converted) {
+                        PyOS_snprintf(buf, sizeof(buf) - 1, "Could not decode to UTF-8 column %s with text %s",
+                                    sqlite3_column_name(self->statement->st, i), val_str);
+                        PyErr_SetString(OperationalError, buf);
+                    }
+                } else if (self->connection->text_factory == (PyObject*)&PyString_Type) {
+                    converted = PyString_FromString(val_str);
+                } else {
+                    converted = PyObject_CallFunction(self->connection->text_factory, "s", val_str);
                 }
             } else {
                 /* coltype == SQLITE_BLOB */

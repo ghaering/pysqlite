@@ -78,7 +78,9 @@ PyObject* row_subscript(Row* self, PyObject* idx)
     if (PyInt_Check(idx)) {
         _idx = PyInt_AsLong(idx);
         item = PyTuple_GetItem(self->data, _idx);
-        Py_INCREF(item);
+        if (item) {
+            Py_INCREF(item);
+        }
         return item;
     } else if (PyString_Check(idx)) {
         key = PyString_AsString(idx);
