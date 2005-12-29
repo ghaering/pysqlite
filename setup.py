@@ -71,7 +71,8 @@ def build_docs():
 
     docfiles = {
         "usage-guide.html": "usage-guide.txt",
-        "install-source.html": "install-source.txt"
+        "install-source.html": "install-source.txt",
+        "install-source-win32.html": "install-source-win32.txt"
     }
 
     os.chdir("doc")
