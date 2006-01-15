@@ -1,0 +1,2 @@
+#!/bin/sh
+scp doc/*.css doc/*.html gh@initd.org:/var/www/pub/software/pysqlite/doc
