@@ -30,7 +30,7 @@ from setuptools import setup, Extension
 
 # If you need to change anything, it should be enough to change setup.cfg.
 
-PYSQLITE_VERSION = "2.1.0"
+PYSQLITE_VERSION = "2.1.1"
 
 sqlite = "sqlite"
 
