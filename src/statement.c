@@ -97,15 +97,12 @@ int statement_recompile(Statement* self)
                          &new_st,
                          &tail);
 
-    /* the following `if` is a workaround for a SQLite bug with
-     * sqlite3_transfer_bindings and DML statements, experienced in SQLite
-     * 3.2.8 */
-    if (sqlite3_bind_parameter_count(self->st) > 0) {
+    if (rc == SQLITE_OK) {
         (void)sqlite3_transfer_bindings(self->st, new_st);
-    }
 
-    (void)sqlite3_finalize(self->st);
-    self->st = new_st;
+        (void)sqlite3_finalize(self->st);
+        self->st = new_st;
+    }
 
     return rc;
 }
