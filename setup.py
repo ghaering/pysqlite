@@ -26,11 +26,11 @@ import glob, os, sys
 from ez_setup import use_setuptools
 use_setuptools()
 
-from setuptools import setup, Extension
+from setuptools import setup, Extension, Command
 
 # If you need to change anything, it should be enough to change setup.cfg.
 
-PYSQLITE_VERSION = "2.1.1"
+PYSQLITE_VERSION = "2.1.2"
 
 sqlite = "sqlite"
 
@@ -59,38 +59,43 @@ else:
 define_macros.append(('PY_MAJOR_VERSION', str(sys.version_info[0])))
 define_macros.append(('PY_MINOR_VERSION', str(sys.version_info[1])))
 
-def build_docs():
-    import os, stat
+class DocBuilder(Command):
+    description = "Builds the documentation"
+    user_options = []
 
-    try:
-        import docutils.core
-        import docutilsupport
-        CAN_BUILD_DOCS = True
-    except ImportError:
-        CAN_BUILD_DOCS = False
+    def initialize_options(self):
+        pass
 
-    docfiles = {
-        "usage-guide.html": "usage-guide.txt",
-        "install-source.html": "install-source.txt",
-        "install-source-win32.html": "install-source-win32.txt"
-    }
+    def finalize_options(self):
+        pass
 
-    os.chdir("doc")
-    for dest, source in docfiles.items():
-        build = False
-        if not os.path.exists(dest) or os.stat(dest)[stat.ST_MTIME] < os.stat(source)[stat.ST_MTIME]:
-            if not CAN_BUILD_DOCS:
-                print "Not building documentation file %s, because docutils and/or SilverCity is not installed." % dest
-            else:
+    def run(self):
+        import os, stat
+
+        try:
+            import docutils.core
+            import docutilsupport
+        except ImportError:
+            print "Error: the build-docs command requires docutils and SilverCity to be installed"
+            return
+
+        docfiles = {
+            "usage-guide.html": "usage-guide.txt",
+            "install-source.html": "install-source.txt",
+            "install-source-win32.html": "install-source-win32.txt"
+        }
+
+        os.chdir("doc")
+        for dest, source in docfiles.items():
+            if not os.path.exists(dest) or os.stat(dest)[stat.ST_MTIME] < os.stat(source)[stat.ST_MTIME]:
                 print "Building documentation file %s." % dest
                 docutils.core.publish_cmdline(
                     writer_name='html',
                     argv=[source, dest])
 
-    os.chdir("..")
+        os.chdir("..")
 
 def main():
-    build_docs()
     data_files = [("pysqlite2-doc",
                         glob.glob("doc/*.html") \
                       + glob.glob("doc/*.txt") \
@@ -110,6 +115,9 @@ def main():
             platforms = "ALL",
             url = "http://pysqlite.org/",
             download_url = "http://initd.org/tracker/pysqlite/wiki/PysqliteDownloads",
+            test_suite = "pysqlite2.test.suite",
+            cmdclass = {"build_docs": DocBuilder},
+            extras_require = {"build_docs": ["docutils", "SilverCity"]},
 
             # Description of the modules and packages in the distribution
             package_dir = {"pysqlite2": "lib"},
