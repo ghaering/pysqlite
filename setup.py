@@ -120,7 +120,7 @@ def main():
             extras_require = {"build_docs": ["docutils", "SilverCity"]},
 
             # Description of the modules and packages in the distribution
-            package_dir = {"pysqlite2": "lib"},
+            package_dir = {"pysqlite2": "pysqlite2"},
             packages = ["pysqlite2", "pysqlite2.test"],
             scripts=[],
             data_files = data_files,
