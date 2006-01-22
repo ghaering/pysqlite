@@ -81,7 +81,7 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
 
     self->statement_cache = (Cache*)PyObject_CallFunction((PyObject*)&CacheType, "Oi", self, cached_statements);
     if (PyErr_Occurred()) {
-        /* TODO: handle error */
+        return -1;
     }
 
     /* By default, the Cache class INCREFs the factory in its initializer, and

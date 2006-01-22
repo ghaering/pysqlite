@@ -752,6 +752,7 @@ PyObject* cursor_executescript(Cursor* self, PyObject* args)
     int rc;
     PyObject* func_args;
     PyObject* result;
+    int statement_completed = 0;
 
     if (!PyArg_ParseTuple(args, "O", &script_obj)) {
         return NULL; 
@@ -788,6 +789,7 @@ PyObject* cursor_executescript(Cursor* self, PyObject* args)
         if (!sqlite3_complete(script_cstr)) {
             break;
         }
+        statement_completed = 1;
 
         rc = sqlite3_prepare(self->connection->db,
                              script_cstr,
@@ -821,8 +823,16 @@ PyObject* cursor_executescript(Cursor* self, PyObject* args)
 error:
     Py_XDECREF(script_str);
 
-    Py_INCREF(Py_None);
-    return Py_None;
+    if (!statement_completed) {
+        PyErr_SetString(ProgrammingError, "you did not provide a complete SQL statement");
+    }
+
+    if (PyErr_Occurred()) {
+        return NULL;
+    } else {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
 }
 
 PyObject* cursor_getiter(Cursor *self)

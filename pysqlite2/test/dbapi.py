@@ -617,6 +617,26 @@ class ExtensionTests(unittest.TestCase):
         res = cur.fetchone()[0]
         self.failUnlessEqual(res, 6)
 
+    def CheckScriptErrorIncomplete(self):
+        con = sqlite.connect(":memory:")
+        cur = con.cursor()
+        raised = False
+        try:
+            cur.executescript("create table test(sadfsadfdsa")
+        except sqlite.ProgrammingError:
+            raised = True
+        self.failUnlessEqual(raised, True, "should have raised an exception")
+
+    def CheckScriptErrorNormal(self):
+        con = sqlite.connect(":memory:")
+        cur = con.cursor()
+        raised = False
+        try:
+            cur.executescript("create table test(sadfsadfdsa); select foo from hurz;")
+        except sqlite.OperationalError:
+            raised = True
+        self.failUnlessEqual(raised, True, "should have raised an exception")
+
     def CheckConnectionExecute(self):
         con = sqlite.connect(":memory:")
         result = con.execute("select 5").fetchone()[0]
