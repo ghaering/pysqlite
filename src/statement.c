@@ -134,9 +134,11 @@ int statement_reset(Statement* self)
         Py_BEGIN_ALLOW_THREADS
         rc = sqlite3_reset(self->st);
         Py_END_ALLOW_THREADS
-    }
 
-    self->in_use = 0;
+        if (rc == SQLITE_OK) {
+            self->in_use = 0;
+        }
+    }
 
     return rc;
 }
