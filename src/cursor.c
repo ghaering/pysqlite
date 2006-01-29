@@ -522,7 +522,7 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
             case STATEMENT_SELECT:
                 if (multiple) {
                     PyErr_SetString(ProgrammingError,
-                                "You can only execute SELECT statements in executemany().");
+                                "You cannot execute SELECT statements in executemany().");
                     goto error;
                 }
         }
