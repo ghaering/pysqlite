@@ -3,9 +3,9 @@ pysqlite usage guide
 --------------------
 
 | (c) 2004-2005 David Rushby
-| (c) 2005 Gerhard Häring
+| (c) 2005-2006 Gerhard Häring
 
-Last updated for pysqlite 2.1.0
+Last updated for pysqlite 2.1.3
 
 Table Of Contents
 =================
@@ -22,7 +22,9 @@ Table Of Contents
 | `3. Native Database Engine Features and Extensions Beyond the Python DB API`_
 |   `3.1 Creating user-defined functions`_
 |   `3.2 Creating user-defined aggregates`_
-| `4. SQlite and Python types`_
+|   `3.3 Checking for complete statements`_
+|   `3.4 Enabling SQLite's shared cache`_
+| `4. SQLite and Python types`_
 |   `4.1 Introduction`_
 |   `4.2 Using adapters to store additional Python types in SQLite databases`_
 |     `4.2.1 Letting your object adapt itself`_
@@ -162,7 +164,7 @@ Python DB API.
     set it to any combination of *PARSE_DECLTYPES* and *PARSE_COLNAMES* to turn
     type detection on.
 
-    Consult the section `4. SQlite and Python types`_ of this manual for
+    Consult the section `4. SQLite and Python types`_ of this manual for
     details.
 
     * **sqlite.PARSE_DECLTYPES** - This makes pysqlite parse the declared
@@ -598,7 +600,29 @@ create new aggregate functions with the connection's *create_aggregate* method.
    :language: Python
    :source-file: code/mysumaggr.py
 
---------------------------------
+3.3 Checking for complete statements
+------------------------------------
+
+The module-level function *complete_statement(sql)* can be used to check if a
+string contains a complete SQL statement or is still incomplete. The given
+string could still contain invalid SQL, but be parsable as a "complete"
+statement!
+
+This can be used to build a shell for SQLite, like in the following example:
+
+  .. code-block::
+   :language: Python
+   :source-file: code/complete_statement.py
+
+3.4 Enabling SQLite's shared cache
+----------------------------------
+
+To enable SQLite's shared cache for the calling thread, call the function
+*enable_shared_cache*.
+
+  .. code-block::
+   :language: Python
+   :source-file: code/shared_cache.py
 
 4. SQLite and Python types
 ==========================

@@ -91,7 +91,7 @@ class DocBuilder(Command):
                 print "Building documentation file %s." % dest
                 docutils.core.publish_cmdline(
                     writer_name='html',
-                    argv=[source, dest])
+                    argv=["--stylesheet=default.css", source, dest])
 
         os.chdir("..")
 
