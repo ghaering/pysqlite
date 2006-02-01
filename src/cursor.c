@@ -1,6 +1,6 @@
 /* cursor.c - the cursor type
  *
- * Copyright (C) 2004-2005 Gerhard Häring <gh@ghaering.de>
+ * Copyright (C) 2004-2006 Gerhard Häring <gh@ghaering.de>
  *
  * This file is part of pysqlite.
  *
@@ -793,7 +793,7 @@ PyObject* cursor_executescript(Cursor* self, PyObject* args)
 
         rc = sqlite3_prepare(self->connection->db,
                              script_cstr,
-                             0,
+                             -1,
                              &statement,
                              &script_cstr);
         if (rc != SQLITE_OK) {

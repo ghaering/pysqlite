@@ -1,6 +1,6 @@
 /* statement.c - the statement type
  *
- * Copyright (C) 2005 Gerhard Häring <gh@ghaering.de>
+ * Copyright (C) 2005-2006 Gerhard Häring <gh@ghaering.de>
  *
  * This file is part of pysqlite.
  *
@@ -68,7 +68,7 @@ int statement_create(Statement* self, Connection* connection, PyObject* sql)
 
     rc = sqlite3_prepare(connection->db,
                          sql_cstr,
-                         0,
+                         -1,
                          &self->st,
                          &tail);
 
@@ -93,7 +93,7 @@ int statement_recompile(Statement* self)
 
     rc = sqlite3_prepare(self->db,
                          sql_cstr,
-                         0,
+                         -1,
                          &new_st,
                          &tail);
 
