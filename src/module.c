@@ -29,6 +29,10 @@
 #include "microprotocols.h"
 #include "row.h"
 
+#if SQLITE_VERSION_NUMBER >= 3003003
+#define HAVE_SHARED_CACHE
+#endif
+
 /* static objects at module-level */
 
 PyObject* Error, *Warning, *InterfaceError, *DatabaseError, *InternalError,
@@ -97,6 +101,31 @@ static PyObject* module_complete(PyObject* self, PyObject* args, PyObject*
     return result;
 }
 
+#ifdef HAVE_SHARED_CACHE
+static PyObject* module_enable_shared_cache(PyObject* self, PyObject* args, PyObject*
+        kwargs)
+{
+    static char *kwlist[] = {"do_enable", NULL, NULL};
+    int do_enable;
+    int rc;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "i", kwlist, &do_enable))
+    {
+        return NULL; 
+    }
+
+    rc = sqlite3_enable_shared_cache(do_enable);
+
+    if (rc != SQLITE_OK) {
+        PyErr_SetString(OperationalError, "Changing the shared_cache flag failed");
+        return NULL;
+    } else {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+}
+#endif /* HAVE_SHARED_CACHE */
+
 static PyObject* module_register_adapter(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     PyTypeObject* type;
@@ -137,6 +166,9 @@ void converters_init(PyObject* dict)
 static PyMethodDef module_methods[] = {
     {"connect",  (PyCFunction)module_connect,  METH_VARARGS|METH_KEYWORDS, PyDoc_STR("Creates a connection.")},
     {"complete_statement",  (PyCFunction)module_complete,  METH_VARARGS|METH_KEYWORDS, PyDoc_STR("Checks if a string contains a complete SQL statement.")},
+#ifdef HAVE_SHARED_CACHE
+    {"enable_shared_cache",  (PyCFunction)module_enable_shared_cache,  METH_VARARGS|METH_KEYWORDS, PyDoc_STR("Enable or disable shared cache mode for the calling thread.")},
+#endif
     {"register_adapter", (PyCFunction)module_register_adapter, METH_VARARGS, PyDoc_STR("Registers an adapter with pysqlite's adapter registry.")},
     {"register_converter", (PyCFunction)module_register_converter, METH_VARARGS, PyDoc_STR("Registers a converter with pysqlite.")},
     {"adapt",  (PyCFunction)psyco_microprotocols_adapt, METH_VARARGS, psyco_microprotocols_adapt_doc},
