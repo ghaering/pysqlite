@@ -4,7 +4,7 @@ import os, sys
 from distutils.core import setup
 from distutils.extension import Extension
 
-__version__ = "1.1.6"
+__version__ = "1.1.7"
 
 sqlite = "sqlite3"
 sources = ["_sqlite.c", "encode.c", "port/strsep.c"]
@@ -47,7 +47,7 @@ elif os.name == "posix": # most Unixish platforms
 else:
     raise "UnknownPlatform", "sys.platform=%s, os.name=%s" % \
           (sys.platform, os.name)
-    
+
 long_description = \
 """Python interface to SQLite
 

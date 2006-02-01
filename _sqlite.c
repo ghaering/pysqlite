@@ -1073,7 +1073,7 @@ static int my_sqlite3_exec(
     {
         db = con->p_db;
         MY_BEGIN_ALLOW_THREADS(con->tstate)
-        rc = sqlite3_prepare(db, tail, 0, &statement, &tail);
+        rc = sqlite3_prepare(db, tail, -1, &statement, &tail);
         MY_END_ALLOW_THREADS(con->tstate)
 
         if (rc != SQLITE_OK)
