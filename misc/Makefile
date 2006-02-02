@@ -27,7 +27,7 @@ BININST=$(PREFIX)/bin
 SQLITE_OBJ = alter.o analyze.o attach.o auth.o btree.o build.o \
          callback.o complete.o date.o \
          delete.o expr.o func.o hash.o insert.o \
-         main.o opcodes.o os_unix.o os_win.o \
+         main.o opcodes.o os.o os_unix.o os_win.o \
          pager.o parse.o pragma.o prepare.o printf.o random.o \
          select.o table.o tokenize.o trigger.o update.o \
          util.o vacuum.o \
