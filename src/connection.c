@@ -3,6 +3,9 @@
  * Copyright (C) 2004-2006 Gerhard Häring <gh@ghaering.de>
  *
  * This file is part of pysqlite.
+ * 
+ * Code for collations was borrowed from APSW and is
+ *   Copyright (C) 2004-2005 Roger Binns <rogerb@rogerbinns.com>
  *
  * This software is provided 'as-is', without any express or implied
  * warranty.  In no event will the authors be held liable for any damages
@@ -31,6 +34,7 @@
 #include "pythread.h"
 
 static int connection_set_isolation_level(Connection* self, PyObject* isolation_level);
+static CollationCallbackInfo* collation_free(CollationCallbackInfo* collation);
 
 int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
 {
@@ -151,7 +155,15 @@ void reset_all_statements(Connection* self)
 
 void connection_dealloc(Connection* self)
 {
+    CollationCallbackInfo* coll;
+
     Py_XDECREF(self->statement_cache);
+
+    /* free collations */
+    {
+        coll = self->collations;
+        while (coll = collation_free(coll)) ;
+    }
 
     /* Clean up if user has not called .close() explicitly. */
     if (self->db) {
@@ -825,6 +837,187 @@ error:
     return cursor;
 }
 
+/* ------------------------- COLLATION CODE ------------------------ */
+
+/* We store the registered collations in a linked list hooked into the
+ * connection object so we can free them. There is probably a better data
+ * structure to use but this was most convenient.
+ */
+
+static CollationCallbackInfo*
+collation_free(CollationCallbackInfo* collation)
+{
+    CollationCallbackInfo* next;
+
+    if (!collation) {
+        return NULL;
+    }
+
+    if (collation->name) {
+        PyMem_Free(collation->name);
+    }
+    Py_XDECREF(collation->func);
+
+    next = collation->next;
+
+    PyMem_Free(collation);
+
+    return next;
+}
+
+static CollationCallbackInfo*
+collation_allocate(void)
+{
+    CollationCallbackInfo* collation = PyMem_Malloc(sizeof(CollationCallbackInfo));
+
+    memset(collation, 0, sizeof(CollationCallbackInfo));
+
+    return collation;
+}
+
+static int
+collation_callback(
+        void* context,
+        int text1_length, const void* text1_data,
+        int text2_length, const void* text2_data)
+{
+    PyGILState_STATE gilstate;
+    CollationCallbackInfo* cbinfo = (CollationCallbackInfo*)context;
+
+    PyObject* string1;
+    PyObject* string2;
+    PyObject* retval = NULL;
+    PyObject* pyargs = NULL;
+    int result = 0;
+
+    assert(cbinfo);
+
+    gilstate = PyGILState_Ensure();
+
+    if (PyErr_Occurred()) {
+        goto finally;
+    }
+
+    string1 = PyString_FromStringAndSize((const char*)text1_data, text1_length);
+    string2 = PyString_FromStringAndSize((const char*)text2_data, text2_length);
+
+    if (!string1 || !string2) {
+        goto finally; /* failed to allocate strings */
+    }
+
+    pyargs = PyTuple_New(2);
+    if (!pyargs) {
+        goto finally; /* failed to alloate arg tuple */
+    }
+
+    PyTuple_SET_ITEM(pyargs, 0, string1);
+    PyTuple_SET_ITEM(pyargs, 1, string2);
+
+    retval = PyEval_CallObject(cbinfo->func, pyargs);
+
+    if (!retval) {
+        /* execution failed */
+        goto finally;
+    }
+
+    result = PyInt_AsLong(retval);
+    if (PyErr_Occurred()) {
+        result = 0;
+    }
+
+finally:
+    Py_XDECREF(string1);
+    Py_XDECREF(string2);
+    Py_XDECREF(retval);
+    Py_XDECREF(pyargs);
+
+    PyGILState_Release(gilstate);
+
+    return result;
+}
+
+static PyObject *
+connection_create_collation(Connection* self, PyObject* args)
+{
+    PyObject* callable;
+    char* pyname = 0;
+    char* name;
+    char* chk;
+    CollationCallbackInfo* cbinfo;
+    int rc;
+
+    if (!check_thread(self) || !check_connection(self)) {
+        return NULL;
+    }
+
+    if (!PyArg_ParseTuple(args, "sO:create_collation(name, callback)", &pyname, &callable)) {
+        return NULL;
+    }
+
+    name = PyMem_Malloc(strlen(pyname) + 1);
+    if (!name) {
+        PyErr_SetString(PyExc_MemoryError, "could not allocate temporary buffer");
+        return NULL;
+    }
+    strcpy(name, pyname);
+
+    /* there isn't a C api to get a string and make it uppercase so we hack
+     * around  */
+
+    /* validate the name */
+    for (chk = name; *chk && !((*chk)&0x80); chk++) ;
+    if (*chk) {
+        PyMem_Free(name);
+        PyErr_SetString(ProgrammingError, "collation name must be ascii characters only");
+        return NULL;
+    }
+
+    /* convert name to upper case */
+    for (chk = name; *chk; chk++) {
+        if (*chk >= 'a' && *chk <= 'z') {
+            *chk -= 'a'-'A';
+        }
+    }
+
+    /* TODO: check if name points to already defined collation and free
+     * relevant collationcbinfo */
+
+    if (callable != Py_None && !PyCallable_Check(callable)) {
+        PyMem_Free(name);
+        PyErr_SetString(PyExc_TypeError, "parameter must be callable");
+        return NULL;
+    }
+
+    Py_INCREF(callable);
+
+    cbinfo = collation_allocate();
+    cbinfo->name = name;
+    cbinfo->func = callable;
+
+    rc = sqlite3_create_collation(self->db,
+                                  name,
+                                  SQLITE_UTF8,
+                                  (callable != Py_None) ? cbinfo : NULL,
+                                  (callable != Py_None) ? collation_callback : NULL);
+    if (rc != SQLITE_OK) {
+        collation_free(cbinfo);
+        _seterror(self->db);
+        return NULL;
+    }
+
+    if (callable != Py_None) {
+        /* put cbinfo into the linked list */
+        cbinfo->next = self->collations;
+        self->collations = cbinfo;
+    } else {
+        /* destroy info */
+        collation_free(cbinfo);
+    }
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
 static char connection_doc[] =
 PyDoc_STR("<missing docstring>");
 
@@ -852,6 +1045,8 @@ static PyMethodDef connection_methods[] = {
         PyDoc_STR("Repeatedly executes a SQL statement. Non-standard.")},
     {"executescript", (PyCFunction)connection_executescript, METH_VARARGS,
         PyDoc_STR("Executes a multiple SQL statements at once. Non-standard.")},
+    {"create_collation", (PyCFunction)connection_create_collation, METH_VARARGS,
+        PyDoc_STR("Creates a collation function.")},
     {NULL, NULL}
 };
 

@@ -32,6 +32,13 @@
 
 #include "sqlite3.h"
 
+typedef struct _CollationCallbackInfo
+{
+    struct _CollationCallbackInfo* next;    /* we use a linked list */
+    char *name;                             /* ascii collation name which we uppercased */
+    PyObject *func;                         /* the actual function to call */
+} CollationCallbackInfo;
+
 typedef struct
 {
     PyObject_HEAD
@@ -68,6 +75,9 @@ typedef struct
      * can keep the total system refcount constant by clearing that dictionary
      * in connection_dealloc */
     PyObject* function_pinboard;
+
+    /* linked list of registered collations */
+    CollationCallbackInfo* collations;
 
     /* Exception objects */
     PyObject* Warning;

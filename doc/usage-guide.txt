@@ -22,8 +22,9 @@ Table Of Contents
 | `3. Native Database Engine Features and Extensions Beyond the Python DB API`_
 |   `3.1 Creating user-defined functions`_
 |   `3.2 Creating user-defined aggregates`_
-|   `3.3 Checking for complete statements`_
-|   `3.4 Enabling SQLite's shared cache`_
+|   `3.3 Creating and using collations`_
+|   `3.4 Checking for complete statements`_
+|   `3.5 Enabling SQLite's shared cache`_
 | `4. SQLite and Python types`_
 |   `4.1 Introduction`_
 |   `4.2 Using adapters to store additional Python types in SQLite databases`_
@@ -600,7 +601,37 @@ create new aggregate functions with the connection's *create_aggregate* method.
    :language: Python
    :source-file: code/mysumaggr.py
 
-3.3 Checking for complete statements
+3.3 Creating and using collations
+---------------------------------
+
+  .. code-block:: Python
+
+    def create_collation(name, callable)
+
+Creates a collation with the specified name and callable. The callable will be
+passed two string arguments. It should return -1 if the first is less than the
+second, 0 if they are equal and 1 and if the first is greater than the second.
+Note that this controls sorting (ORDER BY in SQL) so your comparisons don't
+affect other SQL operations. Read more about SQLite's handling of collations.
+(This calls sqlite3_create_collation.) If there is an error in your Python code
+then 0 (ie items are equal) is returned.
+
+Note that the callable will get its parameters as Python bytestrings, which
+will normally be encoded in UTF-8.
+
+The following example shows a custom collation that sorts "the wrong way":
+
+  .. code-block::
+   :language: Python
+   :source-file: code/collation_reverse.py
+
+To remove a collation, call `create_collation` with None as callable:
+
+  .. code-block:: Python
+
+    con.create_collation("reverse", None)
+
+3.4 Checking for complete statements
 ------------------------------------
 
 The module-level function *complete_statement(sql)* can be used to check if a
@@ -614,7 +645,7 @@ This can be used to build a shell for SQLite, like in the following example:
    :language: Python
    :source-file: code/complete_statement.py
 
-3.4 Enabling SQLite's shared cache
+3.5 Enabling SQLite's shared cache
 ----------------------------------
 
 To enable SQLite's shared cache for the calling thread, call the function

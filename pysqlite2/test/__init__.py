@@ -1,7 +1,7 @@
 #-*- coding: ISO-8859-1 -*-
 # pysqlite2/test/__init__.py: the package containing the test suite
 #
-# Copyright (C) 2004-2005 Gerhard Häring <gh@ghaering.de>
+# Copyright (C) 2004-2006 Gerhard Häring <gh@ghaering.de>
 #
 # This file is part of pysqlite.
 #
@@ -22,12 +22,13 @@
 # 3. This notice may not be removed or altered from any source distribution.
 
 import unittest
-from pysqlite2.test import dbapi, types, userfunctions, factory, transactions
+from pysqlite2.test import dbapi, types, userfunctions, factory, transactions,\
+    hooks
 
 def suite():
     return unittest.TestSuite(
         (dbapi.suite(), types.suite(), userfunctions.suite(), factory.suite(),\
-         transactions.suite()))
+         transactions.suite(), hooks.suite()))
 
 def test():
     runner = unittest.TextTestRunner()
