@@ -728,8 +728,8 @@ error:
     if (PyErr_Occurred()) {
         return NULL;
     } else {
-        Py_INCREF(Py_None);
-        return Py_None;
+        Py_INCREF(self);
+        return self;
     }
 }
 
@@ -830,8 +830,8 @@ error:
     if (PyErr_Occurred()) {
         return NULL;
     } else {
-        Py_INCREF(Py_None);
-        return Py_None;
+        Py_INCREF(self);
+        return self;
     }
 }
 
