@@ -1,7 +1,7 @@
 #-*- coding: ISO-8859-1 -*-
 # setup.py: the distutils script
 #
-# Copyright (C) 2004-2005 Gerhard Häring <gh@ghaering.de>
+# Copyright (C) 2004-2006 Gerhard Häring <gh@ghaering.de>
 #
 # This file is part of pysqlite.
 #
@@ -23,10 +23,7 @@
 
 import glob, os, sys
 
-from ez_setup import use_setuptools
-use_setuptools()
-
-from setuptools import setup, Extension, Command
+from distutils.core import setup, Extension, Command
 
 # If you need to change anything, it should be enough to change setup.cfg.
 
@@ -95,7 +92,7 @@ class DocBuilder(Command):
 
         os.chdir("..")
 
-def main():
+def get_setup_args():
     data_files = [("pysqlite2-doc",
                         glob.glob("doc/*.html") \
                       + glob.glob("doc/*.txt") \
@@ -104,7 +101,7 @@ def main():
                         glob.glob("doc/code/*.py"))]
 
     py_modules = ["sqlite"]
-    setup ( # Distribution meta-data
+    setup_args = dict(
             name = "pysqlite",
             version = PYSQLITE_VERSION,
             description = "DB-API 2.0 interface for SQLite 3.x",
@@ -115,9 +112,6 @@ def main():
             platforms = "ALL",
             url = "http://pysqlite.org/",
             download_url = "http://initd.org/tracker/pysqlite/wiki/PysqliteDownloads",
-            test_suite = "pysqlite2.test.suite",
-            cmdclass = {"build_docs": DocBuilder},
-            extras_require = {"build_docs": ["docutils", "SilverCity"]},
 
             # Description of the modules and packages in the distribution
             package_dir = {"pysqlite2": "pysqlite2"},
@@ -146,6 +140,10 @@ def main():
             "Topic :: Database :: Database Engines/Servers",
             "Topic :: Software Development :: Libraries :: Python Modules"]
             )
+    return setup_args
+
+def main():
+    setup(**get_setup_args())
 
 if __name__ == "__main__":
     main()
