@@ -72,7 +72,12 @@ int cache_init(Cache* self, PyObject* args, PyObject* kwargs)
     self->size = size;
     self->first = NULL;
     self->last = NULL;
+
     self->mapping = PyDict_New();
+    if (!self->mapping) {
+        return -1;
+    }
+
     Py_INCREF(factory);
     self->factory = factory;
 
