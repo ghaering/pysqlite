@@ -848,10 +848,10 @@ collation_callback(
         int text2_length, const void* text2_data)
 {
     PyObject* callback = (PyObject*)context;
+    PyObject* string1 = 0;
+    PyObject* string2 = 0;
     PyGILState_STATE gilstate;
 
-    PyObject* string1;
-    PyObject* string2;
     PyObject* retval = NULL;
     int result = 0;
 
@@ -896,7 +896,6 @@ connection_create_collation(Connection* self, PyObject* args)
     PyObject* callable;
     PyObject* uppercase_name = 0;
     PyObject* name;
-    PyObject* item;
     PyObject* retval;
     char* chk;
     int rc;

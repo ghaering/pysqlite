@@ -74,6 +74,35 @@ class CollationTests(unittest.TestCase):
         except sqlite.OperationalError, e:
             self.failUnlessEqual(e.args[0], "no such collation sequence: mycoll")
 
+    def CheckCollationRegisterTwice(self):
+        """
+        Register two different collation functions under the same name.
+        Verify that the last one is actually used.
+        """
+        con = sqlite.connect(":memory:")
+        con.create_collation("mycoll", cmp)
+        con.create_collation("mycoll", lambda x, y: -cmp(x, y))
+        result = con.execute("""
+            select x from (select 'a' as x union select 'b' as x) order by x collate mycoll
+            """).fetchall()
+        if result[0][0] != 'b' or result[1][0] != 'a':
+            self.fail("wrong collation function is used")
+
+    def CheckDeregisterCollation(self):
+        """
+        Register a collation, then deregister it. Make sure an error is raised if we try
+        to use it.
+        """
+        con = sqlite.connect(":memory:")
+        con.create_collation("mycoll", cmp)
+        con.create_collation("mycoll", None)
+        try:
+            con.execute("select 'a' as x union select 'b' as x order by x collate mycoll")
+            self.fail("should have raised an OperationalError")
+        except sqlite.OperationalError, e:
+            if not e.args[0].startswith("no such collation sequence"):
+                self.fail("wrong OperationalError raised")
+
 def suite():
     collation_suite = unittest.makeSuite(CollationTests, "Check")
     return unittest.TestSuite((collation_suite,))

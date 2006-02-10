@@ -729,7 +729,7 @@ error:
         return NULL;
     } else {
         Py_INCREF(self);
-        return self;
+        return (PyObject*)self;
     }
 }
 
@@ -831,7 +831,7 @@ error:
         return NULL;
     } else {
         Py_INCREF(self);
-        return self;
+        return (PyObject*)self;
     }
 }
 
