@@ -887,10 +887,7 @@ collation_callback(
     PyObject* string1;
     PyObject* string2;
     PyObject* retval = NULL;
-    PyObject* pyargs = NULL;
     int result = 0;
-
-    assert(cbinfo);
 
     gilstate = PyGILState_Ensure();
 
@@ -905,15 +902,7 @@ collation_callback(
         goto finally; /* failed to allocate strings */
     }
 
-    pyargs = PyTuple_New(2);
-    if (!pyargs) {
-        goto finally; /* failed to alloate arg tuple */
-    }
-
-    PyTuple_SET_ITEM(pyargs, 0, string1);
-    PyTuple_SET_ITEM(pyargs, 1, string2);
-
-    retval = PyEval_CallObject(cbinfo->func, pyargs);
+    retval = PyObject_CallFunctionObjArgs(cbinfo->func, string1, string2, NULL);
 
     if (!retval) {
         /* execution failed */
@@ -929,7 +918,6 @@ finally:
     Py_XDECREF(string1);
     Py_XDECREF(string2);
     Py_XDECREF(retval);
-    Py_XDECREF(pyargs);
 
     PyGILState_Release(gilstate);
 

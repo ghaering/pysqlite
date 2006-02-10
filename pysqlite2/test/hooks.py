@@ -59,10 +59,12 @@ class CollationTests(unittest.TestCase):
             select 'a' as x
             union
             select 'b' as x
+            union
+            select 'c' as x
             ) order by x collate mycoll
             """
         result = con.execute(sql).fetchall()
-        if result[0][0] != "b" or result[1][0] != "a":
+        if result[0][0] != "c" or result[1][0] != "b" or result[2][0] != "a":
             self.fail("the expected order was not returned")
 
         con.create_collation("mycoll", None)
