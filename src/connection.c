@@ -660,6 +660,15 @@ static PyObject* connection_get_isolation_level(Connection* self, void* unused)
     return self->isolation_level;
 }
 
+static PyObject* connection_get_total_changes(Connection* self, void* unused)
+{
+    if (!check_connection(self)) {
+        return NULL;
+    } else {
+        return Py_BuildValue("i", sqlite3_total_changes(self->db));
+    }
+}
+
 static int connection_set_isolation_level(Connection* self, PyObject* isolation_level)
 {
     PyObject* empty;
@@ -958,6 +967,7 @@ PyDoc_STR("<missing docstring>");
 
 static PyGetSetDef connection_getset[] = {
     {"isolation_level",  (getter)connection_get_isolation_level, (setter)connection_set_isolation_level},
+    {"total_changes",  (getter)connection_get_total_changes, (setter)0},
     {NULL}
 };
 
