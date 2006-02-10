@@ -34,7 +34,6 @@
 #include "pythread.h"
 
 static int connection_set_isolation_level(Connection* self, PyObject* isolation_level);
-static CollationCallbackInfo* collation_free(CollationCallbackInfo* collation);
 
 int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
 {
@@ -105,6 +104,7 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
     self->check_same_thread = check_same_thread;
 
     self->function_pinboard = PyDict_New();
+    self->collations = PyDict_New();
 
     self->Warning = Warning;
     self->Error = Error;
@@ -155,15 +155,7 @@ void reset_all_statements(Connection* self)
 
 void connection_dealloc(Connection* self)
 {
-    CollationCallbackInfo* coll;
-
     Py_XDECREF(self->statement_cache);
-
-    /* free collations */
-    {
-        coll = self->collations;
-        while (coll = collation_free(coll)) ;
-    }
 
     /* Clean up if user has not called .close() explicitly. */
     if (self->db) {
@@ -179,6 +171,7 @@ void connection_dealloc(Connection* self)
     Py_XDECREF(self->function_pinboard);
     Py_XDECREF(self->row_factory);
     Py_XDECREF(self->text_factory);
+    Py_XDECREF(self->collations);
 
     self->ob_type->tp_free((PyObject*)self);
 }
@@ -839,50 +832,14 @@ error:
 
 /* ------------------------- COLLATION CODE ------------------------ */
 
-/* We store the registered collations in a linked list hooked into the
- * connection object so we can free them. There is probably a better data
- * structure to use but this was most convenient.
- */
-
-static CollationCallbackInfo*
-collation_free(CollationCallbackInfo* collation)
-{
-    CollationCallbackInfo* next;
-
-    if (!collation) {
-        return NULL;
-    }
-
-    if (collation->name) {
-        PyMem_Free(collation->name);
-    }
-    Py_XDECREF(collation->func);
-
-    next = collation->next;
-
-    PyMem_Free(collation);
-
-    return next;
-}
-
-static CollationCallbackInfo*
-collation_allocate(void)
-{
-    CollationCallbackInfo* collation = PyMem_Malloc(sizeof(CollationCallbackInfo));
-
-    memset(collation, 0, sizeof(CollationCallbackInfo));
-
-    return collation;
-}
-
 static int
 collation_callback(
         void* context,
         int text1_length, const void* text1_data,
         int text2_length, const void* text2_data)
 {
+    PyObject* callback = (PyObject*)context;
     PyGILState_STATE gilstate;
-    CollationCallbackInfo* cbinfo = (CollationCallbackInfo*)context;
 
     PyObject* string1;
     PyObject* string2;
@@ -902,7 +859,7 @@ collation_callback(
         goto finally; /* failed to allocate strings */
     }
 
-    retval = PyObject_CallFunctionObjArgs(cbinfo->func, string1, string2, NULL);
+    retval = PyObject_CallFunctionObjArgs(callback, string1, string2, NULL);
 
     if (!retval) {
         /* execution failed */
@@ -928,82 +885,72 @@ static PyObject *
 connection_create_collation(Connection* self, PyObject* args)
 {
     PyObject* callable;
-    char* pyname = 0;
-    char* name;
+    PyObject* uppercase_name = 0;
+    PyObject* name;
+    PyObject* item;
+    PyObject* retval;
     char* chk;
-    CollationCallbackInfo* cbinfo;
     int rc;
 
     if (!check_thread(self) || !check_connection(self)) {
-        return NULL;
+        goto finally;
     }
 
-    if (!PyArg_ParseTuple(args, "sO:create_collation(name, callback)", &pyname, &callable)) {
-        return NULL;
+    if (!PyArg_ParseTuple(args, "O!O:create_collation(name, callback)", &PyString_Type, &name, &callable)) {
+        goto finally;
     }
 
-    name = PyMem_Malloc(strlen(pyname) + 1);
-    if (!name) {
-        PyErr_SetString(PyExc_MemoryError, "could not allocate temporary buffer");
-        return NULL;
-    }
-    strcpy(name, pyname);
-
-    /* there isn't a C api to get a string and make it uppercase so we hack
-     * around  */
-
-    /* validate the name */
-    for (chk = name; *chk && !((*chk)&0x80); chk++) ;
-    if (*chk) {
-        PyMem_Free(name);
-        PyErr_SetString(ProgrammingError, "collation name must be ascii characters only");
-        return NULL;
+    uppercase_name = PyObject_CallMethod(name, "upper", "");
+    if (!uppercase_name) {
+        goto finally;
     }
 
-    /* convert name to upper case */
-    for (chk = name; *chk; chk++) {
-        if (*chk >= 'a' && *chk <= 'z') {
-            *chk -= 'a'-'A';
+    chk = PyString_AsString(uppercase_name);
+    while (*chk) {
+        if ((*chk >= '0' && *chk <= '9')
+         || (*chk >= 'A' && *chk <= 'Z')
+         || (*chk == '_'))
+        {
+            chk++;
+        } else {
+            PyErr_SetString(ProgrammingError, "invalid character in collation name");
+            goto finally;
         }
     }
 
-    /* TODO: check if name points to already defined collation and free
-     * relevant collationcbinfo */
-
     if (callable != Py_None && !PyCallable_Check(callable)) {
-        PyMem_Free(name);
         PyErr_SetString(PyExc_TypeError, "parameter must be callable");
-        return NULL;
-    }
-
-    Py_INCREF(callable);
-
-    cbinfo = collation_allocate();
-    cbinfo->name = name;
-    cbinfo->func = callable;
-
-    rc = sqlite3_create_collation(self->db,
-                                  name,
-                                  SQLITE_UTF8,
-                                  (callable != Py_None) ? cbinfo : NULL,
-                                  (callable != Py_None) ? collation_callback : NULL);
-    if (rc != SQLITE_OK) {
-        collation_free(cbinfo);
-        _seterror(self->db);
-        return NULL;
+        goto finally;
     }
 
     if (callable != Py_None) {
-        /* put cbinfo into the linked list */
-        cbinfo->next = self->collations;
-        self->collations = cbinfo;
+        PyDict_SetItem(self->collations, uppercase_name, callable);
     } else {
-        /* destroy info */
-        collation_free(cbinfo);
+        PyDict_DelItem(self->collations, uppercase_name);
     }
 
-    Py_INCREF(Py_None);
-    return Py_None;
+    rc = sqlite3_create_collation(self->db,
+                                  PyString_AsString(uppercase_name),
+                                  SQLITE_UTF8,
+                                  (callable != Py_None) ? callable : NULL,
+                                  (callable != Py_None) ? collation_callback : NULL);
+    if (rc != SQLITE_OK) {
+        PyDict_DelItem(self->collations, uppercase_name);
+        _seterror(self->db);
+        goto finally;
+    }
+
+finally:
+    Py_XDECREF(uppercase_name);
+
+    if (PyErr_Occurred()) {
+        retval = NULL;
+    } else {
+        Py_INCREF(Py_None);
+        retval = Py_None;
+    }
+
+    return retval;
 }
 
 static char connection_doc[] =

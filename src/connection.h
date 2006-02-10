@@ -32,13 +32,6 @@
 
 #include "sqlite3.h"
 
-typedef struct _CollationCallbackInfo
-{
-    struct _CollationCallbackInfo* next;    /* we use a linked list */
-    char *name;                             /* ascii collation name which we uppercased */
-    PyObject *func;                         /* the actual function to call */
-} CollationCallbackInfo;
-
 typedef struct
 {
     PyObject_HEAD
@@ -76,8 +69,8 @@ typedef struct
      * in connection_dealloc */
     PyObject* function_pinboard;
 
-    /* linked list of registered collations */
-    CollationCallbackInfo* collations;
+    /* a dictionary of registered collation name => collation callable mappings */
+    PyObject* collations;
 
     /* Exception objects */
     PyObject* Warning;
