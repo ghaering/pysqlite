@@ -72,6 +72,9 @@ typedef struct
     /* a dictionary of registered collation name => collation callable mappings */
     PyObject* collations;
 
+    PyObject* logfile;
+    int loglevel;
+
     /* Exception objects */
     PyObject* Warning;
     PyObject* Error;
