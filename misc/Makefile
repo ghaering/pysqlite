@@ -44,8 +44,8 @@ clean:
 sqlite3.exe: sqlite3.dll $(SQLITE_PRG_OBJ)
 	$(LINK) -OUT:sqlite3.exe $(SQLITE_PRG_OBJ) sqlite3.lib
 
-sqlite3.lib: $(SQLITE_OBJ)
-	$(LINK) -LIB -OUT:sqlite3.lib $(SQLITE_OBJ)
+sqlite3static.lib: $(SQLITE_OBJ)
+	$(LINK) -LIB -OUT:sqlite3static.lib $(SQLITE_OBJ)
 
 sqlite3.dll: $(SQLITE_OBJ)
 	$(LINK) -OUT:sqlite3.dll -dll -def:sqlite3.def $(SQLITE_OBJ)
