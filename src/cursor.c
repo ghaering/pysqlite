@@ -240,6 +240,11 @@ PyObject* _build_column_name(const char* colname)
 {
     const char* pos;
 
+    if (!colname) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
     for (pos = colname;; pos++) {
         if (*pos == 0 || *pos == ' ') {
             return PyString_FromStringAndSize(colname, pos - colname);

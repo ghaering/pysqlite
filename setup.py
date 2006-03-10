@@ -27,7 +27,7 @@ from distutils.core import setup, Extension, Command
 
 # If you need to change anything, it should be enough to change setup.cfg.
 
-PYSQLITE_VERSION = "2.1.3"
+PYSQLITE_VERSION = "2.2.0"
 
 sqlite = "sqlite"
 
