@@ -33,11 +33,11 @@ Dependencies:
 
  2. SQLite:
 
-    * SQLite version 3.2.2 or later (as of pysqlite 2.1.0). This means we need
+    * SQLite version 3.0.8 or later (as of pysqlite 2.2.0). This means we need
       the SQLite library installed - either statically or dynamically linked -
       and the SQLite header files. On Linux, the chances are very high that
       your distribution offers packages for SQLite 3. Be sure to verify the
-      package is recent enough (version 3.2.2 or higher) and that you're
+      package is recent enough (version 3.0.8 or higher) and that you're
       installing the development package as well, which will be need for
       building pysqlite. On Debian and derivatives, the package to look for is
       called libsqlite3-dev.
