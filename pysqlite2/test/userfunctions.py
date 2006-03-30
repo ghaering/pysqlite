@@ -236,7 +236,7 @@ class AggregateTests(unittest.TestCase):
                 )
             """)
         cur.execute("insert into test(t, i, f, n, b) values (?, ?, ?, ?, ?)",
-            ("foo", 5, 3.14, None, buffer("blob"),)) 
+            ("foo", 5, 3.14, None, buffer("blob"),))
 
         self.con.create_aggregate("nostep", 1, AggrNoStep)
         self.con.create_aggregate("nofinalize", 1, AggrNoFinalize)
