@@ -58,8 +58,6 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
 
     self->statement_cache = NULL;
 
-    self->logfile = NULL;
-
     Py_INCREF(Py_None);
     self->row_factory = Py_None;
 
@@ -107,11 +105,6 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
 
     self->function_pinboard = PyDict_New();
     self->collations = PyDict_New();
-
-    Py_INCREF(Py_None);
-    self->logfile = Py_None;
-
-    self->loglevel = PYSQLITE_LOG_NOTHING;
 
     self->Warning = Warning;
     self->Error = Error;
@@ -179,7 +172,6 @@ void connection_dealloc(Connection* self)
     Py_XDECREF(self->row_factory);
     Py_XDECREF(self->text_factory);
     Py_XDECREF(self->collations);
-    Py_XDECREF(self->logfile);
 
     self->ob_type->tp_free((PyObject*)self);
 }
@@ -476,131 +468,23 @@ PyObject* _build_py_params(sqlite3_context *context, int argc, sqlite3_value** a
     return args;
 }
 
-/* The following function is borrowed from Python's PyErr_Display in
- * pythonrun.c and slightly adapted.
- */
-
-void connection_log_error(Connection* self, PyObject *exception, PyObject *value, PyObject *tb)
-{
-    int err = 0;
-    PyObject *message;
-    const char *filename;
-    int lineno;
-    char buf[10];
-
-    Py_INCREF(value);
-
-    if (tb && tb != Py_None)
-        err = PyTraceBack_Print(tb, self->logfile);
-    if (err == 0 &&
-        PyObject_HasAttrString(value, "print_file_and_line"))
-    {
-        PyFile_WriteString("  File \"", self->logfile);
-        if (filename == NULL)
-            PyFile_WriteString("<string>", self->logfile);
-        else
-            PyFile_WriteString(filename, self->logfile);
-        PyFile_WriteString("\", line ", self->logfile);
-        PyOS_snprintf(buf, sizeof(buf), "%d", lineno);
-        PyFile_WriteString(buf, self->logfile);
-        PyFile_WriteString("\n", self->logfile);
-        Py_DECREF(value);
-        value = message;
-        /* Can't be bothered to check all those
-           PyFile_WriteString() calls */
-        if (PyErr_Occurred())
-            err = -1;
-    }
-    if (err) {
-        /* Don't do anything else */
-    }
-    else if (PyClass_Check(exception)) {
-        PyClassObject* exc = (PyClassObject*)exception;
-        PyObject* className = exc->cl_name;
-        PyObject* moduleName =
-              PyDict_GetItemString(exc->cl_dict, "__module__");
-
-        if (moduleName == NULL)
-            err = PyFile_WriteString("<unknown>", self->logfile);
-        else {
-            char* modstr = PyString_AsString(moduleName);
-            if (modstr && strcmp(modstr, "exceptions"))
-            {
-                err = PyFile_WriteString(modstr, self->logfile);
-                err += PyFile_WriteString(".", self->logfile);
-            }
-        }
-        if (err == 0) {
-            if (className == NULL)
-                  err = PyFile_WriteString("<unknown>", self->logfile);
-            else
-                  err = PyFile_WriteObject(className, self->logfile,
-                               Py_PRINT_RAW);
-        }
-    }
-    else
-        err = PyFile_WriteObject(exception, self->logfile, Py_PRINT_RAW);
-    if (err == 0) {
-        if (value != Py_None) {
-            PyObject *s = PyObject_Str(value);
-            /* only print colon if the str() of the
-               object is not the empty string
-            */
-            if (s == NULL)
-                err = -1;
-            else if (!PyString_Check(s) ||
-                 PyString_GET_SIZE(s) != 0)
-                err = PyFile_WriteString(": ", self->logfile);
-            if (err == 0)
-              err = PyFile_WriteObject(s, self->logfile, Py_PRINT_RAW);
-            Py_XDECREF(s);
-        }
-    }
-    if (err == 0)
-        err = PyFile_WriteString("\n", self->logfile);
-    Py_DECREF(value);
-    /* If an error happened here, don't show it.
-       XXX This is wrong, but too many callers rely on this behavior. */
-    if (err != 0)
-        PyErr_Clear();
-}
-
 void _func_callback(sqlite3_context* context, int argc, sqlite3_value** argv)
 {
     PyObject* args;
-    PyObject* py_context;
-    Connection* connection;
     PyObject* py_func;
     PyObject* py_retval;
 
-    PyObject *err, *arg, *trace;
 
     PyGILState_STATE threadstate;
 
     threadstate = PyGILState_Ensure();
 
-    py_context = (PyObject*)sqlite3_user_data(context);
-    connection = (Connection*)PyTuple_GetItem(py_context, 0);
-    py_func = PyTuple_GetItem(py_context, 1);
+    py_func = (PyObject*)sqlite3_user_data(context);
 
     args = _build_py_params(context, argc, argv);
 
     py_retval = PyObject_CallObject(py_func, args);
     Py_DECREF(args);
-
-    if (PyErr_Occurred()) {
-        py_retval = Py_None;
-        Py_INCREF(py_retval);
-
-        if (connection->loglevel >= PYSQLITE_LOG_ERRORS) {
-            PyErr_Fetch(&err, &arg, &trace); /* XXX: possible leak? */
-            PyErr_NormalizeException(&err, &arg, &trace);
-
-            connection_log_error(connection, err, arg, trace);
-        }
-
-        PyErr_Clear();
-    }
 
     _set_result(context, py_retval);
     Py_XDECREF(py_retval);
@@ -709,12 +593,10 @@ PyObject* connection_create_function(Connection* self, PyObject* args, PyObject*
 {
     static char *kwlist[] = {"name", "narg", "func", NULL, NULL};
 
-    PyObject* context;
     PyObject* func;
     char* name;
     int narg;
     int rc;
-    PyObject* result;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "siO", kwlist,
                                      &name, &narg, &func))
@@ -722,24 +604,12 @@ PyObject* connection_create_function(Connection* self, PyObject* args, PyObject*
         return NULL;
     }
 
-    context = PyTuple_New(2);
-    if (!context) {
-        result = NULL;
-        goto finally;
-    }
-    Py_INCREF(self);
-    Py_INCREF(func);
-    PyTuple_SetItem(context, 0, (PyObject*)self);
-    PyTuple_SetItem(context, 1, func);
+    rc = sqlite3_create_function(self->db, name, narg, SQLITE_UTF8, (void*)func, _func_callback, NULL, NULL);
 
-    rc = sqlite3_create_function(self->db, name, narg, SQLITE_UTF8, (void*)context, _func_callback, NULL, NULL);
-
-    PyDict_SetItem(self->function_pinboard, context, Py_None);
+    PyDict_SetItem(self->function_pinboard, func, Py_None);
 
     Py_INCREF(Py_None);
-    result = Py_None;
-finally:
-    return result;
+    return Py_None;
 }
 
 PyObject* connection_create_aggregate(Connection* self, PyObject* args, PyObject* kwargs)
@@ -839,37 +709,6 @@ static int connection_set_isolation_level(Connection* self, PyObject* isolation_
         strcpy(self->begin_statement, PyString_AsString(begin_statement));
         Py_DECREF(begin_statement);
     }
-
-    return 0;
-}
-
-static PyObject* connection_get_logfile(Connection* self, void* unused)
-{
-    Py_INCREF(self->logfile);
-    return self->logfile;
-}
-
-static int connection_set_logfile(Connection* self, PyObject* logfile)
-{
-    Py_DECREF(self->logfile);
-    self->logfile = logfile;
-
-    return 0;
-}
-
-static PyObject* connection_get_loglevel(Connection* self, void* unused)
-{
-    return Py_BuildValue("i", self->loglevel);
-}
-
-static int connection_set_loglevel(Connection* self, PyObject* loglevel)
-{
-    if (!PyInt_Check(loglevel)) {
-        PyErr_SetString(PyExc_ValueError, "loglevel must be an integer");
-        return 1;
-    }
-
-    self->loglevel = (int)PyInt_AsLong(loglevel);
 
     return 0;
 }
@@ -1128,8 +967,6 @@ PyDoc_STR("<missing docstring>");
 static PyGetSetDef connection_getset[] = {
     {"isolation_level",  (getter)connection_get_isolation_level, (setter)connection_set_isolation_level},
     {"total_changes",  (getter)connection_get_total_changes, (setter)0},
-    {"logfile",  (getter)connection_get_logfile, (setter)connection_set_logfile},
-    {"loglevel",  (getter)connection_get_loglevel, (setter)connection_set_loglevel},
     {NULL}
 };
 

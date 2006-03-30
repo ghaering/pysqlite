@@ -39,6 +39,9 @@ PyObject* Error, *Warning, *InterfaceError, *DatabaseError, *InternalError,
     *OperationalError, *ProgrammingError, *IntegrityError, *DataError,
     *NotSupportedError, *OptimizedUnicode;
 
+PyObject* time_time;
+PyObject* time_sleep;
+
 PyObject* converters;
 
 static PyObject* module_connect(PyObject* self, PyObject* args, PyObject*
@@ -254,16 +257,15 @@ PyMODINIT_FUNC init_sqlite(void)
     PyDict_SetItemString(dict, "version", PyString_FromString(PYSQLITE_VERSION));
     PyDict_SetItemString(dict, "sqlite_version", PyString_FromString(sqlite3_libversion()));
 
-    PyDict_SetItemString(dict, "LOG_NOTHING", PyInt_FromLong(PYSQLITE_LOG_NOTHING));
-    PyDict_SetItemString(dict, "LOG_ERRORS", PyInt_FromLong(PYSQLITE_LOG_ERRORS));
-    PyDict_SetItemString(dict, "LOG_WARNINGS", PyInt_FromLong(PYSQLITE_LOG_WARNINGS));
-    PyDict_SetItemString(dict, "LOG_DEBUG", PyInt_FromLong(PYSQLITE_LOG_DEBUG));
-
     /* initialize microprotocols layer */
     microprotocols_init(dict);
 
     /* initialize the default converters */
     converters_init(dict);
+
+    time_module = PyImport_ImportModule("time");
+    time_time =  PyObject_GetAttrString(time_module, "time");
+    time_sleep = PyObject_GetAttrString(time_module, "sleep");
 
     /* Original comment form _bsddb.c in the Python core. This is also still
      * needed nowadays for Python 2.3/2.4.
