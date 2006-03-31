@@ -23,12 +23,12 @@
 
 import unittest
 from pysqlite2.test import dbapi, types, userfunctions, factory, transactions,\
-    hooks
+    hooks, regression
 
 def suite():
     return unittest.TestSuite(
         (dbapi.suite(), types.suite(), userfunctions.suite(), factory.suite(),\
-         transactions.suite(), hooks.suite()))
+         transactions.suite(), hooks.suite(), regression.suite()))
 
 def test():
     runner = unittest.TextTestRunner()
