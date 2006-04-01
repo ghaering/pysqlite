@@ -23,6 +23,7 @@
 
 #include "row.h"
 #include "cursor.h"
+#include "compat.h"
 
 void row_dealloc(Row* self)
 {
@@ -126,7 +127,7 @@ PyObject* row_subscript(Row* self, PyObject* idx)
     }
 }
 
-int row_length(Row* self, PyObject* args, PyObject* kwargs)
+Py_ssize_t row_length(Row* self, PyObject* args, PyObject* kwargs)
 {
     return PyTuple_GET_SIZE(self->data);
 }
@@ -138,7 +139,7 @@ static int row_print(Row* self, FILE *fp, int flags)
 
 
 PyMappingMethods row_as_mapping = {
-    /* mp_length        */ (inquiry)row_length,
+    /* mp_length        */ (lenfunc)row_length,
     /* mp_subscript     */ (binaryfunc)row_subscript,
     /* mp_ass_subscript */ (objobjargproc)0,
 };

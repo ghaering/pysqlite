@@ -26,6 +26,7 @@
 #include "connection.h"
 #include "microprotocols.h"
 #include "prepare_protocol.h"
+#include "compat.h"
 
 /* prototypes */
 int check_remaining_sql(const char* tail);
@@ -94,7 +95,7 @@ int statement_bind_parameter(Statement* self, int pos, PyObject* parameter)
 #endif
     const char* buffer;
     char* string;
-    int buflen;
+    Py_ssize_t buflen;
     PyObject* stringval;
 
     if (parameter == Py_None) {

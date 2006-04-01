@@ -24,6 +24,7 @@
 #include "cursor.h"
 #include "module.h"
 #include "util.h"
+#include "compat.h"
 
 /* used to decide wether to call PyInt_FromLong or PyLong_FromLongLong */
 #define INT32_MIN (-2147483647 - 1)
@@ -244,7 +245,7 @@ PyObject* _fetch_one_row(Cursor* self)
     PY_LONG_LONG intval;
     PyObject* converter;
     PyObject* converted;
-    int nbytes;
+    Py_ssize_t nbytes;
     PyObject* buffer;
     void* raw_buffer;
     const char* val_str;

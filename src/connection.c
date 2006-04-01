@@ -31,6 +31,8 @@
 #include "cursor.h"
 #include "prepare_protocol.h"
 #include "util.h"
+#include "compat.h"
+
 #include "pythread.h"
 
 static int connection_set_isolation_level(Connection* self, PyObject* isolation_level);
@@ -382,7 +384,7 @@ void _set_result(sqlite3_context* context, PyObject* py_val)
 {
     long longval;
     const char* buffer;
-    int buflen;
+    Py_ssize_t buflen;
     PyObject* stringval;
 
     if (PyErr_Occurred()) {
@@ -421,7 +423,7 @@ PyObject* _build_py_params(sqlite3_context *context, int argc, sqlite3_value** a
     PyObject* cur_py_value;
     const char* val_str;
     PY_LONG_LONG val_int;
-    int buflen;
+    Py_ssize_t buflen;
     void* raw_buffer;
 
     args = PyTuple_New(argc);
