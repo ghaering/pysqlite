@@ -4,9 +4,6 @@
  *
  * This file is part of pysqlite.
  * 
- * Code for collations was borrowed from APSW and is
- *   Copyright (C) 2004-2005 Roger Binns <rogerb@rogerbinns.com>
- *
  * This software is provided 'as-is', without any express or implied
  * warranty.  In no event will the authors be held liable for any damages
  * arising from the use of this software.
@@ -106,7 +103,14 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
     self->check_same_thread = check_same_thread;
 
     self->function_pinboard = PyDict_New();
+    if (!self->function_pinboard) {
+        return -1;
+    }
+
     self->collations = PyDict_New();
+    if (!self->collations) {
+        return -1;
+    }
 
     self->Warning = Warning;
     self->Error = Error;
@@ -427,6 +431,9 @@ PyObject* _build_py_params(sqlite3_context *context, int argc, sqlite3_value** a
     void* raw_buffer;
 
     args = PyTuple_New(argc);
+    if (!args) {
+        return NULL;
+    }
 
     for (i = 0; i < argc; i++) {
         cur_value = argv[i];
@@ -685,7 +692,13 @@ static int connection_set_isolation_level(Connection* self, PyObject* isolation_
         self->isolation_level = Py_None;
 
         empty = PyTuple_New(0);
+        if (!empty) {
+            return -1;
+        }
         res = connection_commit(self, empty);
+        if (!res) {
+            return -1;
+        }
         Py_DECREF(empty);
         Py_DECREF(res);
 

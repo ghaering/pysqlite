@@ -39,9 +39,6 @@ PyObject* Error, *Warning, *InterfaceError, *DatabaseError, *InternalError,
     *OperationalError, *ProgrammingError, *IntegrityError, *DataError,
     *NotSupportedError, *OptimizedUnicode;
 
-PyObject* time_time;
-PyObject* time_sleep;
-
 PyObject* converters;
 
 static PyObject* module_connect(PyObject* self, PyObject* args, PyObject*
@@ -150,7 +147,9 @@ static PyObject* module_register_converter(PyObject* self, PyObject* args, PyObj
         return NULL;
     }
 
-    PyDict_SetItem(converters, name, callable);
+    if (PyDict_SetItem(converters, name, callable) != 0) {
+        return NULL;
+    }
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -159,6 +158,9 @@ static PyObject* module_register_converter(PyObject* self, PyObject* args, PyObj
 void converters_init(PyObject* dict)
 {
     converters = PyDict_New();
+    if (!converters) {
+        return;
+    }
 
     PyDict_SetItemString(dict, "converters", converters);
 }
@@ -178,11 +180,11 @@ static PyMethodDef module_methods[] = {
 PyMODINIT_FUNC init_sqlite(void)
 {
     PyObject *module, *dict;
-    PyObject* time_module;
+    PyObject *tmp_obj;
 
     module = Py_InitModule("pysqlite2._sqlite", module_methods);
 
-    if (
+    if (!module ||
         (row_setup_types() < 0) ||
         (cursor_setup_types() < 0) ||
         (connection_setup_types() < 0) ||
@@ -206,66 +208,99 @@ PyMODINIT_FUNC init_sqlite(void)
     Py_INCREF(&RowType);
     PyModule_AddObject(module, "Row", (PyObject*) &RowType);
 
-    if (!(dict = PyModule_GetDict(module)))
-    {
+    if (!(dict = PyModule_GetDict(module))) {
         goto error;
     }
 
     /*** Create DB-API Exception hierarchy */
 
-    Error = PyErr_NewException("pysqlite2.dbapi2.Error", PyExc_StandardError, NULL);
+    if (!(Error = PyErr_NewException("pysqlite2.dbapi2.Error", PyExc_StandardError, NULL))) {
+        goto error;
+    }
     PyDict_SetItemString(dict, "Error", Error);
 
-    Warning = PyErr_NewException("pysqlite2.dbapi2.Warning", PyExc_StandardError, NULL);
+    if (!(Warning = PyErr_NewException("pysqlite2.dbapi2.Warning", PyExc_StandardError, NULL))) {
+        goto error;
+    }
     PyDict_SetItemString(dict, "Warning", Warning);
 
     /* Error subclasses */
 
-    InterfaceError = PyErr_NewException("pysqlite2.dbapi2.InterfaceError", Error, NULL);
+    if (!(InterfaceError = PyErr_NewException("pysqlite2.dbapi2.InterfaceError", Error, NULL))) {
+        goto error;
+    }
     PyDict_SetItemString(dict, "InterfaceError", InterfaceError);
 
-    DatabaseError = PyErr_NewException("pysqlite2.dbapi2.DatabaseError", Error, NULL);
+    if (!(DatabaseError = PyErr_NewException("pysqlite2.dbapi2.DatabaseError", Error, NULL))) {
+        goto error;
+    }
     PyDict_SetItemString(dict, "DatabaseError", DatabaseError);
 
     /* DatabaseError subclasses */
 
-    InternalError = PyErr_NewException("pysqlite2.dbapi2.InternalError", DatabaseError, NULL);
+    if (!(InternalError = PyErr_NewException("pysqlite2.dbapi2.InternalError", DatabaseError, NULL))) {
+        goto error;
+    }
     PyDict_SetItemString(dict, "InternalError", InternalError);
 
-    OperationalError = PyErr_NewException("pysqlite2.dbapi2.OperationalError", DatabaseError, NULL);
+    if (!(OperationalError = PyErr_NewException("pysqlite2.dbapi2.OperationalError", DatabaseError, NULL))) {
+        goto error;
+    }
     PyDict_SetItemString(dict, "OperationalError", OperationalError);
 
-    ProgrammingError = PyErr_NewException("pysqlite2.dbapi2.ProgrammingError", DatabaseError, NULL);
+    if (!(ProgrammingError = PyErr_NewException("pysqlite2.dbapi2.ProgrammingError", DatabaseError, NULL))) {
+        goto error;
+    }
     PyDict_SetItemString(dict, "ProgrammingError", ProgrammingError);
 
-    IntegrityError = PyErr_NewException("pysqlite2.dbapi2.IntegrityError", DatabaseError,NULL);
+    if (!(IntegrityError = PyErr_NewException("pysqlite2.dbapi2.IntegrityError", DatabaseError,NULL))) {
+        goto error;
+    }
     PyDict_SetItemString(dict, "IntegrityError", IntegrityError);
 
-    DataError = PyErr_NewException("pysqlite2.dbapi2.DataError", DatabaseError, NULL);
+    if (!(DataError = PyErr_NewException("pysqlite2.dbapi2.DataError", DatabaseError, NULL))) {
+        goto error;
+    }
     PyDict_SetItemString(dict, "DataError", DataError);
 
-    NotSupportedError = PyErr_NewException("pysqlite2.dbapi2.NotSupportedError", DatabaseError, NULL);
+    if (!(NotSupportedError = PyErr_NewException("pysqlite2.dbapi2.NotSupportedError", DatabaseError, NULL))) {
+        goto error;
+    }
     PyDict_SetItemString(dict, "NotSupportedError", NotSupportedError);
 
+    /* We just need "something" unique for OptimizedUnicode. It does not really
+     * need to be a string subclass. Just anything that can act as a special
+     * marker for us. So I pulled PyCell_Type out of my magic hat.
+     */
     Py_INCREF((PyObject*)&PyCell_Type);
     OptimizedUnicode = (PyObject*)&PyCell_Type;
     PyDict_SetItemString(dict, "OptimizedUnicode", OptimizedUnicode);
 
-    PyDict_SetItemString(dict, "PARSE_DECLTYPES", PyInt_FromLong(PARSE_DECLTYPES));
-    PyDict_SetItemString(dict, "PARSE_COLNAMES", PyInt_FromLong(PARSE_COLNAMES));
+    if (!(tmp_obj = PyInt_FromLong(PARSE_DECLTYPES))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict, "PARSE_DECLTYPES", tmp_obj);
 
-    PyDict_SetItemString(dict, "version", PyString_FromString(PYSQLITE_VERSION));
-    PyDict_SetItemString(dict, "sqlite_version", PyString_FromString(sqlite3_libversion()));
+    if (!(tmp_obj = PyInt_FromLong(PARSE_COLNAMES))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict, "PARSE_COLNAMES", tmp_obj);
+
+    if (!(tmp_obj = PyString_FromString(PYSQLITE_VERSION))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict, "version", tmp_obj);
+
+    if (!(tmp_obj = PyString_FromString(sqlite3_libversion()))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict, "sqlite_version", tmp_obj);
 
     /* initialize microprotocols layer */
     microprotocols_init(dict);
 
     /* initialize the default converters */
     converters_init(dict);
-
-    time_module = PyImport_ImportModule("time");
-    time_time =  PyObject_GetAttrString(time_module, "time");
-    time_sleep = PyObject_GetAttrString(time_module, "sleep");
 
     /* Original comment form _bsddb.c in the Python core. This is also still
      * needed nowadays for Python 2.3/2.4.

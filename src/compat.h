@@ -26,7 +26,7 @@
 
 /* define Py_ssize_t for pre-2.5 versions of Python */
 
-#if PY_HEX_VERSION < 0x02050000
+#if PY_VERSION_HEX < 0x02050000
 typedef int Py_ssize_t;
 typedef int (*lenfunc)(PyObject*);
 #endif

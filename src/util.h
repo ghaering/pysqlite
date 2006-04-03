@@ -1,6 +1,6 @@
 /* util.h - various utility functions
  *
- * Copyright (C) 2005 Gerhard Häring <gh@ghaering.de>
+ * Copyright (C) 2005-2006 Gerhard Häring <gh@ghaering.de>
  *
  * This file is part of pysqlite.
  *
@@ -27,8 +27,6 @@
 #include "pythread.h"
 #include "sqlite3.h"
 #include "connection.h"
-
-void pysqlite_sleep(double seconds);
 
 int _sqlite_step_with_busyhandler(sqlite3_stmt* statement, Connection* connection);
 
