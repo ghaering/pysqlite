@@ -21,13 +21,11 @@
 #    misrepresented as being the original software.
 # 3. This notice may not be removed or altered from any source distribution.
 
-import glob, os, sys
+import glob, os, re, sys
 
 from distutils.core import setup, Extension, Command
 
 # If you need to change anything, it should be enough to change setup.cfg.
-
-PYSQLITE_VERSION = "2.2.0"
 
 sqlite = "sqlite"
 
@@ -50,13 +48,9 @@ It is almost fully compliant with the Python database API version 2.0 also
 exposes the unique features of SQLite."""
 
 if sys.platform != "win32":
-    define_macros.append(('PYSQLITE_VERSION', '"%s"' % PYSQLITE_VERSION))
     define_macros.append(('MODULE_NAME', '"pysqlite2.dbapi2"'))
 else:
-    define_macros.append(('PYSQLITE_VERSION', '\\"'+PYSQLITE_VERSION+'\\"'))
     define_macros.append(('MODULE_NAME', '\\"pysqlite2.dbapi2\\"'))
-define_macros.append(('PY_MAJOR_VERSION', str(sys.version_info[0])))
-define_macros.append(('PY_MINOR_VERSION', str(sys.version_info[1])))
 
 class DocBuilder(Command):
     description = "Builds the documentation"
@@ -95,6 +89,21 @@ class DocBuilder(Command):
         os.chdir("..")
 
 def get_setup_args():
+    PYSQLITE_VERSION = None
+
+    version_re = re.compile('#define PYSQLITE_VERSION "(.*)"')
+    f = open(os.path.join("src", "module.h"))
+    for line in f:
+        match = version_re.match(line)
+        if match:
+            PYSQLITE_VERSION = match.groups()[0]
+            break
+    f.close()
+
+    if not PYSQLITE_VERSION:
+        print "Fatal error: PYSQLITE_VERSION could not be detected!"
+        sys.exit(1)
+
     data_files = [("pysqlite2-doc",
                         glob.glob("doc/*.html") \
                       + glob.glob("doc/*.txt") \
