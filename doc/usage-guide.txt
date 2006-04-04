@@ -300,9 +300,14 @@ Python DB API.
 
     See the following example code for illustration:
 
-    .. code-block::
-     :language: Python
-     :source-file: code/text_factory.py
+     .. code-block::
+      :language: Python
+      :source-file: code/text_factory.py
+
+  * **total_changes** attribute (read-only)
+
+    Returns the total number of database rows that have be modified, inserted,
+    or deleted since the database connection was opened.
 
   |
 * **Cursor** class
