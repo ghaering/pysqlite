@@ -51,8 +51,10 @@ exposes the unique features of SQLite."""
 
 if sys.platform != "win32":
     define_macros.append(('PYSQLITE_VERSION', '"%s"' % PYSQLITE_VERSION))
+    define_macros.append(('MODULE_NAME', '"pysqlite2.dbapi2"'))
 else:
     define_macros.append(('PYSQLITE_VERSION', '\\"'+PYSQLITE_VERSION+'\\"'))
+    define_macros.append(('MODULE_NAME', '\\"pysqlite2.dbapi2\\"'))
 define_macros.append(('PY_MAJOR_VERSION', str(sys.version_info[0])))
 define_macros.append(('PY_MINOR_VERSION', str(sys.version_info[1])))
 
