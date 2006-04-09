@@ -419,8 +419,7 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
         } else {
             /* sequence */
             parameters_iter = PyObject_GetIter(second_argument);
-            if (PyErr_Occurred())
-            {
+            if (!parameters_iter) {
                 return NULL;
             }
         }
@@ -503,12 +502,7 @@ PyObject* _query_execute(Cursor* self, int multiple, PyObject* args)
                 /* it's a DDL statement or something similar
                    - we better COMMIT first so it works for all cases */
                 if (self->connection->inTransaction) {
-                    func_args = PyTuple_New(0);
-                    if (!func_args) {
-                        goto error;
-                    }
-                    result = connection_commit(self->connection, func_args);
-                    Py_DECREF(func_args);
+                    result = connection_commit(self->connection, NULL);
                     if (!result) {
                         goto error;
                     }
@@ -698,7 +692,6 @@ PyObject* cursor_executescript(Cursor* self, PyObject* args)
     const char* script_cstr;
     sqlite3_stmt* statement;
     int rc;
-    PyObject* func_args;
     PyObject* result;
     int statement_completed = 0;
 
@@ -725,12 +718,7 @@ PyObject* cursor_executescript(Cursor* self, PyObject* args)
     }
 
     /* commit first */
-    func_args = PyTuple_New(0);
-    if (!func_args) {
-        goto error;
-    }
-    result = connection_commit(self->connection, func_args);
-    Py_DECREF(func_args);
+    result = connection_commit(self->connection, NULL);
     if (!result) {
         goto error;
     }

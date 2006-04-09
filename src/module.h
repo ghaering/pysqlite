@@ -25,7 +25,7 @@
 #define PYSQLITE_MODULE_H
 #include "Python.h"
 
-#define PYSQLITE_VERSION "2.2.0"
+#define PYSQLITE_VERSION "2.2.1"
 
 extern PyObject* Error;
 extern PyObject* Warning;
