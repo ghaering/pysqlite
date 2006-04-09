@@ -5,7 +5,7 @@ pysqlite usage guide
 | (c) 2004-2005 David Rushby
 | (c) 2005-2006 Gerhard Häring
 
-Last updated for pysqlite 2.2.0
+Last updated for pysqlite 2.2.1
 
 Table Of Contents
 =================
@@ -158,7 +158,7 @@ Python DB API.
   * **detect_types** - SQLite natively supports only the types TEXT,
     INTEGER, FLOAT, BLOB and NULL. If you want to use other types, like you
     have to add support for them yourself.  The *detect_types* parameter and
-    the using custom *converters* registered with the module-level
+    using custom *converters* registered with the module-level
     *register_converter* function allow you to easily do that.
 
     *detect_types* defaults to 0 (i. e. off, no type detection), you can
