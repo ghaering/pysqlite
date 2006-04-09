@@ -72,7 +72,7 @@ class CollationTests(unittest.TestCase):
             result = con.execute(sql).fetchall()
             self.fail("should have raised an OperationalError")
         except sqlite.OperationalError, e:
-            self.failUnlessEqual(e.args[0], "no such collation sequence: mycoll")
+            self.failUnlessEqual(e.args[0].lower(), "no such collation sequence: mycoll")
 
     def CheckCollationRegisterTwice(self):
         """
