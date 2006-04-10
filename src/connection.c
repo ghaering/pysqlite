@@ -56,6 +56,7 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
     self->begin_statement = NULL;
 
     self->statement_cache = NULL;
+    self->statements = NULL;
 
     Py_INCREF(Py_None);
     self->row_factory = Py_None;
@@ -74,6 +75,9 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
 
     if (!isolation_level) {
         isolation_level = PyString_FromString("");
+        if (!isolation_level) {
+            return -1;
+        }
     } else {
         Py_INCREF(isolation_level);
     }
@@ -85,6 +89,12 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
     if (PyErr_Occurred()) {
         return -1;
     }
+
+    self->statements = PyList_New(0);
+    if (!self->statements) {
+        return -1;
+    }
+    self->created_statements = 0;
 
     /* By default, the Cache class INCREFs the factory in its initializer, and
      * decrefs it in its deallocator method. Since this would create a circular
@@ -126,6 +136,7 @@ int connection_init(Connection* self, PyObject* args, PyObject* kwargs)
     return 0;
 }
 
+/* Empty the entire statement cache of this connection */
 void flush_statement_cache(Connection* self)
 {
     Node* node;
@@ -147,15 +158,16 @@ void flush_statement_cache(Connection* self)
 
 void reset_all_statements(Connection* self)
 {
-    Node* node;
-    Statement* statement;
+    int i;
+    PyObject* weakref;
+    PyObject* statement;
 
-    node = self->statement_cache->first;
-
-    while (node) {
-        statement = (Statement*)(node->data);
-        (void)statement_reset(statement);
-        node = node->next;
+    for (i = 0; i < PyList_Size(self->statements); i++) {
+        weakref = PyList_GetItem(self->statements, i);
+        statement = PyWeakref_GetObject(weakref);
+        if (statement != Py_None) {
+            (void)statement_reset((Statement*)statement);
+        }
     }
 }
 
@@ -178,6 +190,7 @@ void connection_dealloc(Connection* self)
     Py_XDECREF(self->row_factory);
     Py_XDECREF(self->text_factory);
     Py_XDECREF(self->collations);
+    Py_XDECREF(self->statements);
 
     self->ob_type->tp_free((PyObject*)self);
 }
@@ -399,21 +412,23 @@ void _set_result(sqlite3_context* context, PyObject* py_val)
         sqlite3_result_null(context);
     } else if (PyInt_Check(py_val)) {
         longval = PyInt_AsLong(py_val);
-        /* TODO: investigate what to do with range overflows - long vs. long long */
         sqlite3_result_int64(context, (PY_LONG_LONG)longval);
     } else if (PyFloat_Check(py_val)) {
         sqlite3_result_double(context, PyFloat_AsDouble(py_val));
     } else if (PyBuffer_Check(py_val)) {
         if (PyObject_AsCharBuffer(py_val, &buffer, &buflen) != 0) {
             PyErr_SetString(PyExc_ValueError, "could not convert BLOB to buffer");
+        } else {
+            sqlite3_result_blob(context, buffer, buflen, SQLITE_TRANSIENT);
         }
-        sqlite3_result_blob(context, buffer, buflen, SQLITE_TRANSIENT);
     } else if (PyString_Check(py_val)) {
         sqlite3_result_text(context, PyString_AsString(py_val), -1, SQLITE_TRANSIENT);
     } else if (PyUnicode_Check(py_val)) {
         stringval = PyUnicode_AsUTF8String(py_val);
-        sqlite3_result_text(context, PyString_AsString(stringval), -1, SQLITE_TRANSIENT);
-        Py_DECREF(stringval);
+        if (stringval) {
+            sqlite3_result_text(context, PyString_AsString(stringval), -1, SQLITE_TRANSIENT);
+            Py_DECREF(stringval);
+        }
     } else {
         /* TODO: raise error */
     }
@@ -596,6 +611,37 @@ error:
     PyGILState_Release(threadstate);
 }
 
+void _drop_unused_statement_references(Connection* self)
+{
+    PyObject* new_list;
+    PyObject* weakref;
+    int i;
+
+    /* we only need to do this once in a while */
+    if (self->created_statements++ < 50) {
+        return;
+    }
+
+    self->created_statements = 0;
+
+    new_list = PyList_New(0);
+    if (!new_list) {
+        return;
+    }
+
+    for (i = 0; i < PyList_Size(self->statements); i++) {
+        weakref = PyList_GetItem(self->statements, i);
+        if (weakref != Py_None) {
+            if (PyList_Append(new_list, weakref) != 0) {
+                Py_DECREF(new_list);
+                return;
+            }
+        }
+    }
+
+    Py_DECREF(self->statements);
+    self->statements = new_list;
+}
 
 PyObject* connection_create_function(Connection* self, PyObject* args, PyObject* kwargs)
 {
@@ -732,11 +778,14 @@ PyObject* connection_call(Connection* self, PyObject* args, PyObject* kwargs)
 {
     PyObject* sql;
     Statement* statement;
+    PyObject* weakref;
     int rc;
 
     if (!PyArg_ParseTuple(args, "O", &sql)) {
         return NULL;
     }
+
+    _drop_unused_statement_references(self);
 
     statement = PyObject_New(Statement, &StatementType);
     if (!statement) {
@@ -756,8 +805,24 @@ PyObject* connection_call(Connection* self, PyObject* args, PyObject* kwargs)
 
         Py_DECREF(statement);
         statement = 0;
+    } else {
+        weakref = PyWeakref_NewRef((PyObject*)statement, NULL);
+        if (!weakref) {
+            Py_DECREF(statement);
+            statement = 0;
+            goto error;
+        }
+
+        if (PyList_Append(self->statements, weakref) != 0) {
+            Py_DECREF(weakref);
+            statement = 0;
+            goto error;
+        }
+
+        Py_DECREF(weakref);
     }
 
+error:
     return (PyObject*)statement;
 }
 
@@ -977,7 +1042,7 @@ finally:
 }
 
 static char connection_doc[] =
-PyDoc_STR("<missing docstring>");
+PyDoc_STR("SQLite database connection object.");
 
 static PyGetSetDef connection_getset[] = {
     {"isolation_level",  (getter)connection_get_isolation_level, (setter)connection_set_isolation_level},
@@ -1005,7 +1070,7 @@ static PyMethodDef connection_methods[] = {
     {"executescript", (PyCFunction)connection_executescript, METH_VARARGS,
         PyDoc_STR("Executes a multiple SQL statements at once. Non-standard.")},
     {"create_collation", (PyCFunction)connection_create_collation, METH_VARARGS,
-        PyDoc_STR("Creates a collation function.")},
+        PyDoc_STR("Creates a collation function. Non-standard.")},
     {NULL, NULL}
 };
 

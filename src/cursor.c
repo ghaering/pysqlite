@@ -962,6 +962,9 @@ static struct PyMemberDef cursor_members[] =
     {NULL}
 };
 
+static char cursor_doc[] =
+PyDoc_STR("SQLite database cursor class.");
+
 PyTypeObject CursorType = {
         PyObject_HEAD_INIT(NULL)
         0,                                              /* ob_size */
@@ -984,7 +987,7 @@ PyTypeObject CursorType = {
         0,                                              /* tp_setattro */
         0,                                              /* tp_as_buffer */
         Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_ITER|Py_TPFLAGS_BASETYPE, /* tp_flags */
-        0,                                              /* tp_doc */
+        cursor_doc,                                     /* tp_doc */
         0,                                              /* tp_traverse */
         0,                                              /* tp_clear */
         0,                                              /* tp_richcompare */
