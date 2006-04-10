@@ -36,6 +36,21 @@ class RegressionTests(unittest.TestCase):
         cur = self.con.cursor()
         cur.execute("pragma user_version")
 
+    def CheckStatementReset(self):
+        # pysqlite 2.1.0 to 2.2.0 have the problem that not all statements are
+        # reset before a rollback, but only those that are still in the
+        # statement cache. The others are not accessible from the connection object.
+        con = sqlite.connect(":memory:", cached_statements=5)
+        cursors = [con.cursor() for x in xrange(5)]
+        cursors[0].execute("create table test(x)")
+        for i in range(10):
+            cursors[0].executemany("insert into test(x) values (?)", [(x,) for x in xrange(10)])
+
+        for i in range(5):
+            cursors[i].execute(" " * i + "select x from test")
+
+        con.rollback()
+
 def suite():
     regression_suite = unittest.makeSuite(RegressionTests, "Check")
     return unittest.TestSuite((regression_suite,))
