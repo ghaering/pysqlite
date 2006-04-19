@@ -618,7 +618,7 @@ void _drop_unused_statement_references(Connection* self)
     int i;
 
     /* we only need to do this once in a while */
-    if (self->created_statements++ < 50) {
+    if (self->created_statements++ < 200) {
         return;
     }
 
