@@ -36,6 +36,16 @@ class RegressionTests(unittest.TestCase):
         cur = self.con.cursor()
         cur.execute("pragma user_version")
 
+    def CheckPragmaSchemaVersion(self):
+        # This still crashed pysqlite <= 2.2.1
+        con = sqlite.connect(":memory:", detect_types=sqlite.PARSE_COLNAMES)
+        try:
+            cur = self.con.cursor()
+            cur.execute("pragma schema_version")
+        finally:
+            cur.close()
+            con.close()
+
     def CheckStatementReset(self):
         # pysqlite 2.1.0 to 2.2.0 have the problem that not all statements are
         # reset before a rollback, but only those that are still in the

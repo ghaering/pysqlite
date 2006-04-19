@@ -157,24 +157,24 @@ int build_row_cast_map(Cursor* self)
 
         if (self->connection->detect_types | PARSE_COLNAMES) {
             colname = sqlite3_column_name(self->statement->st, i);
+            if (colname) {
+                for (pos = colname; *pos != 0; pos++) {
+                    if (*pos == '[') {
+                        type_start = pos + 1;
+                    } else if (*pos == ']' && type_start != (const char*)-1) {
+                        key = PyString_FromStringAndSize(type_start, pos - type_start);
+                        if (!key) {
+                            /* creating a string failed, but it is too complicated
+                             * to propagate the error here, we just assume there is
+                             * no converter and proceed */
+                            break;
+                        }
 
-            for (pos = colname; *pos != 0; pos++) {
-                if (*pos == '[') {
-                    type_start = pos + 1;
-                } else if (*pos == ']' && type_start != (const char*)-1) {
-                    key = PyString_FromStringAndSize(type_start, pos - type_start);
-                    if (!key) {
-                        /* creating a string failed, but it is too complicated
-                         * to propagate the error here, we just assume there is
-                         * no converter and proceed */
+                        converter = PyDict_GetItem(converters, key);
+                        Py_DECREF(key);
                         break;
                     }
-
-                    converter = PyDict_GetItem(converters, key);
-                    Py_DECREF(key);
-                    break;
                 }
-
             }
         }
 
@@ -276,6 +276,7 @@ PyObject* _fetch_one_row(Cursor* self)
     void* raw_buffer;
     const char* val_str;
     char buf[200];
+    const char* colname;
 
     Py_BEGIN_ALLOW_THREADS
     numcols = sqlite3_data_count(self->statement->st);
@@ -340,8 +341,12 @@ PyObject* _fetch_one_row(Cursor* self)
                         self->connection->text_factory == OptimizedUnicode ? 1 : 0);
 
                     if (!converted) {
+                        colname = sqlite3_column_name(self->statement->st, i);
+                        if (colname) {
+                            colname = "<unknown column name>";
+                        }
                         PyOS_snprintf(buf, sizeof(buf) - 1, "Could not decode to UTF-8 column %s with text %s",
-                                    sqlite3_column_name(self->statement->st, i), val_str);
+                                     colname , val_str);
                         PyErr_SetString(OperationalError, buf);
                     }
                 } else if (self->connection->text_factory == (PyObject*)&PyString_Type) {
