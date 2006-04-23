@@ -1,4 +1,4 @@
-/* compat.h - compatibility macros
+/* sqlitecompat.h - compatibility macros
  *
  * Copyright (C) 2006 Gerhard Häring <gh@ghaering.de>
  *

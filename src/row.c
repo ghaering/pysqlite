@@ -23,7 +23,7 @@
 
 #include "row.h"
 #include "cursor.h"
-#include "compat.h"
+#include "sqlitecompat.h"
 
 void row_dealloc(Row* self)
 {
