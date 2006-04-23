@@ -24,7 +24,7 @@
 #include "cursor.h"
 #include "module.h"
 #include "util.h"
-#include "compat.h"
+#include "sqlitecompat.h"
 
 /* used to decide wether to call PyInt_FromLong or PyLong_FromLongLong */
 #define INT32_MIN (-2147483647 - 1)
