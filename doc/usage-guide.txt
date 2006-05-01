@@ -400,7 +400,7 @@ Python DB API.
     engine's own support for the determination of "rows affected"/"rows
     selected" is quirky.
 
-    For ``SELECT`` statements, *rowcount* is always None because pysqlite
+    For ``SELECT`` statements, *rowcount* is always -1 because pysqlite
     cannot determine the number of rows a query produced until all rows
     were fetched.
 
