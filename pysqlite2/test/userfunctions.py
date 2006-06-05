@@ -55,6 +55,9 @@ class AggrNoStep:
     def __init__(self):
         pass
 
+    def finalize(self):
+        return 1
+
 class AggrNoFinalize:
     def __init__(self):
         pass
@@ -144,9 +147,12 @@ class FunctionTests(unittest.TestCase):
     def CheckFuncRefCount(self):
         def getfunc():
             def f():
-                return val
+                return 1
             return f
-        self.con.create_function("reftest", 0, getfunc())
+        f = getfunc()
+        globals()["foo"] = f
+        # self.con.create_function("reftest", 0, getfunc())
+        self.con.create_function("reftest", 0, f)
         cur = self.con.cursor()
         cur.execute("select reftest()")
 
@@ -195,9 +201,12 @@ class FunctionTests(unittest.TestCase):
 
     def CheckFuncException(self):
         cur = self.con.cursor()
-        cur.execute("select raiseexception()")
-        val = cur.fetchone()[0]
-        self.failUnlessEqual(val, None)
+        try:
+            cur.execute("select raiseexception()")
+            cur.fetchone()
+            self.fail("should have raised OperationalError")
+        except sqlite.OperationalError, e:
+            self.failUnlessEqual(e.args[0], 'user-defined function raised exception')
 
     def CheckParamString(self):
         cur = self.con.cursor()
@@ -267,31 +276,47 @@ class AggregateTests(unittest.TestCase):
 
     def CheckAggrNoStep(self):
         cur = self.con.cursor()
-        cur.execute("select nostep(t) from test")
+        try:
+            cur.execute("select nostep(t) from test")
+            self.fail("should have raised an AttributeError")
+        except AttributeError, e:
+            self.failUnlessEqual(e.args[0], "AggrNoStep instance has no attribute 'step'")
 
     def CheckAggrNoFinalize(self):
         cur = self.con.cursor()
-        cur.execute("select nofinalize(t) from test")
-        val = cur.fetchone()[0]
-        self.failUnlessEqual(val, None)
+        try:
+            cur.execute("select nofinalize(t) from test")
+            val = cur.fetchone()[0]
+            self.fail("should have raised an OperationalError")
+        except sqlite.OperationalError, e:
+            self.failUnlessEqual(e.args[0], "user-defined aggregate's 'finalize' method raised error")
 
     def CheckAggrExceptionInInit(self):
         cur = self.con.cursor()
-        cur.execute("select excInit(t) from test")
-        val = cur.fetchone()[0]
-        self.failUnlessEqual(val, None)
+        try:
+            cur.execute("select excInit(t) from test")
+            val = cur.fetchone()[0]
+            self.fail("should have raised an OperationalError")
+        except sqlite.OperationalError, e:
+            self.failUnlessEqual(e.args[0], "user-defined aggregate's '__init__' method raised error")
 
     def CheckAggrExceptionInStep(self):
         cur = self.con.cursor()
-        cur.execute("select excStep(t) from test")
-        val = cur.fetchone()[0]
-        self.failUnlessEqual(val, 42)
+        try:
+            cur.execute("select excStep(t) from test")
+            val = cur.fetchone()[0]
+            self.fail("should have raised an OperationalError")
+        except sqlite.OperationalError, e:
+            self.failUnlessEqual(e.args[0], "user-defined aggregate's 'step' method raised error")
 
     def CheckAggrExceptionInFinalize(self):
         cur = self.con.cursor()
-        cur.execute("select excFinalize(t) from test")
-        val = cur.fetchone()[0]
-        self.failUnlessEqual(val, None)
+        try:
+            cur.execute("select excFinalize(t) from test")
+            val = cur.fetchone()[0]
+            self.fail("should have raised an OperationalError")
+        except sqlite.OperationalError, e:
+            self.failUnlessEqual(e.args[0], "user-defined aggregate's 'finalize' method raised error")
 
     def CheckAggrCheckParamStr(self):
         cur = self.con.cursor()

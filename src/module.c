@@ -40,6 +40,7 @@ PyObject* Error, *Warning, *InterfaceError, *DatabaseError, *InternalError,
     *NotSupportedError, *OptimizedUnicode;
 
 PyObject* converters;
+int _enable_callback_tracebacks;
 
 static PyObject* module_connect(PyObject* self, PyObject* args, PyObject*
         kwargs)
@@ -140,14 +141,42 @@ static PyObject* module_register_adapter(PyObject* self, PyObject* args, PyObjec
 
 static PyObject* module_register_converter(PyObject* self, PyObject* args, PyObject* kwargs)
 {
-    PyObject* name;
+    char* orig_name;
+    char* name = NULL;
+    char* c;
     PyObject* callable;
+    PyObject* retval = NULL;
 
-    if (!PyArg_ParseTuple(args, "OO", &name, &callable)) {
+    if (!PyArg_ParseTuple(args, "sO", &orig_name, &callable)) {
         return NULL;
     }
 
-    if (PyDict_SetItem(converters, name, callable) != 0) {
+    /* convert the name to lowercase */
+    name = PyMem_Malloc(strlen(orig_name) + 2);
+    if (!name) {
+        goto error;
+    }
+    strcpy(name, orig_name);
+    for (c = name; *c != (char)0; c++) {
+        *c = (*c) & 0xDF;
+    }
+
+    if (PyDict_SetItemString(converters, name, callable) != 0) {
+        goto error;
+    }
+
+    Py_INCREF(Py_None);
+    retval = Py_None;
+error:
+    if (name) {
+        PyMem_Free(name);
+    }
+    return retval;
+}
+
+static PyObject* enable_callback_tracebacks(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    if (!PyArg_ParseTuple(args, "i", &_enable_callback_tracebacks)) {
         return NULL;
     }
 
@@ -174,6 +203,7 @@ static PyMethodDef module_methods[] = {
     {"register_adapter", (PyCFunction)module_register_adapter, METH_VARARGS, PyDoc_STR("Registers an adapter with pysqlite's adapter registry. Non-standard.")},
     {"register_converter", (PyCFunction)module_register_converter, METH_VARARGS, PyDoc_STR("Registers a converter with pysqlite. Non-standard.")},
     {"adapt",  (PyCFunction)psyco_microprotocols_adapt, METH_VARARGS, psyco_microprotocols_adapt_doc},
+    {"enable_callback_tracebacks",  (PyCFunction)enable_callback_tracebacks, METH_VARARGS, PyDoc_STR("Enable or disable callback functions throwing errors to stderr.")},
     {NULL, NULL}
 };
 
@@ -301,6 +331,8 @@ PyMODINIT_FUNC init_sqlite(void)
 
     /* initialize the default converters */
     converters_init(dict);
+
+    _enable_callback_tracebacks = 0;
 
     /* Original comment form _bsddb.c in the Python core. This is also still
      * needed nowadays for Python 2.3/2.4.

@@ -173,7 +173,6 @@ Python DB API.
       declared type, i. e. for "integer primary key", it will parse out
       "integer". Then for that column, it will look into pysqlite's converters
       dictionary and use the converter function registered for that type there.
-      Converter names are case-sensitive!
 
     * **sqlite.PARSE_COLNAMES** - This makes pysqlite parse the column name
       for each column it returns. It will look for a string formed
@@ -188,7 +187,7 @@ Python DB API.
 
       The following example uses the column name *timestamp*, which is already
       registered by default in the converters dictionary with an appropriate
-      converter! Note that converter names are case-sensitive!
+      converter!
 
       Example:
 
@@ -225,14 +224,17 @@ Python DB API.
   registers a callable to convert a bytestring from the database into a custom
   Python type. The converter will be invoked for all database values that are
   of the type ``typename``. Confer the parameter **detect_types** of the
-  **connect** method for how the type detection works. Note that the case
-  ``typename`` and the name of the type in your query must match!
+  **connect** method for how the type detection works.
 
 * **register_adapter** function - ``register_adapter(type, callable)``
   registers a callable to convert the custom Python **type** into one of
   SQLite's supported types. The callable accepts as single parameter the Python
   value, and must return a value of the following types: int, long, float, str
   (UTF-8 encoded), unicode or buffer.
+
+* **enable_callback_tracebacks** function - ``enable_callback_tracebacks(flag)``
+  Can be used to enable displaying tracebacks of exceptions in user-defined functions, aggregates and other callbacks being printed to stderr.
+  methods should never raise any exception. This feature is off by default.
 
 * **Connection** class
 
@@ -376,7 +378,7 @@ Python DB API.
     execute more than one statement with it, it will raise a Warning. Use
     *executescript* if want to execute multiple SQL statements with one call.
 
-* **executescript** method
+  * **executescript** method
 
     .. code-block:: Python
 
@@ -393,6 +395,12 @@ Python DB API.
     .. code-block::
      :language: Python
      :source-file: code/executescript.py
+
+  * **interrupt** method
+
+    This method has no arguments. You can call it from a different thread to
+    abort any queries that are currently executing on the connection. This can
+    be used to let the user abort runaway queries, for example.
 
   * **rowcount** attribute
 
@@ -573,8 +581,8 @@ functions with the connection's **create_function** method:
     the Python function
 
   The function can return any of pysqlite's supported SQLite types: unicode,
-  str, int, long, float, buffer and None.  The function should never raise an
-  exception.
+  str, int, long, float, buffer and None.  Any exception in the user-defined
+  function leads to the SQL statement executed being aborted.
 
   Example:
 
@@ -597,8 +605,9 @@ create new aggregate functions with the connection's *create_aggregate* method.
   method which will return the final result of the aggregate.
 
   The *finalize* method can return any of pysqlite's supported SQLite types:
-  unicode, str, int, long, float, buffer and None. The aggregate class's
-  methods should never raise any exception.
+  unicode, str, int, long, float, buffer and None. Any exception in the
+  aggregate's *__init__*, *step* or *finalize* methods lead to the SQL
+  statement executed being aborted.
 
   Example:
 
@@ -775,8 +784,6 @@ Let's first define a converter function that accepts the string as a parameter a
 
 !!! Note that converter functions *always* get called with a string, no matter
 under which data type you sent the value to SQLite !!!
-
-!!! Also note that converter names are looked up in a case-sensitive manner !!!
 
   .. code-block:: Python
 

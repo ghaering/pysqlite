@@ -50,6 +50,8 @@ extern PyObject* time_sleep;
  */
 extern PyObject* converters;
 
+extern int _enable_callback_tracebacks;
+
 #define PARSE_DECLTYPES 1
 #define PARSE_COLNAMES 2
 #endif

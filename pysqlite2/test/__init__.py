@@ -24,6 +24,7 @@
 import unittest
 from pysqlite2.test import dbapi, types, userfunctions, factory, transactions,\
     hooks, regression
+from pysqlite2 import dbapi2 as sqlite
 
 def suite():
     return unittest.TestSuite(
