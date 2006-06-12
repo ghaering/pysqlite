@@ -1,25 +1,25 @@
-/* module.c - the module itself
- *
- * Copyright (C) 2004-2006 Gerhard Häring <gh@ghaering.de>
- *
- * This file is part of pysqlite.
- *
- * This software is provided 'as-is', without any express or implied
- * warranty.  In no event will the authors be held liable for any damages
- * arising from the use of this software.
- *
- * Permission is granted to anyone to use this software for any purpose,
- * including commercial applications, and to alter it and redistribute it
- * freely, subject to the following restrictions:
- *
- * 1. The origin of this software must not be misrepresented; you must not
- *    claim that you wrote the original software. If you use this software
- *    in a product, an acknowledgment in the product documentation would be
- *    appreciated but is not required.
- * 2. Altered source versions must be plainly marked as such, and must not be
- *    misrepresented as being the original software.
- * 3. This notice may not be removed or altered from any source distribution.
- */
+    /* module.c - the module itself
+     *
+     * Copyright (C) 2004-2006 Gerhard Häring <gh@ghaering.de>
+     *
+     * This file is part of pysqlite.
+     *
+     * This software is provided 'as-is', without any express or implied
+     * warranty.  In no event will the authors be held liable for any damages
+     * arising from the use of this software.
+     *
+     * Permission is granted to anyone to use this software for any purpose,
+     * including commercial applications, and to alter it and redistribute it
+     * freely, subject to the following restrictions:
+     *
+     * 1. The origin of this software must not be misrepresented; you must not
+     *    claim that you wrote the original software. If you use this software
+     *    in a product, an acknowledgment in the product documentation would be
+     *    appreciated but is not required.
+     * 2. Altered source versions must be plainly marked as such, and must not be
+     *    misrepresented as being the original software.
+     * 3. This notice may not be removed or altered from any source distribution.
+     */
 
 #include "connection.h"
 #include "statement.h"
@@ -207,10 +207,61 @@ static PyMethodDef module_methods[] = {
     {NULL, NULL}
 };
 
+
+struct _IntConstantPair {
+    char* constant_name;
+    int constant_value;
+};
+
+typedef struct _IntConstantPair IntConstantPair;
+
+static IntConstantPair _int_constants[] = {
+    {"PARSE_DECLTYPES", PARSE_DECLTYPES},
+    {"PARSE_COLNAMES", PARSE_COLNAMES},
+
+    {"SQLITE_OK", SQLITE_OK},
+    {"SQLITE_DENY", SQLITE_DENY},
+    {"SQLITE_IGNORE", SQLITE_IGNORE},
+    {"SQLITE_CREATE_INDEX", SQLITE_CREATE_INDEX},
+    {"SQLITE_CREATE_TABLE", SQLITE_CREATE_TABLE},
+    {"SQLITE_CREATE_TEMP_INDEX", SQLITE_CREATE_TEMP_INDEX},
+    {"SQLITE_CREATE_TEMP_TABLE", SQLITE_CREATE_TEMP_TABLE},
+    {"SQLITE_CREATE_TEMP_TRIGGER", SQLITE_CREATE_TEMP_TRIGGER},
+    {"SQLITE_CREATE_TEMP_VIEW", SQLITE_CREATE_TEMP_VIEW},
+    {"SQLITE_CREATE_TRIGGER", SQLITE_CREATE_TRIGGER},
+    {"SQLITE_CREATE_VIEW", SQLITE_CREATE_VIEW},
+    {"SQLITE_DELETE", SQLITE_DELETE},
+    {"SQLITE_DROP_INDEX", SQLITE_DROP_INDEX},
+    {"SQLITE_DROP_TABLE", SQLITE_DROP_TABLE},
+    {"SQLITE_DROP_TEMP_INDEX", SQLITE_DROP_TEMP_INDEX},
+    {"SQLITE_DROP_TEMP_TABLE", SQLITE_DROP_TEMP_TABLE},
+    {"SQLITE_DROP_TEMP_TRIGGER", SQLITE_DROP_TEMP_TRIGGER},
+    {"SQLITE_DROP_TEMP_VIEW", SQLITE_DROP_TEMP_VIEW},
+    {"SQLITE_DROP_TRIGGER", SQLITE_DROP_TRIGGER},
+    {"SQLITE_DROP_VIEW", SQLITE_DROP_VIEW},
+    {"SQLITE_INSERT", SQLITE_INSERT},
+    {"SQLITE_PRAGMA", SQLITE_PRAGMA},
+    {"SQLITE_READ", SQLITE_READ},
+    {"SQLITE_SELECT", SQLITE_SELECT},
+    {"SQLITE_TRANSACTION", SQLITE_TRANSACTION},
+    {"SQLITE_UPDATE", SQLITE_UPDATE},
+    {"SQLITE_ATTACH", SQLITE_ATTACH},
+    {"SQLITE_DETACH", SQLITE_DETACH},
+#if SQLITE_VERSION_NUMBER >= 3002001
+    {"SQLITE_ALTER_TABLE", SQLITE_ALTER_TABLE},
+    {"SQLITE_REINDEX", SQLITE_REINDEX},
+#endif
+#if SQLITE_VERSION_NUMBER >= 3003000
+    {"SQLITE_ANALYZE", SQLITE_ANALYZE},
+#endif
+    {(char*)NULL, 0}
+};
+
 PyMODINIT_FUNC init_sqlite(void)
 {
     PyObject *module, *dict;
     PyObject *tmp_obj;
+    int i;
 
     module = Py_InitModule("pysqlite2._sqlite", module_methods);
 
@@ -306,212 +357,15 @@ PyMODINIT_FUNC init_sqlite(void)
     OptimizedUnicode = (PyObject*)&PyCell_Type;
     PyDict_SetItemString(dict, "OptimizedUnicode", OptimizedUnicode);
 
-    if (!(tmp_obj = PyInt_FromLong(PARSE_DECLTYPES))) {
-        goto error;
+    /* Set integer constants */
+    for (i = 0; _int_constants[i].constant_name != 0; i++) {
+        tmp_obj = PyInt_FromLong(_int_constants[i].constant_value);
+        if (!tmp_obj) {
+            goto error;
+        }
+        PyDict_SetItemString(dict, _int_constants[i].constant_name, tmp_obj);
+        Py_DECREF(tmp_obj);
     }
-    PyDict_SetItemString(dict, "PARSE_DECLTYPES", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(PARSE_COLNAMES))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict, "PARSE_COLNAMES", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-
-    /******************************************************************
-     * Constants for authorizer callback
-     ******************************************************************/
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_OK))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_OK", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_DENY))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_DENY", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_IGNORE))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_IGNORE", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_CREATE_INDEX))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_CREATE_INDEX", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_CREATE_TABLE))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_CREATE_TABLE", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_CREATE_TEMP_INDEX))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_CREATE_TEMP_INDEX", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_CREATE_TEMP_TABLE))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_CREATE_TEMP_TABLE", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_CREATE_TEMP_TRIGGER))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_CREATE_TEMP_TRIGGER", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_CREATE_TEMP_VIEW))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_CREATE_TEMP_VIEW", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_CREATE_TRIGGER))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_CREATE_TRIGGER", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_CREATE_VIEW))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_CREATE_VIEW", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_DELETE))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_DELETE", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_DROP_INDEX))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_DROP_INDEX", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_DROP_TABLE))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_DROP_TABLE", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_DROP_TEMP_INDEX))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_DROP_TEMP_INDEX", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_DROP_TEMP_TABLE))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_DROP_TEMP_TABLE", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_DROP_TEMP_TRIGGER))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_DROP_TEMP_TRIGGER", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_DROP_TEMP_VIEW))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_DROP_TEMP_VIEW", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_DROP_TRIGGER))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_DROP_TRIGGER", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_DROP_VIEW))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_DROP_VIEW", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_INSERT))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_INSERT", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_PRAGMA))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_PRAGMA", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_READ))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_READ", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_SELECT))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_SELECT", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_TRANSACTION))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_TRANSACTION", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_UPDATE))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_UPDATE", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_ATTACH))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_ATTACH", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_DETACH))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_DETACH", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_ALTER_TABLE))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_ALTER_TABLE", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_REINDEX))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_REINDEX", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    if (!(tmp_obj = PyInt_FromLong(SQLITE_ANALYZE))) {
-        goto error;
-    }
-    PyDict_SetItemString(dict,"SQLITE_ANALYZE", tmp_obj);
-    Py_DECREF(tmp_obj);
-
-    /******************************************************************
-     * End constants for authorizer callback
-     ******************************************************************/
 
     if (!(tmp_obj = PyString_FromString(PYSQLITE_VERSION))) {
         goto error;
