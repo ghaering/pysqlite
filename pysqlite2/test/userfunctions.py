@@ -356,10 +356,55 @@ class AggregateTests(unittest.TestCase):
         val = cur.fetchone()[0]
         self.failUnlessEqual(val, 60)
 
+def authorizer_cb(action, arg1, arg2, dbname, source):
+    if action != sqlite.SQLITE_SELECT:
+        return sqlite.SQLITE_DENY
+    if arg2 == 'c2' or arg1 == 't2':
+        return sqlite.SQLITE_DENY
+    return sqlite.SQLITE_OK
+
+class AuthorizerTests(unittest.TestCase):
+    def setUp(self):
+        sqlite.enable_callback_tracebacks(1)
+        self.con = sqlite.connect(":memory:")
+        self.con.executescript("""
+            create table t1 (c1, c2);
+            create table t2 (c1, c2);
+            insert into t1 (c1, c2) values (1, 2);
+            insert into t2 (c1, c2) values (4, 5);
+            """)
+
+        # For our security test:
+        self.con.execute("select c2 from t2")
+
+        self.con.set_authorizer(authorizer_cb)
+
+    def tearDown(self):
+        pass
+
+    def CheckTableAccess(self):
+        try:
+            self.con.execute("select * from t2")
+        except sqlite.DatabaseError, e:
+            if not e.args[0].endswith("prohibited"):
+                self.fail("wrong exception text: %s" % e.args[0])
+            return
+        self.fail("should have raised an exception due to missing privileges")
+
+    def CheckColumnAccess(self):
+        try:
+            self.con.execute("select c2 from t1")
+        except sqlite.DatabaseError, e:
+            if not e.args[0].endswith("prohibited"):
+                self.fail("wrong exception text: %s" % e.args[0])
+            return
+        self.fail("should have raised an exception due to missing privileges")
+
 def suite():
     function_suite = unittest.makeSuite(FunctionTests, "Check")
     aggregate_suite = unittest.makeSuite(AggregateTests, "Check")
-    return unittest.TestSuite((function_suite, aggregate_suite))
+    authorizer_suite = unittest.makeSuite(AuthorizerTests, "Check") 
+    return unittest.TestSuite((function_suite, aggregate_suite, authorizer_suite))
 
 def test():
     runner = unittest.TextTestRunner()
