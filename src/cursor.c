@@ -140,13 +140,17 @@ void cursor_dealloc(Cursor* self)
 PyObject* _get_converter(PyObject* key)
 {
     PyObject* upcase_key;
+    PyObject* retval;
 
     upcase_key = PyObject_CallMethod(key, "upper", "");
     if (!upcase_key) {
         return NULL;
     }
 
-    return PyDict_GetItem(converters, upcase_key);
+    retval = PyDict_GetItem(converters, upcase_key);
+    Py_DECREF(upcase_key);
+
+    return retval;
 }
 
 int build_row_cast_map(Cursor* self)
