@@ -719,6 +719,61 @@ PyObject* connection_create_aggregate(Connection* self, PyObject* args, PyObject
     }
 }
 
+int _authorizer_callback(void* user_arg, int action, const char* arg1, const char* arg2 , const char* dbname, const char* access_attempt_source)
+{
+    PyObject *ret;
+    int rc;
+    PyGILState_STATE gilstate;
+
+    gilstate = PyGILState_Ensure();
+    ret = PyObject_CallFunction((PyObject*)user_arg, "issss", action, arg1, arg2, dbname, access_attempt_source);
+
+    if (!ret) {
+        if (_enable_callback_tracebacks) {
+            PyErr_Print();
+        } else {
+            PyErr_Clear();
+        }
+
+        rc = SQLITE_DENY;
+    } else {
+        if (PyInt_Check(ret)) {
+            rc = (int)PyInt_AsLong(ret);
+        } else {
+            rc = SQLITE_DENY;
+        }
+        Py_DECREF(ret);
+    }
+
+    PyGILState_Release(gilstate);
+    return rc;
+}
+
+PyObject* connection_set_authorizer(Connection* self, PyObject* args, PyObject* kwargs)
+{
+    PyObject* authorizer_cb;
+
+    static char *kwlist[] = { "authorizer_callback", NULL };
+    int rc;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O:set_authorizer",
+                                      kwlist, &authorizer_cb)) {
+        return NULL;
+    }
+
+    rc = sqlite3_set_authorizer(self->db, _authorizer_callback, (void*)authorizer_cb);
+
+    if (rc != SQLITE_OK) {
+        PyErr_SetString(OperationalError, "Error setting authorizer callback");
+        return NULL;
+    } else {
+        PyDict_SetItem(self->function_pinboard, authorizer_cb, Py_None);
+
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+}
+
 int check_thread(Connection* self)
 {
     if (self->check_same_thread) {
@@ -1105,6 +1160,8 @@ static PyMethodDef connection_methods[] = {
         PyDoc_STR("Creates a new function. Non-standard.")},
     {"create_aggregate", (PyCFunction)connection_create_aggregate, METH_VARARGS|METH_KEYWORDS,
         PyDoc_STR("Creates a new aggregate. Non-standard.")},
+    {"set_authorizer", (PyCFunction)connection_set_authorizer, METH_VARARGS|METH_KEYWORDS,
+        PyDoc_STR("Sets authorizer callback. Non-standard.")},
     {"execute", (PyCFunction)connection_execute, METH_VARARGS,
         PyDoc_STR("Executes a SQL statement. Non-standard.")},
     {"executemany", (PyCFunction)connection_executemany, METH_VARARGS,

@@ -318,6 +318,201 @@ PyMODINIT_FUNC init_sqlite(void)
     PyDict_SetItemString(dict, "PARSE_COLNAMES", tmp_obj);
     Py_DECREF(tmp_obj);
 
+
+    /******************************************************************
+     * Constants for authorizer callback
+     ******************************************************************/
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_OK))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_OK", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_DENY))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_DENY", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_IGNORE))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_IGNORE", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_CREATE_INDEX))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_CREATE_INDEX", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_CREATE_TABLE))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_CREATE_TABLE", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_CREATE_TEMP_INDEX))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_CREATE_TEMP_INDEX", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_CREATE_TEMP_TABLE))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_CREATE_TEMP_TABLE", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_CREATE_TEMP_TRIGGER))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_CREATE_TEMP_TRIGGER", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_CREATE_TEMP_VIEW))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_CREATE_TEMP_VIEW", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_CREATE_TRIGGER))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_CREATE_TRIGGER", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_CREATE_VIEW))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_CREATE_VIEW", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_DELETE))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_DELETE", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_DROP_INDEX))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_DROP_INDEX", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_DROP_TABLE))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_DROP_TABLE", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_DROP_TEMP_INDEX))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_DROP_TEMP_INDEX", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_DROP_TEMP_TABLE))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_DROP_TEMP_TABLE", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_DROP_TEMP_TRIGGER))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_DROP_TEMP_TRIGGER", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_DROP_TEMP_VIEW))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_DROP_TEMP_VIEW", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_DROP_TRIGGER))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_DROP_TRIGGER", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_DROP_VIEW))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_DROP_VIEW", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_INSERT))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_INSERT", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_PRAGMA))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_PRAGMA", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_READ))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_READ", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_SELECT))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_SELECT", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_TRANSACTION))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_TRANSACTION", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_UPDATE))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_UPDATE", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_ATTACH))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_ATTACH", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_DETACH))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_DETACH", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_ALTER_TABLE))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_ALTER_TABLE", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_REINDEX))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_REINDEX", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    if (!(tmp_obj = PyInt_FromLong(SQLITE_ANALYZE))) {
+        goto error;
+    }
+    PyDict_SetItemString(dict,"SQLITE_ANALYZE", tmp_obj);
+    Py_DECREF(tmp_obj);
+
+    /******************************************************************
+     * End constants for authorizer callback
+     ******************************************************************/
+
     if (!(tmp_obj = PyString_FromString(PYSQLITE_VERSION))) {
         goto error;
     }
