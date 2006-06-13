@@ -5,7 +5,7 @@ pysqlite usage guide
 | (c) 2004-2005 David Rushby
 | (c) 2005-2006 Gerhard Häring
 
-Last updated for pysqlite 2.2.1
+Last updated for pysqlite 2.3.0
 
 Table Of Contents
 =================
@@ -25,6 +25,7 @@ Table Of Contents
 |   `3.3 Creating and using collations`_
 |   `3.4 Checking for complete statements`_
 |   `3.5 Enabling SQLite's shared cache`_
+|   `3.6 Setting an authorizer callback`_
 | `4. SQLite and Python types`_
 |   `4.1 Introduction`_
 |   `4.2 Using adapters to store additional Python types in SQLite databases`_
@@ -668,6 +669,26 @@ To enable SQLite's shared cache for the calling thread, call the function
   .. code-block::
    :language: Python
    :source-file: code/shared_cache.py
+
+3.6 Setting an authorizer callback
+----------------------------------
+
+You can set an authorizer callback if you want to restrict what your users can
+do with the database. This is mostly useful if you accept arbitrary SQL from
+users and want to execute it safely. See the relevant section in the SQL
+documentation for details:
+http://sqlite.org/capi3ref.html#sqlite3_set_authorizer
+
+All necessary constants like SQLITE_OK, SQLITE_DENY, SQLITE_IGNORE,
+SQLITE_SELECT, SQLITE_CREATE_INDEX and all other authorizer-related constants
+are available through the dbapi2 module.
+
+Here's an example that demonstrates the usage of this function:
+
+  .. code-block::
+   :language: Python
+   :source-file: code/authorizer.py
+
 
 4. SQLite and Python types
 ==========================
