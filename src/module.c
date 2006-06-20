@@ -207,7 +207,6 @@ static PyMethodDef module_methods[] = {
     {NULL, NULL}
 };
 
-
 struct _IntConstantPair {
     char* constant_name;
     int constant_value;
