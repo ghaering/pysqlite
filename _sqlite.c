@@ -232,6 +232,8 @@ _con_dealloc(pysqlc* self)
         Py_DECREF(self->converters);
         Py_DECREF(self->expected_types);
         Py_DECREF(self->command_logfile);
+        Py_DECREF(self->busy_callback);
+        Py_DECREF(self->busy_callback_param);
 
         PyObject_Del(self);
     }
@@ -923,7 +925,7 @@ static PyObject* pysqlite_encode(PyObject *self, PyObject *args)
     {
         return PyErr_NoMemory();
     }
-    sqlite_encode_binary(in, n, out);
+    sqlite_encode_binary((unsigned char*)in, n, (unsigned char*)out);
     res = Py_BuildValue("s", out);
     free(out);
     return res;
@@ -950,7 +952,7 @@ static PyObject* pysqlite_decode(PyObject *self, PyObject *args)
     {
         return PyErr_NoMemory();
     }
-    n = sqlite_decode_binary(in, out);
+    n = sqlite_decode_binary((unsigned char*)in, (unsigned char*)out);
     res = Py_BuildValue("s#", out, n);
     free(out);
     return res;
@@ -1707,7 +1709,7 @@ int process_record(sqlite3_stmt* statement, void* p_data, int num_fields, char**
                             PyTuple_SetItem(p_row, i, Py_None);
                             break;
                         default:
-                            PyTuple_SetItem(p_row, i, PyString_FromString(sqlite3_column_text(statement, i)));
+                            PyTuple_SetItem(p_row, i, PyString_FromString((char*)sqlite3_column_text(statement, i)));
                     }
                 }
             }
