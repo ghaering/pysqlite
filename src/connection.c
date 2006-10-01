@@ -137,7 +137,7 @@ int pysqlite_connection_init(pysqlite_Connection* self, PyObject* args, PyObject
 
     self->Warning               = pysqlite_Warning;
     self->Error                 = pysqlite_Error;
-    self->InterfaceErrorError   = pysqlite_InterfaceErrorError;
+    self->InterfaceError        = pysqlite_InterfaceError;
     self->DatabaseError         = pysqlite_DatabaseError;
     self->DataError             = pysqlite_DataError;
     self->OperationalError      = pysqlite_OperationalError;
@@ -1192,14 +1192,14 @@ static struct PyMemberDef connection_members[] =
 {
     {"Warning", T_OBJECT, offsetof(pysqlite_Connection, Warning), RO},
     {"Error", T_OBJECT, offsetof(pysqlite_Connection, Error), RO},
-    {"pysqlite_InterfaceErrorError", T_OBJECT, offsetof(pysqlite_Connection, InterfaceErrorError), RO},
-    {"pysqlite_DatabaseError", T_OBJECT, offsetof(pysqlite_Connection, DatabaseError), RO},
-    {"pysqlite_DataError", T_OBJECT, offsetof(pysqlite_Connection, DataError), RO},
-    {"pysqlite_OperationalError", T_OBJECT, offsetof(pysqlite_Connection, OperationalError), RO},
-    {"pysqlite_IntegrityError", T_OBJECT, offsetof(pysqlite_Connection, IntegrityError), RO},
-    {"pysqlite_InternalError", T_OBJECT, offsetof(pysqlite_Connection, InternalError), RO},
-    {"pysqlite_ProgrammingError", T_OBJECT, offsetof(pysqlite_Connection, ProgrammingError), RO},
-    {"pysqlite_NotSupportedError", T_OBJECT, offsetof(pysqlite_Connection, NotSupportedError), RO},
+    {"InterfaceError", T_OBJECT, offsetof(pysqlite_Connection, InterfaceError), RO},
+    {"DatabaseError", T_OBJECT, offsetof(pysqlite_Connection, DatabaseError), RO},
+    {"DataError", T_OBJECT, offsetof(pysqlite_Connection, DataError), RO},
+    {"OperationalError", T_OBJECT, offsetof(pysqlite_Connection, OperationalError), RO},
+    {"IntegrityError", T_OBJECT, offsetof(pysqlite_Connection, IntegrityError), RO},
+    {"InternalError", T_OBJECT, offsetof(pysqlite_Connection, InternalError), RO},
+    {"ProgrammingError", T_OBJECT, offsetof(pysqlite_Connection, ProgrammingError), RO},
+    {"NotSupportedError", T_OBJECT, offsetof(pysqlite_Connection, NotSupportedError), RO},
     {"row_factory", T_OBJECT, offsetof(pysqlite_Connection, row_factory)},
     {"text_factory", T_OBJECT, offsetof(pysqlite_Connection, text_factory)},
     {NULL}

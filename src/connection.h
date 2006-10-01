@@ -98,7 +98,7 @@ typedef struct
     /* Exception objects */
     PyObject* Warning;
     PyObject* Error;
-    PyObject* InterfaceErrorError;
+    PyObject* InterfaceError;
     PyObject* DatabaseError;
     PyObject* DataError;
     PyObject* OperationalError;

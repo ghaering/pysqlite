@@ -35,7 +35,7 @@
 
 /* static objects at module-level */
 
-PyObject* pysqlite_Error, *pysqlite_Warning, *pysqlite_InterfaceErrorError, *pysqlite_DatabaseError,
+PyObject* pysqlite_Error, *pysqlite_Warning, *pysqlite_InterfaceError, *pysqlite_DatabaseError,
     *pysqlite_InternalError, *pysqlite_OperationalError, *pysqlite_ProgrammingError,
     *pysqlite_IntegrityError, *pysqlite_DataError, *pysqlite_NotSupportedError, *pysqlite_OptimizedUnicode;
 
@@ -306,47 +306,47 @@ PyMODINIT_FUNC init_sqlite(void)
 
     /* Error subclasses */
 
-    if (!(pysqlite_InterfaceErrorError = PyErr_NewException(MODULE_NAME ".pysqlite_InterfaceErrorError", pysqlite_Error, NULL))) {
+    if (!(pysqlite_InterfaceError = PyErr_NewException(MODULE_NAME ".InterfaceError", pysqlite_Error, NULL))) {
         goto error;
     }
-    PyDict_SetItemString(dict, "pysqlite_InterfaceErrorError", pysqlite_InterfaceErrorError);
+    PyDict_SetItemString(dict, "InterfaceError", pysqlite_InterfaceError);
 
-    if (!(pysqlite_DatabaseError = PyErr_NewException(MODULE_NAME ".pysqlite_DatabaseError", pysqlite_Error, NULL))) {
+    if (!(pysqlite_DatabaseError = PyErr_NewException(MODULE_NAME ".DatabaseError", pysqlite_Error, NULL))) {
         goto error;
     }
-    PyDict_SetItemString(dict, "pysqlite_DatabaseError", pysqlite_DatabaseError);
+    PyDict_SetItemString(dict, "DatabaseError", pysqlite_DatabaseError);
 
     /* pysqlite_DatabaseError subclasses */
 
-    if (!(pysqlite_InternalError = PyErr_NewException(MODULE_NAME ".pysqlite_InternalError", pysqlite_DatabaseError, NULL))) {
+    if (!(pysqlite_InternalError = PyErr_NewException(MODULE_NAME ".InternalError", pysqlite_DatabaseError, NULL))) {
         goto error;
     }
-    PyDict_SetItemString(dict, "pysqlite_InternalError", pysqlite_InternalError);
+    PyDict_SetItemString(dict, "InternalError", pysqlite_InternalError);
 
-    if (!(pysqlite_OperationalError = PyErr_NewException(MODULE_NAME ".pysqlite_OperationalError", pysqlite_DatabaseError, NULL))) {
+    if (!(pysqlite_OperationalError = PyErr_NewException(MODULE_NAME ".OperationalError", pysqlite_DatabaseError, NULL))) {
         goto error;
     }
-    PyDict_SetItemString(dict, "pysqlite_OperationalError", pysqlite_OperationalError);
+    PyDict_SetItemString(dict, "OperationalError", pysqlite_OperationalError);
 
-    if (!(pysqlite_ProgrammingError = PyErr_NewException(MODULE_NAME ".pysqlite_ProgrammingError", pysqlite_DatabaseError, NULL))) {
+    if (!(pysqlite_ProgrammingError = PyErr_NewException(MODULE_NAME ".ProgrammingError", pysqlite_DatabaseError, NULL))) {
         goto error;
     }
-    PyDict_SetItemString(dict, "pysqlite_ProgrammingError", pysqlite_ProgrammingError);
+    PyDict_SetItemString(dict, "ProgrammingError", pysqlite_ProgrammingError);
 
-    if (!(pysqlite_IntegrityError = PyErr_NewException(MODULE_NAME ".pysqlite_IntegrityError", pysqlite_DatabaseError,NULL))) {
+    if (!(pysqlite_IntegrityError = PyErr_NewException(MODULE_NAME ".IntegrityError", pysqlite_DatabaseError,NULL))) {
         goto error;
     }
-    PyDict_SetItemString(dict, "pysqlite_IntegrityError", pysqlite_IntegrityError);
+    PyDict_SetItemString(dict, "IntegrityError", pysqlite_IntegrityError);
 
-    if (!(pysqlite_DataError = PyErr_NewException(MODULE_NAME ".pysqlite_DataError", pysqlite_DatabaseError, NULL))) {
+    if (!(pysqlite_DataError = PyErr_NewException(MODULE_NAME ".DataError", pysqlite_DatabaseError, NULL))) {
         goto error;
     }
-    PyDict_SetItemString(dict, "pysqlite_DataError", pysqlite_DataError);
+    PyDict_SetItemString(dict, "DataError", pysqlite_DataError);
 
-    if (!(pysqlite_NotSupportedError = PyErr_NewException(MODULE_NAME ".pysqlite_NotSupportedError", pysqlite_DatabaseError, NULL))) {
+    if (!(pysqlite_NotSupportedError = PyErr_NewException(MODULE_NAME ".NotSupportedError", pysqlite_DatabaseError, NULL))) {
         goto error;
     }
-    PyDict_SetItemString(dict, "pysqlite_NotSupportedError", pysqlite_NotSupportedError);
+    PyDict_SetItemString(dict, "NotSupportedError", pysqlite_NotSupportedError);
 
     /* We just need "something" unique for pysqlite_OptimizedUnicode. It does not really
      * need to be a string subclass. Just anything that can act as a special

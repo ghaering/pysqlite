@@ -29,7 +29,7 @@
 
 extern PyObject* pysqlite_Error;
 extern PyObject* pysqlite_Warning;
-extern PyObject* pysqlite_InterfaceErrorError;
+extern PyObject* pysqlite_InterfaceError;
 extern PyObject* pysqlite_DatabaseError;
 extern PyObject* pysqlite_InternalError;
 extern PyObject* pysqlite_OperationalError;
