@@ -25,7 +25,7 @@
 #include "cursor.h"
 #include "sqlitecompat.h"
 
-void row_dealloc(Row* self)
+void pysqlite_row_dealloc(pysqlite_Row* self)
 {
     Py_XDECREF(self->data);
     Py_XDECREF(self->description);
@@ -33,10 +33,10 @@ void row_dealloc(Row* self)
     self->ob_type->tp_free((PyObject*)self);
 }
 
-int row_init(Row* self, PyObject* args, PyObject* kwargs)
+int pysqlite_row_init(pysqlite_Row* self, PyObject* args, PyObject* kwargs)
 {
     PyObject* data;
-    Cursor* cursor;
+    pysqlite_Cursor* cursor;
 
     self->data = 0;
     self->description = 0;
@@ -45,7 +45,7 @@ int row_init(Row* self, PyObject* args, PyObject* kwargs)
         return -1;
     }
 
-    if (!PyObject_IsInstance((PyObject*)cursor, (PyObject*)&CursorType)) {
+    if (!PyObject_IsInstance((PyObject*)cursor, (PyObject*)&pysqlite_CursorType)) {
         PyErr_SetString(PyExc_TypeError, "instance of cursor required for first argument");
         return -1;
     }
@@ -64,7 +64,7 @@ int row_init(Row* self, PyObject* args, PyObject* kwargs)
     return 0;
 }
 
-PyObject* row_subscript(Row* self, PyObject* idx)
+PyObject* pysqlite_row_subscript(pysqlite_Row* self, PyObject* idx)
 {
     long _idx;
     char* key;
@@ -133,32 +133,32 @@ PyObject* row_subscript(Row* self, PyObject* idx)
     }
 }
 
-Py_ssize_t row_length(Row* self, PyObject* args, PyObject* kwargs)
+Py_ssize_t pysqlite_row_length(pysqlite_Row* self, PyObject* args, PyObject* kwargs)
 {
     return PyTuple_GET_SIZE(self->data);
 }
 
-static int row_print(Row* self, FILE *fp, int flags)
+static int pysqlite_row_print(pysqlite_Row* self, FILE *fp, int flags)
 {
     return (&PyTuple_Type)->tp_print(self->data, fp, flags);
 }
 
 
-PyMappingMethods row_as_mapping = {
-    /* mp_length        */ (lenfunc)row_length,
-    /* mp_subscript     */ (binaryfunc)row_subscript,
+PyMappingMethods pysqlite_row_as_mapping = {
+    /* mp_length        */ (lenfunc)pysqlite_row_length,
+    /* mp_subscript     */ (binaryfunc)pysqlite_row_subscript,
     /* mp_ass_subscript */ (objobjargproc)0,
 };
 
 
-PyTypeObject RowType = {
+PyTypeObject pysqlite_RowType = {
         PyObject_HEAD_INIT(NULL)
         0,                                              /* ob_size */
         MODULE_NAME ".Row",                             /* tp_name */
-        sizeof(Row),                                    /* tp_basicsize */
+        sizeof(pysqlite_Row),                           /* tp_basicsize */
         0,                                              /* tp_itemsize */
-        (destructor)row_dealloc,                        /* tp_dealloc */
-        (printfunc)row_print,                           /* tp_print */
+        (destructor)pysqlite_row_dealloc,               /* tp_dealloc */
+        (printfunc)pysqlite_row_print,                  /* tp_print */
         0,                                              /* tp_getattr */
         0,                                              /* tp_setattr */
         0,                                              /* tp_compare */
@@ -188,15 +188,15 @@ PyTypeObject RowType = {
         0,                                              /* tp_descr_get */
         0,                                              /* tp_descr_set */
         0,                                              /* tp_dictoffset */
-        (initproc)row_init,                             /* tp_init */
+        (initproc)pysqlite_row_init,                    /* tp_init */
         0,                                              /* tp_alloc */
         0,                                              /* tp_new */
         0                                               /* tp_free */
 };
 
-extern int row_setup_types(void)
+extern int pysqlite_row_setup_types(void)
 {
-    RowType.tp_new = PyType_GenericNew;
-    RowType.tp_as_mapping = &row_as_mapping;
-    return PyType_Ready(&RowType);
+    pysqlite_RowType.tp_new = PyType_GenericNew;
+    pysqlite_RowType.tp_as_mapping = &pysqlite_row_as_mapping;
+    return PyType_Ready(&pysqlite_RowType);
 }
