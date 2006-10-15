@@ -32,7 +32,7 @@ SQLITE_OBJ = alter.o analyze.o attach.o auth.o btree.o build.o \
          select.o table.o tokenize.o trigger.o update.o \
          util.o vacuum.o \
          vdbe.o vdbeapi.o vdbeaux.o vdbefifo.o vdbemem.o \
-         where.o utf.o legacy.o
+         where.o utf.o legacy.o loadext.o vtab.o
 SQLITE_PRG_OBJ=shell.o 
 
 all: sqlite3.lib
