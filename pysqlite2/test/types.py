@@ -106,6 +106,7 @@ class DeclTypesTests(unittest.TestCase):
         # and implement two custom ones
         sqlite.converters["BOOL"] = lambda x: bool(int(x))
         sqlite.converters["FOO"] = DeclTypesTests.Foo
+        sqlite.converters["WRONG"] = lambda x: "WRONG"
 
     def tearDown(self):
         del sqlite.converters["FLOAT"]
@@ -117,7 +118,7 @@ class DeclTypesTests(unittest.TestCase):
     def CheckString(self):
         # default
         self.cur.execute("insert into test(s) values (?)", ("foo",))
-        self.cur.execute("select s from test")
+        self.cur.execute('select s as "s [WRONG]" from test')
         row = self.cur.fetchone()
         self.failUnlessEqual(row[0], "foo")
 
@@ -204,7 +205,7 @@ class DeclTypesTests(unittest.TestCase):
 
 class ColNamesTests(unittest.TestCase):
     def setUp(self):
-        self.con = sqlite.connect(":memory:", detect_types=sqlite.PARSE_COLNAMES|sqlite.PARSE_DECLTYPES)
+        self.con = sqlite.connect(":memory:", detect_types=sqlite.PARSE_COLNAMES)
         self.cur = self.con.cursor()
         self.cur.execute("create table test(x foo)")
 
@@ -219,11 +220,15 @@ class ColNamesTests(unittest.TestCase):
         self.cur.close()
         self.con.close()
 
-    def CheckDeclType(self):
+    def CheckDeclTypeNotUsed(self):
+        """
+        Assures that the declared type is not used when PARSE_DECLTYPES
+        is not set.
+        """
         self.cur.execute("insert into test(x) values (?)", ("xxx",))
         self.cur.execute("select x from test")
         val = self.cur.fetchone()[0]
-        self.failUnlessEqual(val, "[xxx]")
+        self.failUnlessEqual(val, "xxx")
 
     def CheckNone(self):
         self.cur.execute("insert into test(x) values (?)", (None,))

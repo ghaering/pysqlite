@@ -175,7 +175,7 @@ int pysqlite_build_row_cast_map(pysqlite_Cursor* self)
     for (i = 0; i < sqlite3_column_count(self->statement->st); i++) {
         converter = NULL;
 
-        if (self->connection->detect_types | PARSE_COLNAMES) {
+        if (self->connection->detect_types & PARSE_COLNAMES) {
             colname = sqlite3_column_name(self->statement->st, i);
             if (colname) {
                 for (pos = colname; *pos != 0; pos++) {
@@ -198,7 +198,7 @@ int pysqlite_build_row_cast_map(pysqlite_Cursor* self)
             }
         }
 
-        if (!converter && self->connection->detect_types | PARSE_DECLTYPES) {
+        if (!converter && self->connection->detect_types & PARSE_DECLTYPES) {
             decltype = sqlite3_column_decltype(self->statement->st, i);
             if (decltype) {
                 for (pos = decltype;;pos++) {
