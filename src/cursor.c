@@ -608,14 +608,24 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
             goto error;
         }
 
-        rc = _sqlite_step_with_busyhandler(self->statement->st, self->connection);
-        if (rc != SQLITE_DONE && rc != SQLITE_ROW) {
+        /* Keep trying the SQL statement until the schema stops changing. */
+        while (1) {
+            /* Actually execute the SQL statement. */
+            rc = _sqlite_step_with_busyhandler(self->statement->st, self->connection);
+            if (rc == SQLITE_DONE ||  rc == SQLITE_ROW) {
+                /* If it worked, let's get out of the loop */
+                break;
+            }
+            /* Something went wrong.  Re-set the statement and try again. */
             rc = pysqlite_statement_reset(self->statement);
             if (rc == SQLITE_SCHEMA) {
+                /* If this was a result of the schema changing, let's try
+                   again. */
                 rc = pysqlite_statement_recompile(self->statement, parameters);
                 if (rc == SQLITE_OK) {
-                    rc = _sqlite_step_with_busyhandler(self->statement->st, self->connection);
+                    continue;
                 } else {
+                    /* If the database gave us an error, promote it to Python. */
                     _pysqlite_seterror(self->connection->db);
                     goto error;
                 }
