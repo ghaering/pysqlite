@@ -339,6 +339,13 @@ class DateTimeTests(unittest.TestCase):
         ts2 = self.cur.fetchone()[0]
         self.failUnlessEqual(ts, ts2)
 
+    def CheckDateTimeSubSecondsFloatingPoint(self):
+        ts = sqlite.Timestamp(2004, 2, 14, 7, 15, 0, 510241)
+        self.cur.execute("insert into test(ts) values (?)", (ts,))
+        self.cur.execute("select ts from test")
+        ts2 = self.cur.fetchone()[0]
+        self.failUnlessEqual(ts, ts2)
+
 def suite():
     sqlite_type_suite = unittest.makeSuite(SqliteTypeTests, "Check")
     decltypes_type_suite = unittest.makeSuite(DeclTypesTests, "Check")
