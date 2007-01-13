@@ -861,15 +861,17 @@ PyObject* pysqlite_cursor_iternext(pysqlite_Cursor *self)
         next_row = next_row_tuple;
     }
 
-    rc = _sqlite_step_with_busyhandler(self->statement->st, self->connection);
-    if (rc != SQLITE_DONE && rc != SQLITE_ROW) {
-        Py_DECREF(next_row);
-        _pysqlite_seterror(self->connection->db);
-        return NULL;
-    }
+    if (self->statement) {
+        rc = _sqlite_step_with_busyhandler(self->statement->st, self->connection);
+        if (rc != SQLITE_DONE && rc != SQLITE_ROW) {
+            Py_DECREF(next_row);
+            _pysqlite_seterror(self->connection->db);
+            return NULL;
+        }
 
-    if (rc == SQLITE_ROW) {
-        self->next_row = _pysqlite_fetch_one_row(self);
+        if (rc == SQLITE_ROW) {
+            self->next_row = _pysqlite_fetch_one_row(self);
+        }
     }
 
     return next_row;
