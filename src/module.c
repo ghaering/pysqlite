@@ -141,36 +141,29 @@ static PyObject* module_register_adapter(PyObject* self, PyObject* args, PyObjec
 
 static PyObject* module_register_converter(PyObject* self, PyObject* args, PyObject* kwargs)
 {
-    char* orig_name;
-    char* name = NULL;
-    char* c;
+    PyObject* orig_name;
+    PyObject* name = NULL;
     PyObject* callable;
     PyObject* retval = NULL;
 
-    if (!PyArg_ParseTuple(args, "sO", &orig_name, &callable)) {
+    if (!PyArg_ParseTuple(args, "SO", &orig_name, &callable)) {
         return NULL;
     }
 
-    /* convert the name to lowercase */
-    name = PyMem_Malloc(strlen(orig_name) + 2);
+    /* convert the name to upper case */
+    name = PyObject_CallMethod(orig_name, "upper", "");
     if (!name) {
         goto error;
     }
-    strcpy(name, orig_name);
-    for (c = name; *c != (char)0; c++) {
-        *c = (*c) & 0xDF;
-    }
 
-    if (PyDict_SetItemString(converters, name, callable) != 0) {
+    if (PyDict_SetItem(converters, name, callable) != 0) {
         goto error;
     }
 
     Py_INCREF(Py_None);
     retval = Py_None;
 error:
-    if (name) {
-        PyMem_Free(name);
-    }
+    Py_XDECREF(name);
     return retval;
 }
 

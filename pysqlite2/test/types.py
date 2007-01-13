@@ -212,11 +212,13 @@ class ColNamesTests(unittest.TestCase):
         sqlite.converters["FOO"] = lambda x: "[%s]" % x
         sqlite.converters["BAR"] = lambda x: "<%s>" % x
         sqlite.converters["EXC"] = lambda x: 5/0
+        sqlite.converters["B1B1"] = lambda x: "MARKER"
 
     def tearDown(self):
         del sqlite.converters["FOO"]
         del sqlite.converters["BAR"]
         del sqlite.converters["EXC"]
+        del sqlite.converters["B1B1"]
         self.cur.close()
         self.con.close()
 
@@ -245,6 +247,11 @@ class ColNamesTests(unittest.TestCase):
         # Check if the stripping of colnames works. Everything after the first
         # whitespace should be stripped.
         self.failUnlessEqual(self.cur.description[0][0], "x")
+
+    def CheckCaseInConverterName(self):
+        self.cur.execute("""select 'other' as "x [b1b1]\"""")
+        val = self.cur.fetchone()[0]
+        self.failUnlessEqual(val, "MARKER")
 
     def CheckCursorDescriptionNoRow(self):
         """
