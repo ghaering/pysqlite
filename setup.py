@@ -97,6 +97,7 @@ def get_setup_args():
         match = version_re.match(line)
         if match:
             PYSQLITE_VERSION = match.groups()[0]
+            PYSQLITE_MINOR_VERSION = ".".join(PYSQLITE_VERSION.split('.')[:2])
             break
     f.close()
 
@@ -122,6 +123,9 @@ def get_setup_args():
             license = "zlib/libpng license",
             platforms = "ALL",
             url = "http://pysqlite.org/",
+            download_url = "http://initd.org/pub/software/pysqlite/releases/%s/%s/pysqlite-%s.tar.gz" % \
+                (PYSQLITE_MINOR_VERSION, PYSQLITE_VERSION, PYSQLITE_VERSION),
+
 
             # Description of the modules and packages in the distribution
             package_dir = {"pysqlite2": "pysqlite2"},
