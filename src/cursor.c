@@ -631,7 +631,7 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
                 }
             } else {
                 if (PyErr_Occurred()) {
-                    /* there was an error that occured in a user-defined callback */
+                    /* there was an error that occurred in a user-defined callback */
                     if (_enable_callback_tracebacks) {
                         PyErr_Print();
                     } else {

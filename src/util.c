@@ -37,7 +37,7 @@ int _sqlite_step_with_busyhandler(sqlite3_stmt* statement, pysqlite_Connection* 
 
 /**
  * Checks the SQLite error code and sets the appropriate DB-API exception.
- * Returns the error code (0 means no error occured).
+ * Returns the error code (0 means no error occurred).
  */
 int _pysqlite_seterror(sqlite3* db)
 {
