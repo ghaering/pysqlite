@@ -32,6 +32,9 @@
 
 #include "pythread.h"
 
+#define ACTION_FINALIZE 1
+#define ACTION_RESET 2
+
 static int pysqlite_connection_set_isolation_level(pysqlite_Connection* self, PyObject* isolation_level);
 
 
@@ -169,7 +172,8 @@ void pysqlite_flush_statement_cache(pysqlite_Connection* self)
     self->statement_cache->decref_factory = 0;
 }
 
-void pysqlite_reset_all_statements(pysqlite_Connection* self)
+/* action in (ACTION_RESET, ACTION_FINALIZE) */
+void pysqlite_do_all_statements(pysqlite_Connection* self, int action)
 {
     int i;
     PyObject* weakref;
@@ -179,7 +183,11 @@ void pysqlite_reset_all_statements(pysqlite_Connection* self)
         weakref = PyList_GetItem(self->statements, i);
         statement = PyWeakref_GetObject(weakref);
         if (statement != Py_None) {
-            (void)pysqlite_statement_reset((pysqlite_Statement*)statement);
+            if (action == ACTION_RESET) {
+                (void)pysqlite_statement_reset((pysqlite_Statement*)statement);
+            } else {
+                (void)pysqlite_statement_finalize((pysqlite_Statement*)statement);
+            }
         }
     }
 }
@@ -247,7 +255,7 @@ PyObject* pysqlite_connection_close(pysqlite_Connection* self, PyObject* args)
         return NULL;
     }
 
-    pysqlite_flush_statement_cache(self);
+    pysqlite_do_all_statements(self, ACTION_FINALIZE);
 
     if (self->db) {
         Py_BEGIN_ALLOW_THREADS
@@ -375,7 +383,7 @@ PyObject* pysqlite_connection_rollback(pysqlite_Connection* self, PyObject* args
     }
 
     if (self->inTransaction) {
-        pysqlite_reset_all_statements(self);
+        pysqlite_do_all_statements(self, ACTION_RESET);
 
         Py_BEGIN_ALLOW_THREADS
         rc = sqlite3_prepare(self->db, "ROLLBACK", -1, &statement, &tail);
