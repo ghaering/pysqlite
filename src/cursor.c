@@ -626,7 +626,8 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
                     continue;
                 } else {
                     /* If the database gave us an error, promote it to Python. */
-                    _pysqlite_seterror(self->connection->db);
+                    (void)pysqlite_statement_reset(self->statement);
+                    _pysqlite_seterror(self->connection->db, NULL);
                     goto error;
                 }
             } else {
@@ -638,7 +639,8 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
                         PyErr_Clear();
                     }
                 }
-                _pysqlite_seterror(self->connection->db);
+                (void)pysqlite_statement_reset(self->statement);
+                _pysqlite_seterror(self->connection->db, NULL);
                 goto error;
             }
         }
@@ -788,7 +790,7 @@ PyObject* pysqlite_cursor_executescript(pysqlite_Cursor* self, PyObject* args)
                              &statement,
                              &script_cstr);
         if (rc != SQLITE_OK) {
-            _pysqlite_seterror(self->connection->db);
+            _pysqlite_seterror(self->connection->db, NULL);
             goto error;
         }
 
@@ -796,17 +798,18 @@ PyObject* pysqlite_cursor_executescript(pysqlite_Cursor* self, PyObject* args)
         rc = SQLITE_ROW;
         while (rc == SQLITE_ROW) {
             rc = _sqlite_step_with_busyhandler(statement, self->connection);
+            /* TODO: we probably need more error handling here */
         }
 
         if (rc != SQLITE_DONE) {
             (void)sqlite3_finalize(statement);
-            _pysqlite_seterror(self->connection->db);
+            _pysqlite_seterror(self->connection->db, NULL);
             goto error;
         }
 
         rc = sqlite3_finalize(statement);
         if (rc != SQLITE_OK) {
-            _pysqlite_seterror(self->connection->db);
+            _pysqlite_seterror(self->connection->db, NULL);
             goto error;
         }
     }
@@ -864,8 +867,9 @@ PyObject* pysqlite_cursor_iternext(pysqlite_Cursor *self)
     if (self->statement) {
         rc = _sqlite_step_with_busyhandler(self->statement->st, self->connection);
         if (rc != SQLITE_DONE && rc != SQLITE_ROW) {
+            (void)pysqlite_statement_reset(self->statement);
             Py_DECREF(next_row);
-            _pysqlite_seterror(self->connection->db);
+            _pysqlite_seterror(self->connection->db, NULL);
             return NULL;
         }
 

@@ -93,6 +93,20 @@ class RegressionTests(unittest.TestCase):
             cur.execute("select 1 x union select " + str(i))
         con.close()
 
+    def CheckUsefulErrorMessage(self):
+        # pysqlite versions <= 2.3.3 didn't reset statements after a sqlite3_step() call.
+        # SQLite is quirky if you don't do that and can report bogus error messages.
+        con = sqlite.connect(":memory:")
+        try:
+            con.execute("create table foo(bar)")
+            con.execute("begin")
+            con.execute("delete from foo")
+        except sqlite.OperationalError, e:
+            if e.message != "cannot start a transaction within a transaction":
+                self.fail("raised wrong error message: " + e.message)
+            return
+        self.fail("should have raised an OperationalError")
+
 def suite():
     regression_suite = unittest.makeSuite(RegressionTests, "Check")
     return unittest.TestSuite((regression_suite,))

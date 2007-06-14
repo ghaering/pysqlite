@@ -85,7 +85,7 @@ int pysqlite_connection_init(pysqlite_Connection* self, PyObject* args, PyObject
     Py_END_ALLOW_THREADS
 
     if (rc != SQLITE_OK) {
-        _pysqlite_seterror(self->db);
+        _pysqlite_seterror(self->db, NULL);
         return -1;
     }
 
@@ -263,7 +263,7 @@ PyObject* pysqlite_connection_close(pysqlite_Connection* self, PyObject* args)
         Py_END_ALLOW_THREADS
 
         if (rc != SQLITE_OK) {
-            _pysqlite_seterror(self->db);
+            _pysqlite_seterror(self->db, NULL);
             return NULL;
         } else {
             self->db = NULL;
@@ -300,7 +300,7 @@ PyObject* _pysqlite_connection_begin(pysqlite_Connection* self)
     Py_END_ALLOW_THREADS
 
     if (rc != SQLITE_OK) {
-        _pysqlite_seterror(self->db);
+        _pysqlite_seterror(self->db, statement);
         goto error;
     }
 
@@ -308,7 +308,7 @@ PyObject* _pysqlite_connection_begin(pysqlite_Connection* self)
     if (rc == SQLITE_DONE) {
         self->inTransaction = 1;
     } else {
-        _pysqlite_seterror(self->db);
+        _pysqlite_seterror(self->db, statement);
     }
 
     Py_BEGIN_ALLOW_THREADS
@@ -316,7 +316,7 @@ PyObject* _pysqlite_connection_begin(pysqlite_Connection* self)
     Py_END_ALLOW_THREADS
 
     if (rc != SQLITE_OK && !PyErr_Occurred()) {
-        _pysqlite_seterror(self->db);
+        _pysqlite_seterror(self->db, NULL);
     }
 
 error:
@@ -343,7 +343,7 @@ PyObject* pysqlite_connection_commit(pysqlite_Connection* self, PyObject* args)
         rc = sqlite3_prepare(self->db, "COMMIT", -1, &statement, &tail);
         Py_END_ALLOW_THREADS
         if (rc != SQLITE_OK) {
-            _pysqlite_seterror(self->db);
+            _pysqlite_seterror(self->db, NULL);
             goto error;
         }
 
@@ -351,14 +351,14 @@ PyObject* pysqlite_connection_commit(pysqlite_Connection* self, PyObject* args)
         if (rc == SQLITE_DONE) {
             self->inTransaction = 0;
         } else {
-            _pysqlite_seterror(self->db);
+            _pysqlite_seterror(self->db, statement);
         }
 
         Py_BEGIN_ALLOW_THREADS
         rc = sqlite3_finalize(statement);
         Py_END_ALLOW_THREADS
         if (rc != SQLITE_OK && !PyErr_Occurred()) {
-            _pysqlite_seterror(self->db);
+            _pysqlite_seterror(self->db, NULL);
         }
 
     }
@@ -389,7 +389,7 @@ PyObject* pysqlite_connection_rollback(pysqlite_Connection* self, PyObject* args
         rc = sqlite3_prepare(self->db, "ROLLBACK", -1, &statement, &tail);
         Py_END_ALLOW_THREADS
         if (rc != SQLITE_OK) {
-            _pysqlite_seterror(self->db);
+            _pysqlite_seterror(self->db, NULL);
             goto error;
         }
 
@@ -397,14 +397,14 @@ PyObject* pysqlite_connection_rollback(pysqlite_Connection* self, PyObject* args
         if (rc == SQLITE_DONE) {
             self->inTransaction = 0;
         } else {
-            _pysqlite_seterror(self->db);
+            _pysqlite_seterror(self->db, statement);
         }
 
         Py_BEGIN_ALLOW_THREADS
         rc = sqlite3_finalize(statement);
         Py_END_ALLOW_THREADS
         if (rc != SQLITE_OK && !PyErr_Occurred()) {
-            _pysqlite_seterror(self->db);
+            _pysqlite_seterror(self->db, NULL);
         }
 
     }
@@ -900,7 +900,8 @@ PyObject* pysqlite_connection_call(pysqlite_Connection* self, PyObject* args, Py
         } else if (rc == PYSQLITE_SQL_WRONG_TYPE) {
             PyErr_SetString(pysqlite_Warning, "SQL is of wrong type. Must be string or unicode.");
         } else {
-            _pysqlite_seterror(self->db);
+            (void)pysqlite_statement_reset(statement);
+            _pysqlite_seterror(self->db, NULL); 
         }
 
         Py_DECREF(statement);
@@ -1142,7 +1143,7 @@ pysqlite_connection_create_collation(pysqlite_Connection* self, PyObject* args)
                                   (callable != Py_None) ? pysqlite_collation_callback : NULL);
     if (rc != SQLITE_OK) {
         PyDict_DelItem(self->collations, uppercase_name);
-        _pysqlite_seterror(self->db);
+        _pysqlite_seterror(self->db, NULL);
         goto finally;
     }
 
