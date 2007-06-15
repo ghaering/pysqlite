@@ -80,7 +80,7 @@ int pysqlite_cursor_init(pysqlite_Cursor* self, PyObject* args, PyObject* kwargs
 
     if (!PyArg_ParseTuple(args, "O!", &pysqlite_ConnectionType, &connection))
     {
-        return -1; 
+        return -1;
     }
 
     Py_INCREF(connection);
@@ -435,7 +435,7 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
     if (multiple) {
         /* executemany() */
         if (!PyArg_ParseTuple(args, "OO", &operation, &second_argument)) {
-            return NULL; 
+            return NULL;
         }
 
         if (!PyString_Check(operation) && !PyUnicode_Check(operation)) {
@@ -457,7 +457,7 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
     } else {
         /* execute() */
         if (!PyArg_ParseTuple(args, "O|O", &operation, &second_argument)) {
-            return NULL; 
+            return NULL;
         }
 
         if (!PyString_Check(operation) && !PyUnicode_Check(operation)) {
@@ -750,7 +750,7 @@ PyObject* pysqlite_cursor_executescript(pysqlite_Cursor* self, PyObject* args)
     int statement_completed = 0;
 
     if (!PyArg_ParseTuple(args, "O", &script_obj)) {
-        return NULL; 
+        return NULL;
     }
 
     if (!pysqlite_check_thread(self->connection) || !pysqlite_check_connection(self->connection)) {
@@ -894,15 +894,17 @@ PyObject* pysqlite_cursor_fetchone(pysqlite_Cursor* self, PyObject* args)
     return row;
 }
 
-PyObject* pysqlite_cursor_fetchmany(pysqlite_Cursor* self, PyObject* args)
+PyObject* pysqlite_cursor_fetchmany(pysqlite_Cursor* self, PyObject* args, PyObject* kwargs)
 {
+    static char *kwlist[] = {"size", NULL, NULL};
+
     PyObject* row;
     PyObject* list;
     int maxrows = self->arraysize;
     int counter = 0;
 
-    if (!PyArg_ParseTuple(args, "|i", &maxrows)) {
-        return NULL; 
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|i:fetchmany", kwlist, &maxrows)) {
+        return NULL;
     }
 
     list = PyList_New(0);
@@ -996,7 +998,7 @@ static PyMethodDef cursor_methods[] = {
         PyDoc_STR("Executes a multiple SQL statements at once. Non-standard.")},
     {"fetchone", (PyCFunction)pysqlite_cursor_fetchone, METH_NOARGS,
         PyDoc_STR("Fetches several rows from the resultset.")},
-    {"fetchmany", (PyCFunction)pysqlite_cursor_fetchmany, METH_VARARGS,
+    {"fetchmany", (PyCFunction)pysqlite_cursor_fetchmany, METH_VARARGS|METH_KEYWORDS,
         PyDoc_STR("Fetches all rows from the resultset.")},
     {"fetchall", (PyCFunction)pysqlite_cursor_fetchall, METH_NOARGS,
         PyDoc_STR("Fetches one row from the resultset.")},

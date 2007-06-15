@@ -66,7 +66,7 @@ int pysqlite_connection_init(pysqlite_Connection* self, PyObject* args, PyObject
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|diOiOi", kwlist,
                                      &database, &timeout, &detect_types, &isolation_level, &check_same_thread, &factory, &cached_statements))
     {
-        return -1; 
+        return -1;
     }
 
     self->begin_statement = NULL;
@@ -901,7 +901,7 @@ PyObject* pysqlite_connection_call(pysqlite_Connection* self, PyObject* args, Py
             PyErr_SetString(pysqlite_Warning, "SQL is of wrong type. Must be string or unicode.");
         } else {
             (void)pysqlite_statement_reset(statement);
-            _pysqlite_seterror(self->db, NULL); 
+            _pysqlite_seterror(self->db, NULL);
         }
 
         Py_DECREF(statement);

@@ -378,6 +378,12 @@ class CursorTests(unittest.TestCase):
         res = self.cu.fetchmany(100)
         self.failUnlessEqual(res, [])
 
+    def CheckFetchmanyKwArg(self):
+        """Checks if fetchmany works with keyword arguments"""
+        self.cu.execute("select name from test")
+        res = self.cu.fetchmany(size=100)
+        self.failUnlessEqual(len(res), 1)
+
     def CheckFetchall(self):
         self.cu.execute("select name from test")
         res = self.cu.fetchall()
