@@ -119,6 +119,23 @@ class TransactionTests(unittest.TestCase):
         except:
             self.fail("should have raised an OperationalError")
 
+    def CheckLocking(self):
+        """
+        This tests the improved concurrency with pysqlite 2.3.4. You needed
+        to roll back con2 before you could commit con1.
+        """
+        self.cur1.execute("create table test(i)")
+        self.cur1.execute("insert into test(i) values (5)")
+        try:
+            self.cur2.execute("insert into test(i) values (5)")
+            self.fail("should have raised an OperationalError")
+        except sqlite.OperationalError:
+            pass
+        except:
+            self.fail("should have raised an OperationalError")
+        # NO self.con2.rollback() HERE!!!
+        self.con1.commit()
+
 class SpecialCommandTests(unittest.TestCase):
     def setUp(self):
         self.con = sqlite.connect(":memory:")
