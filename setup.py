@@ -123,8 +123,8 @@ def get_setup_args():
             license = "zlib/libpng license",
             platforms = "ALL",
             url = "http://pysqlite.org/",
-            download_url = "http://initd.org/pub/software/pysqlite/releases/%s/%s/pysqlite-%s.tar.gz" % \
-                (PYSQLITE_MINOR_VERSION, PYSQLITE_VERSION, PYSQLITE_VERSION),
+            download_url = "http://initd.org/pub/software/pysqlite/releases/%s/%s/" % \
+                (PYSQLITE_MINOR_VERSION, PYSQLITE_VERSION),
 
 
             # Description of the modules and packages in the distribution
