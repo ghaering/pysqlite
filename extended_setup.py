@@ -24,6 +24,8 @@
 import glob, os, sys
 
 from ez_setup import use_setuptools
+from distutils.command.build import build
+from distutils.command.build_ext import build_ext
 use_setuptools()
 
 import setuptools
@@ -65,12 +67,33 @@ class DocBuilder(setuptools.Command):
 
         os.chdir("..")
 
+class AmalgamationBuilder(build):
+    description = "Build a statically built pysqlite using the amalgamtion."
+
+    def __init__(self, *args, **kwargs):
+        MyBuildExt.amalgamation = True
+        build.__init__(self, *args, **kwargs)
+
+class MyBuildExt(build_ext):
+    amalgamation = False
+
+    def build_extension(self, ext):
+        if self.amalgamation:
+            ext.sources.append("sqlite3.c")
+        build_ext.build_extension(self, ext)
+
+    def __setattr__(self, k, v):
+        # Make sure we don't link against the SQLite library, no matter what setup.cfg says
+        if self.amalgamation and k == "libraries":
+            v = None
+        self.__dict__[k] = v
+
+
 def main():
     setup_args = setup.get_setup_args()
     setup_args["extras_require"] = {"build_docs": ["docutils", "SilverCity"]}
-    setup_args["cmdclass"] = {"build_docs": DocBuilder}
     setup_args["test_suite"] = "pysqlite2.test.suite"
-    setup_args["cmdclass"] = {"build_docs": DocBuilder}
+    setup_args["cmdclass"] = {"build_docs": DocBuilder, "build_ext": MyBuildExt, "build_static": AmalgamationBuilder}
     setup_args["extras_require"] = {"build_docs": ["docutils", "SilverCity"]}
     setuptools.setup(**setup_args)
 
