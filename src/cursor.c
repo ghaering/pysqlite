@@ -506,16 +506,10 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
         operation_cstr = PyString_AsString(operation_bytestr);
     }
 
-    /* reset description and rowcount */
+    /* reset description */
     Py_DECREF(self->description);
     Py_INCREF(Py_None);
     self->description = Py_None;
-
-    Py_DECREF(self->rowcount);
-    self->rowcount = PyInt_FromLong(-1L);
-    if (!self->rowcount) {
-        goto error;
-    }
 
     func_args = PyTuple_New(1);
     if (!func_args) {
@@ -646,11 +640,11 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
         }
 
         if (rc == SQLITE_ROW || (rc == SQLITE_DONE && statement_type == STATEMENT_SELECT)) {
-            Py_BEGIN_ALLOW_THREADS
-            numcols = sqlite3_column_count(self->statement->st);
-            Py_END_ALLOW_THREADS
-
             if (self->description == Py_None) {
+                Py_BEGIN_ALLOW_THREADS
+                numcols = sqlite3_column_count(self->statement->st);
+                Py_END_ALLOW_THREADS
+
                 Py_DECREF(self->description);
                 self->description = PyTuple_New(numcols);
                 if (!self->description) {
@@ -691,15 +685,11 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
             case STATEMENT_DELETE:
             case STATEMENT_INSERT:
             case STATEMENT_REPLACE:
-                Py_BEGIN_ALLOW_THREADS
                 rowcount += (long)sqlite3_changes(self->connection->db);
-                Py_END_ALLOW_THREADS
-                Py_DECREF(self->rowcount);
-                self->rowcount = PyInt_FromLong(rowcount);
         }
 
         Py_DECREF(self->lastrowid);
-        if (statement_type == STATEMENT_INSERT) {
+        if (!multiple && statement_type == STATEMENT_INSERT) {
             Py_BEGIN_ALLOW_THREADS
             lastrowid = sqlite3_last_insert_rowid(self->connection->db);
             Py_END_ALLOW_THREADS
@@ -722,8 +712,13 @@ error:
     Py_XDECREF(parameters_list);
 
     if (PyErr_Occurred()) {
+        Py_DECREF(self->rowcount);
+        self->rowcount = PyInt_FromLong(-1L);
         return NULL;
     } else {
+        Py_DECREF(self->rowcount);
+        self->rowcount = PyInt_FromLong(rowcount);
+
         Py_INCREF(self);
         return (PyObject*)self;
     }

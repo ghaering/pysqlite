@@ -40,6 +40,16 @@ typedef enum {
     NORMAL
 } parse_remaining_sql_state;
 
+typedef enum {
+    TYPE_INT,
+    TYPE_LONG,
+    TYPE_FLOAT,
+    TYPE_STRING,
+    TYPE_UNICODE,
+    TYPE_BUFFER,
+    TYPE_UNKNOWN
+} parameter_type;
+
 int pysqlite_statement_create(pysqlite_Statement* self, pysqlite_Connection* connection, PyObject* sql)
 {
     const char* tail;
@@ -97,47 +107,90 @@ int pysqlite_statement_bind_parameter(pysqlite_Statement* self, int pos, PyObjec
     char* string;
     Py_ssize_t buflen;
     PyObject* stringval;
+    parameter_type paramtype;
 
     if (parameter == Py_None) {
         rc = sqlite3_bind_null(self->st, pos);
-    } else if (PyInt_Check(parameter)) {
-        longval = PyInt_AsLong(parameter);
-        rc = sqlite3_bind_int64(self->st, pos, (sqlite_int64)longval);
-#ifdef HAVE_LONG_LONG
-    } else if (PyLong_Check(parameter)) {
-        longlongval = PyLong_AsLongLong(parameter);
-        /* in the overflow error case, longlongval is -1, and an exception is set */
-        rc = sqlite3_bind_int64(self->st, pos, (sqlite_int64)longlongval);
-#endif
-    } else if (PyFloat_Check(parameter)) {
-        rc = sqlite3_bind_double(self->st, pos, PyFloat_AsDouble(parameter));
-    } else if (PyBuffer_Check(parameter)) {
-        if (PyObject_AsCharBuffer(parameter, &buffer, &buflen) == 0) {
-            rc = sqlite3_bind_blob(self->st, pos, buffer, buflen, SQLITE_TRANSIENT);
-        } else {
-            PyErr_SetString(PyExc_ValueError, "could not convert BLOB to buffer");
-            rc = -1;
-        }
-    } else if PyString_Check(parameter) {
-        string = PyString_AsString(parameter);
-        rc = sqlite3_bind_text(self->st, pos, string, -1, SQLITE_TRANSIENT);
-    } else if PyUnicode_Check(parameter) {
-        stringval = PyUnicode_AsUTF8String(parameter);
-        string = PyString_AsString(stringval);
-        rc = sqlite3_bind_text(self->st, pos, string, -1, SQLITE_TRANSIENT);
-        Py_DECREF(stringval);
-    } else {
-        rc = -1;
+        goto final;
     }
 
+    if (PyInt_CheckExact(parameter)) {
+        paramtype = TYPE_INT;
+    } else if (PyLong_CheckExact(parameter)) {
+        paramtype = TYPE_LONG;
+    } else if (PyFloat_CheckExact(parameter)) {
+        paramtype = TYPE_FLOAT;
+    } else if (PyString_CheckExact(parameter)) {
+        paramtype = TYPE_STRING;
+    } else if (PyUnicode_CheckExact(parameter)) {
+        paramtype = TYPE_UNICODE;
+    } else if (PyBuffer_Check(parameter)) {
+        paramtype = TYPE_BUFFER;
+    } else if (PyInt_Check(parameter)) {
+        paramtype = TYPE_INT;
+    } else if (PyLong_Check(parameter)) {
+        paramtype = TYPE_LONG;
+    } else if (PyFloat_Check(parameter)) {
+        paramtype = TYPE_FLOAT;
+    } else if (PyString_Check(parameter)) {
+        paramtype = TYPE_STRING;
+    } else if (PyUnicode_Check(parameter)) {
+        paramtype = TYPE_UNICODE;
+    } else {
+        paramtype = TYPE_UNKNOWN;
+    }
+
+    switch (paramtype) {
+        case TYPE_INT:
+            longval = PyInt_AsLong(parameter);
+            rc = sqlite3_bind_int64(self->st, pos, (sqlite_int64)longval);
+            break;
+#ifdef HAVE_LONG_LONG
+        case TYPE_LONG:
+            longlongval = PyLong_AsLongLong(parameter);
+            /* in the overflow error case, longlongval is -1, and an exception is set */
+            rc = sqlite3_bind_int64(self->st, pos, (sqlite_int64)longlongval);
+            break;
+#endif
+        case TYPE_FLOAT:
+            rc = sqlite3_bind_double(self->st, pos, PyFloat_AsDouble(parameter));
+            break;
+        case TYPE_STRING:
+            string = PyString_AS_STRING(parameter);
+            rc = sqlite3_bind_text(self->st, pos, string, -1, SQLITE_TRANSIENT);
+            break;
+        case TYPE_UNICODE:
+            stringval = PyUnicode_AsUTF8String(parameter);
+            string = PyString_AsString(stringval);
+            rc = sqlite3_bind_text(self->st, pos, string, -1, SQLITE_TRANSIENT);
+            Py_DECREF(stringval);
+            break;
+        case TYPE_BUFFER:
+            if (PyObject_AsCharBuffer(parameter, &buffer, &buflen) == 0) {
+                rc = sqlite3_bind_blob(self->st, pos, buffer, buflen, SQLITE_TRANSIENT);
+            } else {
+                PyErr_SetString(PyExc_ValueError, "could not convert BLOB to buffer");
+                rc = -1;
+            }
+            break;
+        case TYPE_UNKNOWN:
+            rc = -1;
+    }
+
+final:
     return rc;
 }
 
 /* returns 0 if the object is one of Python's internal ones that don't need to be adapted */
 inline int _need_adapt(PyObject* obj)
 {
-    if (PyInt_Check(obj) || PyFloat_Check(obj) || PyString_Check(obj)
-            || PyUnicode_Check(obj) || PyBuffer_Check(obj)) {
+    if (pysqlite_BaseTypeAdapted) {
+        return 1;
+    }
+
+    if (PyInt_CheckExact(obj) || PyLong_CheckExact(obj) 
+            || PyFloat_CheckExact(obj) || PyString_CheckExact(obj)
+            || PyUnicode_CheckExact(obj) || PyBuffer_Check(obj)) {
         return 0;
     } else {
         return 1;
@@ -199,14 +252,15 @@ void pysqlite_statement_bind_parameters(pysqlite_Statement* self, PyObject* para
         }
     } else {
         /* parameters passed as sequence */
-        num_params = PySequence_Length(parameters);
+        num_params = PySequence_Fast_GET_SIZE(parameters);
         if (num_params != num_params_needed) {
             PyErr_Format(pysqlite_ProgrammingError, "Incorrect number of bindings supplied. The current statement uses %d, and there are %d supplied.",
                          num_params_needed, num_params);
             return;
         }
         for (i = 0; i < num_params; i++) {
-            current_param = PySequence_GetItem(parameters, i);
+            current_param = PySequence_Fast_GET_ITEM(parameters, i);
+            Py_INCREF(current_param);
             if (!current_param) {
                 return;
             }

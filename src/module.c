@@ -41,6 +41,7 @@ PyObject* pysqlite_Error, *pysqlite_Warning, *pysqlite_InterfaceError, *pysqlite
 
 PyObject* converters;
 int _enable_callback_tracebacks;
+int pysqlite_BaseTypeAdapted;
 
 static PyObject* module_connect(PyObject* self, PyObject* args, PyObject*
         kwargs)
@@ -131,6 +132,13 @@ static PyObject* module_register_adapter(PyObject* self, PyObject* args, PyObjec
 
     if (!PyArg_ParseTuple(args, "OO", &type, &caster)) {
         return NULL;
+    }
+
+    /* a basic type is adapted; there's a performance optimization if that's not the case
+     * (99 % of all usages) */
+    if (type == &PyInt_Type || type == &PyLong_Type || type == &PyFloat_Type
+            || type == &PyString_Type || type == &PyUnicode_Type || type == &PyBuffer_Type) {
+        pysqlite_BaseTypeAdapted = 1;
     }
 
     microprotocols_add(type, (PyObject*)&pysqlite_PrepareProtocolType, caster);
@@ -378,6 +386,8 @@ PyMODINIT_FUNC init_sqlite(void)
     converters_init(dict);
 
     _enable_callback_tracebacks = 0;
+
+    pysqlite_BaseTypeAdapted = 0;
 
     /* Original comment form _bsddb.c in the Python core. This is also still
      * needed nowadays for Python 2.3/2.4.
