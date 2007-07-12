@@ -1,7 +1,7 @@
 #-*- coding: ISO-8859-1 -*-
 # ext_setup.py: setuptools extensions for the distutils script
 #
-# Copyright (C) 2004-2006 Gerhard Häring <gh@ghaering.de>
+# Copyright (C) 2004-2007 Gerhard Häring <gh@ghaering.de>
 #
 # This file is part of pysqlite.
 #

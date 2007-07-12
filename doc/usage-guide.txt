@@ -3,9 +3,9 @@ pysqlite usage guide
 --------------------
 
 | (c) 2004-2005 David Rushby
-| (c) 2005-2006 Gerhard Häring
+| (c) 2005-2007 Gerhard Häring
 
-Last updated for pysqlite 2.3.0
+Last updated for pysqlite 2.3.5
 
 Table Of Contents
 =================

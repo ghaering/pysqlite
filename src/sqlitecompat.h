@@ -1,6 +1,6 @@
 /* sqlitecompat.h - compatibility macros
  *
- * Copyright (C) 2006 Gerhard Häring <gh@ghaering.de>
+ * Copyright (C) 2006-2007 Gerhard Häring <gh@ghaering.de>
  *
  * This file is part of pysqlite.
  *
