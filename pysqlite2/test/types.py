@@ -21,7 +21,7 @@
 #    misrepresented as being the original software.
 # 3. This notice may not be removed or altered from any source distribution.
 
-import bz2, datetime
+import zlib, datetime
 import unittest
 import pysqlite2.dbapi2 as sqlite
 
@@ -287,7 +287,7 @@ class ObjectAdaptationTests(unittest.TestCase):
 
 class BinaryConverterTests(unittest.TestCase):
     def convert(s):
-        return bz2.decompress(s)
+        return zlib.decompress(s)
     convert = staticmethod(convert)
 
     def setUp(self):
@@ -299,7 +299,7 @@ class BinaryConverterTests(unittest.TestCase):
 
     def CheckBinaryInputForConverter(self):
         testdata = "abcdefg" * 10
-        result = self.con.execute('select ? as "x [bin]"', (buffer(bz2.compress(testdata)),)).fetchone()[0]
+        result = self.con.execute('select ? as "x [bin]"', (buffer(zlib.compress(testdata)),)).fetchone()[0]
         self.failUnlessEqual(testdata, result)
 
 class DateTimeTests(unittest.TestCase):
