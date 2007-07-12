@@ -133,6 +133,17 @@ int pysqlite_statement_bind_parameter(pysqlite_Statement* self, int pos, PyObjec
     return rc;
 }
 
+/* returns 0 if the object is one of Python's internal ones that don't need to be adapted */
+inline int _need_adapt(PyObject* obj)
+{
+    if (PyInt_Check(obj) || PyFloat_Check(obj) || PyString_Check(obj)
+            || PyUnicode_Check(obj) || PyBuffer_Check(obj)) {
+        return 0;
+    } else {
+        return 1;
+    }
+}
+
 void pysqlite_statement_bind_parameters(pysqlite_Statement* self, PyObject* parameters)
 {
     PyObject* current_param;
@@ -166,12 +177,16 @@ void pysqlite_statement_bind_parameters(pysqlite_Statement* self, PyObject* para
             }
 
             Py_INCREF(current_param);
-            adapted = microprotocols_adapt(current_param, (PyObject*)&pysqlite_PrepareProtocolType, NULL);
-            if (adapted) {
-                Py_DECREF(current_param);
-            } else {
-                PyErr_Clear();
+            if (!_need_adapt(current_param)) {
                 adapted = current_param;
+            } else {
+                adapted = microprotocols_adapt(current_param, (PyObject*)&pysqlite_PrepareProtocolType, NULL);
+                if (adapted) {
+                    Py_DECREF(current_param);
+                } else {
+                    PyErr_Clear();
+                    adapted = current_param;
+                }
             }
 
             rc = pysqlite_statement_bind_parameter(self, i, adapted);
@@ -195,13 +210,17 @@ void pysqlite_statement_bind_parameters(pysqlite_Statement* self, PyObject* para
             if (!current_param) {
                 return;
             }
-            adapted = microprotocols_adapt(current_param, (PyObject*)&pysqlite_PrepareProtocolType, NULL);
 
-            if (adapted) {
-                Py_DECREF(current_param);
-            } else {
-                PyErr_Clear();
+            if (!_need_adapt(current_param)) {
                 adapted = current_param;
+            } else {
+                adapted = microprotocols_adapt(current_param, (PyObject*)&pysqlite_PrepareProtocolType, NULL);
+                if (adapted) {
+                    Py_DECREF(current_param);
+                } else {
+                    PyErr_Clear();
+                    adapted = current_param;
+                }
             }
 
             rc = pysqlite_statement_bind_parameter(self, i + 1, adapted);
