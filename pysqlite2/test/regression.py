@@ -102,8 +102,8 @@ class RegressionTests(unittest.TestCase):
             con.execute("begin")
             con.execute("delete from foo")
         except sqlite.OperationalError, e:
-            if e.message != "cannot start a transaction within a transaction":
-                self.fail("raised wrong error message: " + e.message)
+            if str(e) != "cannot start a transaction within a transaction":
+                self.fail("raised wrong error message: " + str(e))
             return
         self.fail("should have raised an OperationalError")
 
