@@ -872,10 +872,6 @@ Otherwise leave it at it's default, which will result in a plain "BEGIN"
 statement, or set it to one of SQLite's supported isolation levels: DEFERRED,
 IMMEDIATE or EXCLUSIVE.
 
-As pysqlite needs to keep track of the transaction state, you should not use
-``OR ROLLBACK`` or ``ON CONFLICT ROLLBACK``. Instead, catch the
-``IntegrityError`` and call the ``rollback`` method of the connection yourself.
-
 6. Using pysqlite efficiently
 -----------------------------
 
