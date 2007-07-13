@@ -93,19 +93,19 @@ class RegressionTests(unittest.TestCase):
             cur.execute("select 1 x union select " + str(i))
         con.close()
 
-    def CheckUsefulErrorMessage(self):
-        # pysqlite versions <= 2.3.3 didn't reset statements after a sqlite3_step() call.
-        # SQLite is quirky if you don't do that and can report bogus error messages.
+    def CheckOnConflictRollback(self):
         con = sqlite.connect(":memory:")
+        con.execute("create table foo(x, unique(x) on conflict rollback)")
+        con.execute("insert into foo(x) values (1)")
         try:
-            con.execute("create table foo(bar)")
-            con.execute("begin")
-            con.execute("delete from foo")
-        except sqlite.OperationalError, e:
-            if str(e) != "cannot start a transaction within a transaction":
-                self.fail("raised wrong error message: " + str(e))
-            return
-        self.fail("should have raised an OperationalError")
+            con.execute("insert into foo(x) values (1)")
+        except sqlite.DatabaseError:
+            pass
+        con.execute("insert into foo(x) values (2)")
+        try:
+            con.commit()
+        except sqlite.OperationalError:
+            self.fail("pysqlite knew nothing about the implicit ROLLBACK")
 
 def suite():
     regression_suite = unittest.makeSuite(RegressionTests, "Check")
