@@ -182,7 +182,7 @@ final:
 }
 
 /* returns 0 if the object is one of Python's internal ones that don't need to be adapted */
-inline int _need_adapt(PyObject* obj)
+static int _need_adapt(PyObject* obj)
 {
     if (pysqlite_BaseTypeAdapted) {
         return 1;
