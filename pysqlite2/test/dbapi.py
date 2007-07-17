@@ -22,6 +22,7 @@
 # 3. This notice may not be removed or altered from any source distribution.
 
 import unittest
+import sys
 import threading
 import pysqlite2.dbapi2 as sqlite
 
@@ -249,6 +250,10 @@ class CursorTests(unittest.TestCase):
         self.failUnlessEqual(row[0], "foo")
 
     def CheckExecuteDictMapping_Mapping(self):
+        # Test only works with Python 2.5 or later
+        if sys.version_info < (2, 5, 0):
+            return
+
         class D(dict):
             def __missing__(self, key):
                 return "foo"
