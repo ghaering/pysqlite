@@ -211,56 +211,30 @@ void pysqlite_statement_bind_parameters(pysqlite_Statement* self, PyObject* para
     num_params_needed = sqlite3_bind_parameter_count(self->st);
     Py_END_ALLOW_THREADS
 
-    if (PyDict_Check(parameters)) {
-        /* parameters passed as dictionary */
-        for (i = 1; i <= num_params_needed; i++) {
-            Py_BEGIN_ALLOW_THREADS
-            binding_name = sqlite3_bind_parameter_name(self->st, i);
-            Py_END_ALLOW_THREADS
-            if (!binding_name) {
-                PyErr_Format(pysqlite_ProgrammingError, "Binding %d has no name, but you supplied a dictionary (which has only names).", i);
-                return;
-            }
-
-            binding_name++; /* skip first char (the colon) */
-            current_param = PyDict_GetItemString(parameters, binding_name);
-            if (!current_param) {
-                PyErr_Format(pysqlite_ProgrammingError, "You did not supply a value for binding %d.", i);
-                return;
-            }
-
-            Py_INCREF(current_param);
-            if (!_need_adapt(current_param)) {
-                adapted = current_param;
-            } else {
-                adapted = microprotocols_adapt(current_param, (PyObject*)&pysqlite_PrepareProtocolType, NULL);
-                if (adapted) {
-                    Py_DECREF(current_param);
-                } else {
-                    PyErr_Clear();
-                    adapted = current_param;
-                }
-            }
-
-            rc = pysqlite_statement_bind_parameter(self, i, adapted);
-            Py_DECREF(adapted);
-
-            if (rc != SQLITE_OK) {
-                PyErr_Format(pysqlite_InterfaceError, "Error binding parameter :%s - probably unsupported type.", binding_name);
-                return;
-           }
-        }
-    } else {
+    if (PyTuple_CheckExact(parameters) || PyList_CheckExact(parameters) || (!PyDict_Check(parameters) && PySequence_Check(parameters))) {
         /* parameters passed as sequence */
-        num_params = PySequence_Fast_GET_SIZE(parameters);
+        if (PyTuple_CheckExact(parameters)) {
+            num_params = PyTuple_GET_SIZE(parameters);
+        } else if (PyList_CheckExact(parameters)) {
+            num_params = PyList_GET_SIZE(parameters);
+        } else {
+            num_params = PySequence_Size(parameters);
+        }
         if (num_params != num_params_needed) {
             PyErr_Format(pysqlite_ProgrammingError, "Incorrect number of bindings supplied. The current statement uses %d, and there are %d supplied.",
                          num_params_needed, num_params);
             return;
         }
         for (i = 0; i < num_params; i++) {
-            current_param = PySequence_Fast_GET_ITEM(parameters, i);
-            Py_INCREF(current_param);
+            if (PyTuple_CheckExact(parameters)) {
+                current_param = PyTuple_GET_ITEM(parameters, i);
+                Py_XINCREF(current_param);
+            } else if (PyList_CheckExact(parameters)) {
+                current_param = PyList_GET_ITEM(parameters, i);
+                Py_XINCREF(current_param);
+            } else {
+                current_param = PySequence_GetItem(parameters, i);
+            }
             if (!current_param) {
                 return;
             }
@@ -285,6 +259,51 @@ void pysqlite_statement_bind_parameters(pysqlite_Statement* self, PyObject* para
                 return;
             }
         }
+    } else if (PyDict_Check(parameters)) {
+        /* parameters passed as dictionary */
+        for (i = 1; i <= num_params_needed; i++) {
+            Py_BEGIN_ALLOW_THREADS
+            binding_name = sqlite3_bind_parameter_name(self->st, i);
+            Py_END_ALLOW_THREADS
+            if (!binding_name) {
+                PyErr_Format(pysqlite_ProgrammingError, "Binding %d has no name, but you supplied a dictionary (which has only names).", i);
+                return;
+            }
+
+            binding_name++; /* skip first char (the colon) */
+            if (PyDict_CheckExact(parameters)) {
+                current_param = PyDict_GetItemString(parameters, binding_name);
+                Py_XINCREF(current_param);
+            } else {
+                current_param = PyMapping_GetItemString(parameters, (char*)binding_name);
+            }
+            if (!current_param) {
+                PyErr_Format(pysqlite_ProgrammingError, "You did not supply a value for binding %d.", i);
+                return;
+            }
+
+            if (!_need_adapt(current_param)) {
+                adapted = current_param;
+            } else {
+                adapted = microprotocols_adapt(current_param, (PyObject*)&pysqlite_PrepareProtocolType, NULL);
+                if (adapted) {
+                    Py_DECREF(current_param);
+                } else {
+                    PyErr_Clear();
+                    adapted = current_param;
+                }
+            }
+
+            rc = pysqlite_statement_bind_parameter(self, i, adapted);
+            Py_DECREF(adapted);
+
+            if (rc != SQLITE_OK) {
+                PyErr_Format(pysqlite_InterfaceError, "Error binding parameter :%s - probably unsupported type.", binding_name);
+                return;
+           }
+        }
+    } else {
+        PyErr_SetString(PyExc_ValueError, "parameters are of unsupported type");
     }
 }
 
