@@ -31,4 +31,9 @@ typedef int Py_ssize_t;
 typedef int (*lenfunc)(PyObject*);
 #endif
 
+/* define PyDict_CheckExact for pre-2.4 versions of Python */
+#ifndef PyDict_CheckExact
+#define PyDict_CheckExact(op) ((op)->ob_type == &PyDict_Type)
+#endif
+
 #endif
