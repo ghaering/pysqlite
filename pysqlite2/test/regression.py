@@ -107,6 +107,14 @@ class RegressionTests(unittest.TestCase):
         except sqlite.OperationalError:
             self.fail("pysqlite knew nothing about the implicit ROLLBACK")
 
+    def CheckWorkaroundForBuggySqliteTransferBindings(self):
+        """
+        pysqlite would crash with older SQLite versions unless
+        a workaround is implemented.
+        """
+        self.con.execute("create table if not exists foo(bar)")
+        self.con.execute("create table if not exists foo(bar)")
+
 def suite():
     regression_suite = unittest.makeSuite(RegressionTests, "Check")
     return unittest.TestSuite((regression_suite,))
