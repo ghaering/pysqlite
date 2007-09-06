@@ -213,7 +213,7 @@ void pysqlite_connection_dealloc(pysqlite_Connection* self)
     Py_XDECREF(self->collations);
     Py_XDECREF(self->statements);
 
-    self->ob_type->tp_free((PyObject*)self);
+    Py_Type(self)->tp_free((PyObject*)self);
 }
 
 PyObject* pysqlite_connection_cursor(pysqlite_Connection* self, PyObject* args, PyObject* kwargs)
@@ -423,7 +423,6 @@ void _pysqlite_set_result(sqlite3_context* context, PyObject* py_val)
     long longval;
     const char* buffer;
     Py_ssize_t buflen;
-    PyObject* stringval;
 
     if ((!py_val) || PyErr_Occurred()) {
         sqlite3_result_null(context);
@@ -443,11 +442,7 @@ void _pysqlite_set_result(sqlite3_context* context, PyObject* py_val)
     } else if (PyString_Check(py_val)) {
         sqlite3_result_text(context, PyString_AsString(py_val), -1, SQLITE_TRANSIENT);
     } else if (PyUnicode_Check(py_val)) {
-        stringval = PyUnicode_AsUTF8String(py_val);
-        if (stringval) {
-            sqlite3_result_text(context, PyString_AsString(stringval), -1, SQLITE_TRANSIENT);
-            Py_DECREF(stringval);
-        }
+        sqlite3_result_text(context, PyUnicode_AsString(py_val), -1, SQLITE_TRANSIENT);
     } else {
         /* TODO: raise error */
     }
@@ -1103,7 +1098,7 @@ pysqlite_connection_create_collation(pysqlite_Connection* self, PyObject* args)
         goto finally;
     }
 
-    if (!PyArg_ParseTuple(args, "O!O:create_collation(name, callback)", &PyString_Type, &name, &callable)) {
+    if (!PyArg_ParseTuple(args, "O!O:create_collation(name, callback)", &PyUnicode_Type, &name, &callable)) {
         goto finally;
     }
 
@@ -1199,24 +1194,23 @@ static PyMethodDef connection_methods[] = {
 
 static struct PyMemberDef connection_members[] =
 {
-    {"Warning", T_OBJECT, offsetof(pysqlite_Connection, Warning), RO},
-    {"Error", T_OBJECT, offsetof(pysqlite_Connection, Error), RO},
-    {"InterfaceError", T_OBJECT, offsetof(pysqlite_Connection, InterfaceError), RO},
-    {"DatabaseError", T_OBJECT, offsetof(pysqlite_Connection, DatabaseError), RO},
-    {"DataError", T_OBJECT, offsetof(pysqlite_Connection, DataError), RO},
-    {"OperationalError", T_OBJECT, offsetof(pysqlite_Connection, OperationalError), RO},
-    {"IntegrityError", T_OBJECT, offsetof(pysqlite_Connection, IntegrityError), RO},
-    {"InternalError", T_OBJECT, offsetof(pysqlite_Connection, InternalError), RO},
-    {"ProgrammingError", T_OBJECT, offsetof(pysqlite_Connection, ProgrammingError), RO},
-    {"NotSupportedError", T_OBJECT, offsetof(pysqlite_Connection, NotSupportedError), RO},
+    {"Warning", T_OBJECT, offsetof(pysqlite_Connection, Warning), READONLY},
+    {"Error", T_OBJECT, offsetof(pysqlite_Connection, Error), READONLY},
+    {"InterfaceError", T_OBJECT, offsetof(pysqlite_Connection, InterfaceError), READONLY},
+    {"DatabaseError", T_OBJECT, offsetof(pysqlite_Connection, DatabaseError), READONLY},
+    {"DataError", T_OBJECT, offsetof(pysqlite_Connection, DataError), READONLY},
+    {"OperationalError", T_OBJECT, offsetof(pysqlite_Connection, OperationalError), READONLY},
+    {"IntegrityError", T_OBJECT, offsetof(pysqlite_Connection, IntegrityError), READONLY},
+    {"InternalError", T_OBJECT, offsetof(pysqlite_Connection, InternalError), READONLY},
+    {"ProgrammingError", T_OBJECT, offsetof(pysqlite_Connection, ProgrammingError), READONLY},
+    {"NotSupportedError", T_OBJECT, offsetof(pysqlite_Connection, NotSupportedError), READONLY},
     {"row_factory", T_OBJECT, offsetof(pysqlite_Connection, row_factory)},
     {"text_factory", T_OBJECT, offsetof(pysqlite_Connection, text_factory)},
     {NULL}
 };
 
 PyTypeObject pysqlite_ConnectionType = {
-        PyObject_HEAD_INIT(NULL)
-        0,                                              /* ob_size */
+        PyVarObject_HEAD_INIT(NULL, 0)
         MODULE_NAME ".Connection",                      /* tp_name */
         sizeof(pysqlite_Connection),                    /* tp_basicsize */
         0,                                              /* tp_itemsize */

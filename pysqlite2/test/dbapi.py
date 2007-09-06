@@ -41,12 +41,12 @@ class ModuleTests(unittest.TestCase):
                          sqlite.paramstyle)
 
     def CheckWarning(self):
-        self.assert_(issubclass(sqlite.Warning, StandardError),
-                     "Warning is not a subclass of StandardError")
+        self.assert_(issubclass(sqlite.Warning, Exception),
+                     "Warning is not a subclass of Exception")
 
     def CheckError(self):
-        self.failUnless(issubclass(sqlite.Error, StandardError),
-                        "Error is not a subclass of StandardError")
+        self.failUnless(issubclass(sqlite.Error, Exception),
+                        "Error is not a subclass of Exception")
 
     def CheckInterfaceError(self):
         self.failUnless(issubclass(sqlite.InterfaceError, sqlite.Error),
@@ -224,42 +224,9 @@ class CursorTests(unittest.TestCase):
         except sqlite.ProgrammingError:
             pass
 
-    def CheckExecuteParamList(self):
-        self.cu.execute("insert into test(name) values ('foo')")
-        self.cu.execute("select name from test where name=?", ["foo"])
-        row = self.cu.fetchone()
-        self.failUnlessEqual(row[0], "foo")
-
-    def CheckExecuteParamSequence(self):
-        class L(object):
-            def __len__(self):
-                return 1
-            def __getitem__(self, x):
-                assert x == 0
-                return "foo"
-
-        self.cu.execute("insert into test(name) values ('foo')")
-        self.cu.execute("select name from test where name=?", L())
-        row = self.cu.fetchone()
-        self.failUnlessEqual(row[0], "foo")
-
     def CheckExecuteDictMapping(self):
         self.cu.execute("insert into test(name) values ('foo')")
         self.cu.execute("select name from test where name=:name", {"name": "foo"})
-        row = self.cu.fetchone()
-        self.failUnlessEqual(row[0], "foo")
-
-    def CheckExecuteDictMapping_Mapping(self):
-        # Test only works with Python 2.5 or later
-        if sys.version_info < (2, 5, 0):
-            return
-
-        class D(dict):
-            def __missing__(self, key):
-                return "foo"
-
-        self.cu.execute("insert into test(name) values ('foo')")
-        self.cu.execute("select name from test where name=:name", D())
         row = self.cu.fetchone()
         self.failUnlessEqual(row[0], "foo")
 
@@ -320,7 +287,7 @@ class CursorTests(unittest.TestCase):
             def __init__(self):
                 self.value = 5
 
-            def next(self):
+            def __next__(self):
                 if self.value == 10:
                     raise StopIteration
                 else:
@@ -360,8 +327,8 @@ class CursorTests(unittest.TestCase):
             self.fail("should have raised a TypeError")
         except TypeError:
             return
-        except Exception, e:
-            print "raised", e.__class__
+        except Exception as e:
+            print("raised ", e.__class__)
             self.fail("raised wrong exception.")
 
     def CheckFetchIter(self):
@@ -652,7 +619,7 @@ class ExtensionTests(unittest.TestCase):
     def CheckScriptStringUnicode(self):
         con = sqlite.connect(":memory:")
         cur = con.cursor()
-        cur.executescript(u"""
+        cur.executescript("""\
             create table a(i);
             insert into a(i) values (5);
             select i from a;

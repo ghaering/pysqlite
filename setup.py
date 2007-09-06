@@ -69,7 +69,7 @@ class DocBuilder(Command):
             import docutils.core
             import docutilsupport
         except ImportError:
-            print "Error: the build-docs command requires docutils and SilverCity to be installed"
+            print("Error: the build-docs command requires docutils and SilverCity to be installed")
             return
 
         docfiles = {
@@ -81,7 +81,7 @@ class DocBuilder(Command):
         os.chdir("doc")
         for dest, source in docfiles.items():
             if not os.path.exists(dest) or os.stat(dest)[stat.ST_MTIME] < os.stat(source)[stat.ST_MTIME]:
-                print "Building documentation file %s." % dest
+                print("Building documentation file %s." % dest)
                 docutils.core.publish_cmdline(
                     writer_name='html',
                     argv=["--stylesheet=default.css", source, dest])
@@ -102,7 +102,7 @@ def get_setup_args():
     f.close()
 
     if not PYSQLITE_VERSION:
-        print "Fatal error: PYSQLITE_VERSION could not be detected!"
+        print("Fatal error: PYSQLITE_VERSION could not be detected!")
         sys.exit(1)
 
     data_files = [("pysqlite2-doc",

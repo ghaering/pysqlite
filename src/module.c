@@ -1,6 +1,5 @@
 /* module.c - the module itself
  *
- * Copyright (C) 2004-2007 Gerhard Häring <gh@ghaering.de>
  *
  * This file is part of pysqlite.
  *
@@ -136,7 +135,7 @@ static PyObject* module_register_adapter(PyObject* self, PyObject* args, PyObjec
 
     /* a basic type is adapted; there's a performance optimization if that's not the case
      * (99 % of all usages) */
-    if (type == &PyInt_Type || type == &PyLong_Type || type == &PyFloat_Type
+    if (/*type == &PyInt_Type ||*/ type == &PyLong_Type || type == &PyFloat_Type
             || type == &PyString_Type || type == &PyUnicode_Type || type == &PyBuffer_Type) {
         pysqlite_BaseTypeAdapted = 1;
     }
@@ -295,12 +294,12 @@ PyMODINIT_FUNC init_sqlite(void)
 
     /*** Create DB-API Exception hierarchy */
 
-    if (!(pysqlite_Error = PyErr_NewException(MODULE_NAME ".Error", PyExc_StandardError, NULL))) {
+    if (!(pysqlite_Error = PyErr_NewException(MODULE_NAME ".Error", PyExc_Exception, NULL))) {
         goto error;
     }
     PyDict_SetItemString(dict, "Error", pysqlite_Error);
 
-    if (!(pysqlite_Warning = PyErr_NewException(MODULE_NAME ".Warning", PyExc_StandardError, NULL))) {
+    if (!(pysqlite_Warning = PyErr_NewException(MODULE_NAME ".Warning", PyExc_Exception, NULL))) {
         goto error;
     }
     PyDict_SetItemString(dict, "Warning", pysqlite_Warning);
@@ -407,6 +406,6 @@ PyMODINIT_FUNC init_sqlite(void)
 error:
     if (PyErr_Occurred())
     {
-        PyErr_SetString(PyExc_ImportError, "pysqlite2._sqlite: init failed");
+        PyErr_SetString(PyExc_ImportError, MODULE_NAME ": init failed");
     }
 }

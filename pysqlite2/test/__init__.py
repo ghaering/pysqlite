@@ -25,11 +25,11 @@ import os, sys
 import unittest
 
 if os.path.exists("extended_setup.py"):
-    print "-" * 75
-    print "You should not run the test suite from the pysqlite build directory."
-    print "This does not work well because the extension module cannot be found."
-    print "Just run the test suite from somewhere else, please!"
-    print "-" * 75
+    print("-" * 75)
+    print("You should not run the test suite from the pysqlite build directory.")
+    print("This does not work well because the extension module cannot be found.")
+    print("Just run the test suite from somewhere else, please!")
+    print("-" * 75)
     sys.exit(1)
 
 from pysqlite2.test import dbapi, types, userfunctions, factory, transactions,\
