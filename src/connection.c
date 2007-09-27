@@ -770,6 +770,33 @@ static int _authorizer_callback(void* user_arg, int action, const char* arg1, co
     return rc;
 }
 
+static int _progress_handler(void* user_arg)
+{
+    int rc;
+    PyObject *ret;
+    PyGILState_STATE gilstate;
+
+    gilstate = PyGILState_Ensure();
+    ret = PyObject_CallFunction((PyObject*)user_arg, "");
+
+    if (!ret) {
+        if (_enable_callback_tracebacks) {
+            PyErr_Print();
+        } else {
+            PyErr_Clear();
+        }
+
+        /* abort query if error occured */
+        rc = 1; 
+    } else {
+        rc = (int)PyObject_IsTrue(ret);
+    }
+
+    Py_DECREF(ret);
+    PyGILState_Release(gilstate);
+    return rc;
+}
+
 PyObject* pysqlite_connection_set_authorizer(pysqlite_Connection* self, PyObject* args, PyObject* kwargs)
 {
     PyObject* authorizer_cb;
@@ -793,6 +820,30 @@ PyObject* pysqlite_connection_set_authorizer(pysqlite_Connection* self, PyObject
         Py_INCREF(Py_None);
         return Py_None;
     }
+}
+
+PyObject* pysqlite_connection_set_progress_handler(pysqlite_Connection* self, PyObject* args, PyObject* kwargs)
+{
+    PyObject* progress_handler;
+    int n;
+
+    static char *kwlist[] = { "progress_handler", "n", NULL };
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Oi:set_progress_handler",
+                                      kwlist, &progress_handler, &n)) {
+        return NULL;
+    }
+
+    if (progress_handler == Py_None) {
+        /* None clears the progress handler previously set */
+        sqlite3_progress_handler(self->db, 0, 0, (void*)0);
+    } else {
+        sqlite3_progress_handler(self->db, n, _progress_handler, progress_handler);
+        PyDict_SetItem(self->function_pinboard, progress_handler, Py_None);
+    }
+
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 
 int pysqlite_check_thread(pysqlite_Connection* self)
@@ -1184,6 +1235,8 @@ static PyMethodDef connection_methods[] = {
         PyDoc_STR("Creates a new aggregate. Non-standard.")},
     {"set_authorizer", (PyCFunction)pysqlite_connection_set_authorizer, METH_VARARGS|METH_KEYWORDS,
         PyDoc_STR("Sets authorizer callback. Non-standard.")},
+    {"set_progress_handler", (PyCFunction)pysqlite_connection_set_progress_handler, METH_VARARGS|METH_KEYWORDS,
+        PyDoc_STR("Sets progress handler callback. Non-standard.")},
     {"execute", (PyCFunction)pysqlite_connection_execute, METH_VARARGS,
         PyDoc_STR("Executes a SQL statement. Non-standard.")},
     {"executemany", (PyCFunction)pysqlite_connection_executemany, METH_VARARGS,
