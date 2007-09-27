@@ -348,13 +348,11 @@ PyMODINIT_FUNC init_sqlite(void)
     }
     PyDict_SetItemString(dict, "NotSupportedError", pysqlite_NotSupportedError);
 
-    /* We just need "something" unique for pysqlite_OptimizedUnicode. It does not really
-     * need to be a string subclass. Just anything that can act as a special
-     * marker for us. So I pulled PyCell_Type out of my magic hat.
+    /* pysqlite_OptimizedUnicode is a legacy thing from Python 2.x. We keep it
+     * as an alias for the string type for backwards compatibility reasons.
      */
-    Py_INCREF((PyObject*)&PyCell_Type);
-    pysqlite_OptimizedUnicode = (PyObject*)&PyCell_Type;
-    PyDict_SetItemString(dict, "OptimizedUnicode", pysqlite_OptimizedUnicode);
+    Py_INCREF((PyObject*)&PyUnicode_Type);
+    PyDict_SetItemString(dict, "OptimizedUnicode", (PyObject*)&PyUnicode_Type);
 
     /* Set integer constants */
     for (i = 0; _int_constants[i].constant_name != 0; i++) {

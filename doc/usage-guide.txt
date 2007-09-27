@@ -5,7 +5,7 @@ pysqlite usage guide
 | (c) 2004-2005 David Rushby
 | (c) 2005-2007 Gerhard Häring
 
-Last updated for pysqlite 2.3.5
+Last updated for pysqlite 2.4.0
 
 Table Of Contents
 =================
@@ -26,6 +26,7 @@ Table Of Contents
 |   `3.4 Checking for complete statements`_
 |   `3.5 Enabling SQLite's shared cache`_
 |   `3.6 Setting an authorizer callback`_
+|   `3.7 Setting a progress handler`_
 | `4. SQLite and Python types`_
 |   `4.1 Introduction`_
 |   `4.2 Using adapters to store additional Python types in SQLite databases`_
@@ -689,6 +690,25 @@ Here's an example that demonstrates the usage of this function:
    :language: Python
    :source-file: code/authorizer.py
 
+3.7 Setting a progress handler
+------------------------------
+
+If you want to get called by SQLite during long-running operations, you can set
+a progress handler. An example use for this is to keep a GUI updated during a
+long-running query. 
+
+  .. code-block:: Python
+
+    def set_progress_handler(self, handler, n)
+
+The progress handler will be called every n SQLite virtual machine opcodes. If
+handler returns a nonzero value, the query is aborted with an OperationalError.
+
+Here's an example that demonstrates the usage of this function:
+
+  .. code-block::
+   :language: Python
+   :source-file: code/progress.py
 
 4. SQLite and Python types
 ==========================

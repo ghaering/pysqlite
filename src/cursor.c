@@ -182,7 +182,7 @@ int pysqlite_build_row_cast_map(pysqlite_Cursor* self)
                     if (*pos == '[') {
                         type_start = pos + 1;
                     } else if (*pos == ']' && type_start != (const char*)-1) {
-                        key = PyString_FromStringAndSize(type_start, pos - type_start);
+                        key = PyUnicode_FromStringAndSize(type_start, pos - type_start);
                         if (!key) {
                             /* creating a string failed, but it is too complicated
                              * to propagate the error here, we just assume there is
@@ -203,7 +203,7 @@ int pysqlite_build_row_cast_map(pysqlite_Cursor* self)
             if (decltype) {
                 for (pos = decltype;;pos++) {
                     if (*pos == ' ' || *pos == 0) {
-                        py_decltype = PyString_FromStringAndSize(decltype, pos - decltype);
+                        py_decltype = PyUnicode_FromStringAndSize(decltype, pos - decltype);
                         if (!py_decltype) {
                             return -1;
                         }
@@ -250,32 +250,6 @@ PyObject* _pysqlite_build_column_name(const char* colname)
             }
             return PyUnicode_FromStringAndSize(colname, pos - colname);
         }
-    }
-}
-
-PyObject* pysqlite_unicode_from_string(const char* val_str, int optimize)
-{
-    const char* check;
-    int is_ascii = 0;
-
-    if (optimize) {
-        is_ascii = 1;
-
-        check = val_str;
-        while (*check) {
-            if (*check & 0x80) {
-                is_ascii = 0;
-                break;
-            }
-
-            check++;
-        }
-    }
-
-    if (is_ascii) {
-        return PyString_FromString(val_str);
-    } else {
-        return PyUnicode_DecodeUTF8(val_str, strlen(val_str), NULL);
     }
 }
 
@@ -327,7 +301,7 @@ PyObject* _pysqlite_fetch_one_row(pysqlite_Cursor* self)
                 Py_INCREF(Py_None);
                 converted = Py_None;
             } else {
-                item = PyString_FromStringAndSize(val_str, nbytes);
+                item = PyBytes_FromStringAndSize(val_str, nbytes);
                 if (!item) {
                     return NULL;
                 }
@@ -355,12 +329,8 @@ PyObject* _pysqlite_fetch_one_row(pysqlite_Cursor* self)
                 converted = PyFloat_FromDouble(sqlite3_column_double(self->statement->st, i));
             } else if (coltype == SQLITE_TEXT) {
                 val_str = (const char*)sqlite3_column_text(self->statement->st, i);
-                if ((self->connection->text_factory == (PyObject*)&PyUnicode_Type)
-                    || (self->connection->text_factory == pysqlite_OptimizedUnicode)) {
-
-                    converted = pysqlite_unicode_from_string(val_str,
-                        self->connection->text_factory == pysqlite_OptimizedUnicode ? 1 : 0);
-
+                if (self->connection->text_factory == (PyObject*)&PyUnicode_Type) {
+                    converted = PyUnicode_FromString(val_str);
                     if (!converted) {
                         colname = sqlite3_column_name(self->statement->st, i);
                         if (!colname) {

@@ -76,7 +76,7 @@ class SqliteTypeTests(unittest.TestCase):
 class DeclTypesTests(unittest.TestCase):
     class Foo:
         def __init__(self, _val):
-            self.val = _val
+            self.val = str(_val)
 
         def __cmp__(self, other):
             if not isinstance(other, DeclTypesTests.Foo):

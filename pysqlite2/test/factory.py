@@ -158,13 +158,10 @@ class TextFactoryTests(unittest.TestCase):
         self.failUnless(row[0].endswith("reich"), "column must contain original data")
 
     def CheckOptimizedUnicode(self):
+        """OptimizedUnicode is an alias for str under Python 3.x"""
         self.con.text_factory = sqlite.OptimizedUnicode
-        austria = "Österreich"
-        germany = "Deutchland"
-        a_row = self.con.execute("select ?", (austria,)).fetchone()
-        d_row = self.con.execute("select ?", (germany,)).fetchone()
-        self.failUnless(type(a_row[0]) == str, "type of non-ASCII row must be unicode")
-        self.failUnless(type(d_row[0]) == str8, "type of ASCII-only row must be str8")
+        result = self.con.execute("select 'foo'").fetchone()[0]
+        self.failUnless(type(result) == str, "OptimizedUnicode must be str")
 
     def tearDown(self):
         self.con.close()
