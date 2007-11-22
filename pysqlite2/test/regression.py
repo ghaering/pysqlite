@@ -117,6 +117,13 @@ class RegressionTests(unittest.TestCase):
         self.con.execute("create table if not exists foo(bar)")
         self.con.execute("create table if not exists foo(bar)")
 
+    def CheckEmptyStatement(self):
+        """
+        pysqlite used to segfault with SQLite versions 3.5.x. These return NULL
+        for "no-operation" statements
+        """
+        self.con.execute("")
+
 def suite():
     regression_suite = unittest.makeSuite(RegressionTests, "Check")
     return unittest.TestSuite((regression_suite,))
