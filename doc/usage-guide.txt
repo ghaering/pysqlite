@@ -195,7 +195,7 @@ Python DB API.
 
       .. code-block::
        :language: Python
-       :source-file: code/parse_colnames.py
+       :source-file: includes/sqlite3/parse_colnames.py
 
   * **check_same_thread** - SQLite connections/cursors can only safely be
     used in the same thread they were created in. pysqlite checks for
@@ -212,7 +212,7 @@ Python DB API.
 
     .. code-block::
      :language: Python
-     :source-file: code/countcursors.py
+     :source-file: includes/sqlite3/countcursors.py
 
   * **cached_statements** - pysqlite internally uses a statement cache to avoid
     SQL parsing overhead. If you want to explicitly set the number of
@@ -279,7 +279,7 @@ Python DB API.
 
     .. code-block::
      :language: Python
-     :source-file: code/row_factory.py
+     :source-file: includes/sqlite3/row_factory.py
 
     If the standard tuple types don't suffice for you, and you want name-based
     access to columns, you should consider setting ``row_factory`` to the
@@ -306,7 +306,7 @@ Python DB API.
 
      .. code-block::
       :language: Python
-      :source-file: code/text_factory.py
+      :source-file: includes/sqlite3/text_factory.py
 
   * **total_changes** attribute (read-only)
 
@@ -326,7 +326,7 @@ Python DB API.
 
     .. code-block::
      :language: Python
-     :source-file: code/execute_1.py
+     :source-file: includes/sqlite3/execute_1.py
 
     pysqlite also supports *paramstyle = "named"*. That means you can use named
     placeholders in the format ":name", i. e. a colon followed by the parameter
@@ -335,7 +335,7 @@ Python DB API.
 
     .. code-block::
      :language: Python
-     :source-file: code/execute_2.py
+     :source-file: includes/sqlite3/execute_2.py
 
     The following example shows a shortcut that you can often use when using
     named parameters. It exploits the fact that locals() is a dictionary, too.
@@ -343,7 +343,7 @@ Python DB API.
 
     .. code-block::
      :language: Python
-     :source-file: code/execute_3.py
+     :source-file: includes/sqlite3/execute_3.py
 
     *execute* will only execute a single SQL statement. If you try to execute
     more than one statement with it, it will raise a Warning. Use
@@ -367,14 +367,14 @@ Python DB API.
 
     .. code-block::
      :language: Python
-     :source-file: code/executemany_1.py
+     :source-file: includes/sqlite3/executemany_1.py
 
     As generators are iterators, too, here's a much simpler, equivalent example
     using a generator:
 
     .. code-block::
      :language: Python
-     :source-file: code/executemany_2.py
+     :source-file: includes/sqlite3/executemany_2.py
 
     *executemany* will only execute a single SQL statement. If you try to
     execute more than one statement with it, it will raise a Warning. Use
@@ -396,7 +396,7 @@ Python DB API.
 
     .. code-block::
      :language: Python
-     :source-file: code/executescript.py
+     :source-file: includes/sqlite3/executescript.py
 
   * **interrupt** method
 
@@ -446,7 +446,7 @@ is it comprehensive in its coverage of anything else.
 
     .. code-block::
      :language: Python
-     :source-file: code/connect_db_1.py
+     :source-file: includes/sqlite3/connect_db_1.py
 
 
     **Example 2**
@@ -455,7 +455,7 @@ is it comprehensive in its coverage of anything else.
 
     .. code-block::
      :language: Python
-     :source-file: code/connect_db_2.py
+     :source-file: includes/sqlite3/connect_db_2.py
 
 
 2.2 Executing SQL statements
@@ -481,7 +481,7 @@ This example shows the simplest way to print the entire contents of the ``people
 
 .. code-block::
  :language: Python
- :source-file: code/execsql_printall_1.py
+ :source-file: includes/sqlite3/execsql_printall_1.py
 
 Sample output::
 
@@ -494,7 +494,7 @@ single row at a time from a SELECT-cursor:
 
 .. code-block::
  :language: Python
- :source-file: code/execsql_fetchonerow.py
+ :source-file: includes/sqlite3/execsql_fetchonerow.py
 
 Sample output::
 
@@ -510,7 +510,7 @@ people)
 
 .. code-block::
  :language: Python
- :source-file: code/simple_tableprinter.py
+ :source-file: includes/sqlite3/simple_tableprinter.py
 
 Sample output::
 
@@ -525,7 +525,7 @@ Let's insert more people into the people table:
 
 .. code-block::
  :language: Python
- :source-file: code/insert_more_people.py
+ :source-file: includes/sqlite3/insert_more_people.py
 
 Note the use of a parameterized SQL statement above. When dealing with
 repetitive statements, this is much faster and less error-prone than assembling
@@ -590,7 +590,7 @@ functions with the connection's **create_function** method:
 
   .. code-block::
    :language: Python
-   :source-file: code/md5func.py
+   :source-file: includes/sqlite3/md5func.py
 
 3.2 Creating user-defined aggregates
 ------------------------------------
@@ -615,7 +615,7 @@ create new aggregate functions with the connection's *create_aggregate* method.
 
   .. code-block::
    :language: Python
-   :source-file: code/mysumaggr.py
+   :source-file: includes/sqlite3/mysumaggr.py
 
 3.3 Creating and using collations
 ---------------------------------
@@ -639,7 +639,7 @@ The following example shows a custom collation that sorts "the wrong way":
 
   .. code-block::
    :language: Python
-   :source-file: code/collation_reverse.py
+   :source-file: includes/sqlite3/collation_reverse.py
 
 To remove a collation, call `create_collation` with None as callable:
 
@@ -659,7 +659,7 @@ This can be used to build a shell for SQLite, like in the following example:
 
   .. code-block::
    :language: Python
-   :source-file: code/complete_statement.py
+   :source-file: includes/sqlite3/complete_statement.py
 
 3.5 Enabling SQLite's shared cache
 ----------------------------------
@@ -669,7 +669,7 @@ To enable SQLite's shared cache for the calling thread, call the function
 
   .. code-block::
    :language: Python
-   :source-file: code/shared_cache.py
+   :source-file: includes/sqlite3/shared_cache.py
 
 3.6 Setting an authorizer callback
 ----------------------------------
@@ -688,7 +688,7 @@ Here's an example that demonstrates the usage of this function:
 
   .. code-block::
    :language: Python
-   :source-file: code/authorizer.py
+   :source-file: includes/sqlite3/authorizer.py
 
 3.7 Setting a progress handler
 ------------------------------
@@ -708,7 +708,7 @@ Here's an example that demonstrates the usage of this function:
 
   .. code-block::
    :language: Python
-   :source-file: code/progress.py
+   :source-file: includes/sqlite3/progress.py
 
 4. SQLite and Python types
 ==========================
@@ -786,7 +786,7 @@ return the converted value. The parameter ``protocol`` will be
 
 .. code-block::
  :language: Python
- :source-file: code/adapter_point_1.py
+ :source-file: includes/sqlite3/adapter_point_1.py
 
 4.2.2 Registering an adapter callable
 -------------------------------------
@@ -796,7 +796,7 @@ string representation and register the function with ``register_adapter``.
 
 .. code-block::
  :language: Python
- :source-file: code/adapter_point_2.py
+ :source-file: includes/sqlite3/adapter_point_2.py
 
 The type/class to adapt must be a new-style class, i. e. it must have
 ``object`` as one of its bases!!!
@@ -807,7 +807,7 @@ representation, but as Unix timestamp.
 
 .. code-block::
  :language: Python
- :source-file: code/adapter_datetime.py
+ :source-file: includes/sqlite3/adapter_datetime.py
 
 4.3 Converting SQLite values to custom Python types
 ---------------------------------------------------
@@ -846,7 +846,7 @@ The following example illustrates both ways.
 
 .. code-block::
  :language: Python
- :source-file: code/converter_point.py
+ :source-file: includes/sqlite3/converter_point.py
 
 4.4 Default pysqlite adapters and converters
 --------------------------------------------
@@ -865,7 +865,7 @@ The following example demonstrates this.
 
 .. code-block::
  :language: Python
- :source-file: code/pysqlite_datetime.py
+ :source-file: includes/sqlite3/pysqlite_datetime.py
 
 5. Controlling Transactions
 ---------------------------
@@ -908,7 +908,7 @@ only a single call on the Connection object.
 
 .. code-block::
  :language: Python
- :source-file: code/shortcut_methods.py
+ :source-file: includes/sqlite3/shortcut_methods.py
 
 6.2 Accessing columns by name instead of by index
 -------------------------------------------------
@@ -921,5 +921,5 @@ case-insensitively by name:
 
 .. code-block::
  :language: Python
- :source-file: code/rowclass.py
+ :source-file: includes/sqlite3/rowclass.py
 
