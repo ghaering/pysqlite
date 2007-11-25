@@ -952,3 +952,7 @@ an existing APSW connection like this.
   :language: Python
   :source-file: includes/sqlite3/apsw_example.py
 
+This feature only works if both APSW and pysqlite are dynamically linked
+against the same SQLite shared library. I. e. it will *not* work on Windows
+without a custom built pysqlite and APSW.
+

@@ -100,8 +100,10 @@ int pysqlite_connection_init(pysqlite_Connection* self, PyObject* args, PyObject
             if (class_attr_str) {
                 if (strcmp(PyString_AsString(class_attr_str), "<type 'apsw.Connection'>") == 0) {
                     /* In the APSW Connection object, the first entry after
-                     * PyObject_HEAD is the sqlite3* we want to get hold of */
-                    self->db = *((sqlite3**)((void*)(database)+sizeof(PyObject))); 
+                     * PyObject_HEAD is the sqlite3* we want to get hold of.
+                     * Luckily, this is the same layout as we have in our
+                     * pysqlite_Connection */
+                    self->db = ((pysqlite_Connection*)database)->db;
 
                     Py_INCREF(database);
                     self->apsw_connection = database;
@@ -295,7 +297,6 @@ PyObject* pysqlite_connection_close(pysqlite_Connection* self, PyObject* args)
 
     if (self->db) {
         if (self->apsw_connection) {
-            printf("pysqlite_connection_close\n");
             ret = PyObject_CallMethod(self->apsw_connection, "close", "");
             Py_XDECREF(ret);
             Py_XDECREF(self->apsw_connection);
