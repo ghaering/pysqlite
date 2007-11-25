@@ -37,9 +37,13 @@ from pysqlite2.test import dbapi, types, userfunctions, factory, transactions,\
 from pysqlite2 import dbapi2 as sqlite
 
 def suite():
-    return unittest.TestSuite(
-        (dbapi.suite(), types.suite(), userfunctions.suite(), factory.suite(),\
-         transactions.suite(), hooks.suite(), regression.suite()))
+    tests = [dbapi.suite(), types.suite(), userfunctions.suite(),
+      factory.suite(), transactions.suite(), hooks.suite(), regression.suite()]
+    if sys.version_info >= (2, 5, 0):
+        from pysqlite2.test import py25tests
+        tests.append(py25tests.suite())
+
+    return unittest.TestSuite(tuple(tests))
 
 def test():
     runner = unittest.TextTestRunner()

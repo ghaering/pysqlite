@@ -27,6 +27,7 @@ Table Of Contents
 |   `3.5 Enabling SQLite's shared cache`_
 |   `3.6 Setting an authorizer callback`_
 |   `3.7 Setting a progress handler`_
+|   `3.8 Using the connection as a context manager`_
 | `4. SQLite and Python types`_
 |   `4.1 Introduction`_
 |   `4.2 Using adapters to store additional Python types in SQLite databases`_
@@ -710,6 +711,18 @@ Here's an example that demonstrates the usage of this function:
   .. code-block::
    :language: Python
    :source-file: includes/sqlite3/progress.py
+
+3.8 Using the connection as a context manager
+---------------------------------------------
+
+With Python 2.5 or higher, pysqlite's connection objects can be used as context
+managers that automatically commit or rollback transactions.  In the event of
+an exception, the transaction is rolled back; otherwise, the transaction is
+committed:
+
+  .. code-block::
+    :language: Python
+    :source-file: includes/sqlite3/ctx_manager.py
 
 4. SQLite and Python types
 ==========================

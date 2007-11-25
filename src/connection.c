@@ -1256,6 +1256,44 @@ finally:
     return retval;
 }
 
+/* Called when the connection is used as a context manager. Returns itself as a
+ * convenience to the caller. */
+static PyObject *
+pysqlite_connection_enter(pysqlite_Connection* self, PyObject* args)
+{
+    Py_INCREF(self);
+    return (PyObject*)self;
+}
+
+/** Called when the connection is used as a context manager. If there was any
+ * exception, a rollback takes place; otherwise we commit. */
+static PyObject *
+pysqlite_connection_exit(pysqlite_Connection* self, PyObject* args)
+{
+    PyObject* exc_type, *exc_value, *exc_tb;
+    char* method_name;
+    PyObject* result;
+
+    if (!PyArg_ParseTuple(args, "OOO", &exc_type, &exc_value, &exc_tb)) {
+        return NULL;
+    }
+
+    if (exc_type == Py_None && exc_value == Py_None && exc_tb == Py_None) {
+        method_name = "commit";
+    } else {
+        method_name = "rollback";
+    }
+
+    result = PyObject_CallMethod((PyObject*)self, method_name, "");
+    if (!result) {
+        return NULL;
+    }
+    Py_DECREF(result);
+
+    Py_INCREF(Py_False);
+    return Py_False;
+}
+
 static char connection_doc[] =
 PyDoc_STR("SQLite database connection object.");
 
@@ -1292,6 +1330,10 @@ static PyMethodDef connection_methods[] = {
         PyDoc_STR("Creates a collation function. Non-standard.")},
     {"interrupt", (PyCFunction)pysqlite_connection_interrupt, METH_NOARGS,
         PyDoc_STR("Abort any pending database operation. Non-standard.")},
+    {"__enter__", (PyCFunction)pysqlite_connection_enter, METH_NOARGS,
+        PyDoc_STR("For context manager. Non-standard.")},
+    {"__exit__", (PyCFunction)pysqlite_connection_exit, METH_VARARGS,
+        PyDoc_STR("For context manager. Non-standard.")},
     {NULL, NULL}
 };
 
