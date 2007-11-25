@@ -38,6 +38,7 @@ Table Of Contents
 | `6. Using pysqlite efficiently`_
 |   `6.1 Using shortcut methods`_
 |   `6.2 Accessing columns by name instead of by index`_
+| `7. Combining APSW and pysqlite`_
 
 0. Introduction
 ===============
@@ -922,4 +923,19 @@ case-insensitively by name:
 .. code-block::
  :language: Python
  :source-file: includes/sqlite3/rowclass.py
+
+7. Combining APSW and pysqlite
+------------------------------
+
+APSW is "Another Python SQLite Wrapper". Its goal is to directly wrap the
+SQLite API for Python. If there's SQLite functionality that is only wrapped via
+APSW, but not (yet) via pysqlite, then you can still use the APSW functionality
+in pysqlite.
+
+Just use the APSW Connection as a parameter to the connect function and reuse
+an existing APSW connection like this.
+
+.. code-block::
+  :language: Python
+  :source-file: includes/sqlite3/apsw_example.py
 

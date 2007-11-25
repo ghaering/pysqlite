@@ -54,7 +54,7 @@ int pysqlite_connection_init(pysqlite_Connection* self, PyObject* args, PyObject
 {
     static char *kwlist[] = {"database", "timeout", "detect_types", "isolation_level", "check_same_thread", "factory", "cached_statements", NULL, NULL};
 
-    char* database;
+    PyObject* database;
     int detect_types = 0;
     PyObject* isolation_level = NULL;
     PyObject* factory = NULL;
@@ -62,8 +62,11 @@ int pysqlite_connection_init(pysqlite_Connection* self, PyObject* args, PyObject
     int cached_statements = 100;
     double timeout = 5.0;
     int rc;
+    PyObject* class_attr = NULL;
+    PyObject* class_attr_str = NULL;
+    int is_apsw_connection = 0;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|diOiOi", kwlist,
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|diOiOi", kwlist,
                                      &database, &timeout, &detect_types, &isolation_level, &check_same_thread, &factory, &cached_statements))
     {
         return -1;
@@ -80,13 +83,39 @@ int pysqlite_connection_init(pysqlite_Connection* self, PyObject* args, PyObject
     Py_INCREF(&PyUnicode_Type);
     self->text_factory = (PyObject*)&PyUnicode_Type;
 
-    Py_BEGIN_ALLOW_THREADS
-    rc = sqlite3_open(database, &self->db);
-    Py_END_ALLOW_THREADS
+    if (PyString_Check(database)) {
+        Py_BEGIN_ALLOW_THREADS
+        rc = sqlite3_open(PyString_AsString(database), &self->db);
+        Py_END_ALLOW_THREADS
 
-    if (rc != SQLITE_OK) {
-        _pysqlite_seterror(self->db, NULL);
-        return -1;
+        if (rc != SQLITE_OK) {
+            _pysqlite_seterror(self->db, NULL);
+            return -1;
+        }
+    } else {
+        /* Create a pysqlite connection from a APSW connection */
+        class_attr = PyObject_GetAttrString(database, "__class__");
+        if (class_attr) {
+            class_attr_str = PyObject_Str(class_attr);
+            if (class_attr_str) {
+                if (strcmp(PyString_AsString(class_attr_str), "<type 'apsw.Connection'>") == 0) {
+                    /* In the APSW Connection object, the first entry after
+                     * PyObject_HEAD is the sqlite3* we want to get hold of */
+                    self->db = *((sqlite3**)((void*)(database)+sizeof(PyObject))); 
+
+                    Py_INCREF(database);
+                    self->apsw_connection = database;
+                    is_apsw_connection = 1;
+                }
+            }
+        }
+        Py_XDECREF(class_attr_str);
+        Py_XDECREF(class_attr);
+
+        if (!is_apsw_connection) {
+            PyErr_SetString(PyExc_ValueError, "database parameter must be string or APSW Connection object");
+            return -1;
+        }
     }
 
     if (!isolation_level) {
@@ -194,6 +223,8 @@ void pysqlite_do_all_statements(pysqlite_Connection* self, int action)
 
 void pysqlite_connection_dealloc(pysqlite_Connection* self)
 {
+    PyObject* ret = NULL;
+
     Py_XDECREF(self->statement_cache);
 
     /* Clean up if user has not called .close() explicitly. */
@@ -201,6 +232,10 @@ void pysqlite_connection_dealloc(pysqlite_Connection* self)
         Py_BEGIN_ALLOW_THREADS
         sqlite3_close(self->db);
         Py_END_ALLOW_THREADS
+    } else if (self->apsw_connection) {
+        ret = PyObject_CallMethod(self->apsw_connection, "close", "");
+        Py_XDECREF(ret);
+        Py_XDECREF(self->apsw_connection);
     }
 
     if (self->begin_statement) {
@@ -249,6 +284,7 @@ PyObject* pysqlite_connection_cursor(pysqlite_Connection* self, PyObject* args, 
 
 PyObject* pysqlite_connection_close(pysqlite_Connection* self, PyObject* args)
 {
+    PyObject* ret;
     int rc;
 
     if (!pysqlite_check_thread(self)) {
@@ -258,15 +294,24 @@ PyObject* pysqlite_connection_close(pysqlite_Connection* self, PyObject* args)
     pysqlite_do_all_statements(self, ACTION_FINALIZE);
 
     if (self->db) {
-        Py_BEGIN_ALLOW_THREADS
-        rc = sqlite3_close(self->db);
-        Py_END_ALLOW_THREADS
-
-        if (rc != SQLITE_OK) {
-            _pysqlite_seterror(self->db, NULL);
-            return NULL;
-        } else {
+        if (self->apsw_connection) {
+            printf("pysqlite_connection_close\n");
+            ret = PyObject_CallMethod(self->apsw_connection, "close", "");
+            Py_XDECREF(ret);
+            Py_XDECREF(self->apsw_connection);
+            self->apsw_connection = NULL;
             self->db = NULL;
+        } else {
+            Py_BEGIN_ALLOW_THREADS
+            rc = sqlite3_close(self->db);
+            Py_END_ALLOW_THREADS
+
+            if (rc != SQLITE_OK) {
+                _pysqlite_seterror(self->db, NULL);
+                return NULL;
+            } else {
+                self->db = NULL;
+            }
         }
     }
 
