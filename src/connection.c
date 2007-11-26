@@ -83,7 +83,7 @@ int pysqlite_connection_init(pysqlite_Connection* self, PyObject* args, PyObject
     Py_INCREF(&PyUnicode_Type);
     self->text_factory = (PyObject*)&PyUnicode_Type;
 
-    if (PyString_Check(database)) {
+    if (PyString_Check(database) || PyUnicode_Check(database)) {
         Py_BEGIN_ALLOW_THREADS
         rc = sqlite3_open(PyString_AsString(database), &self->db);
         Py_END_ALLOW_THREADS

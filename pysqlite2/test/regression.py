@@ -124,6 +124,18 @@ class RegressionTests(unittest.TestCase):
         """
         self.con.execute("")
 
+    def CheckUnicodeConnect(self):
+        """
+        With pysqlite 2.5.0 you needed to use a string or a APSW connection
+        object for opening database connections.
+
+        Formerly, both bytestrings and unicode strings used to work.
+
+        Let's make sure unicode strings work in the future.
+        """
+        con = sqlite.connect(u":memory:")
+        con.close()
+
 def suite():
     regression_suite = unittest.makeSuite(RegressionTests, "Check")
     return unittest.TestSuite((regression_suite,))
