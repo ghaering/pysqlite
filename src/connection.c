@@ -65,6 +65,7 @@ int pysqlite_connection_init(pysqlite_Connection* self, PyObject* args, PyObject
     PyObject* class_attr = NULL;
     PyObject* class_attr_str = NULL;
     int is_apsw_connection = 0;
+    PyObject* database_utf8;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|diOiOi", kwlist,
                                      &database, &timeout, &detect_types, &isolation_level, &check_same_thread, &factory, &cached_statements))
@@ -84,9 +85,21 @@ int pysqlite_connection_init(pysqlite_Connection* self, PyObject* args, PyObject
     self->text_factory = (PyObject*)&PyUnicode_Type;
 
     if (PyString_Check(database) || PyUnicode_Check(database)) {
+        if (PyString_Check(database)) {
+            database_utf8 = database;
+            Py_INCREF(database_utf8);
+        } else {
+            database_utf8 = PyUnicode_AsUTF8String(database);
+            if (!database_utf8) {
+                return -1;
+            }
+        }
+
         Py_BEGIN_ALLOW_THREADS
-        rc = sqlite3_open(PyString_AsString(database), &self->db);
+        rc = sqlite3_open(PyString_AsString(database_utf8), &self->db);
         Py_END_ALLOW_THREADS
+
+        Py_DECREF(database_utf8);
 
         if (rc != SQLITE_OK) {
             _pysqlite_seterror(self->db, NULL);
