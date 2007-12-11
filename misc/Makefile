@@ -33,6 +33,16 @@ SQLITE_OBJ = alter.o analyze.o attach.o auth.o btree.o build.o \
          util.o vacuum.o \
          vdbe.o vdbeapi.o vdbeaux.o vdbefifo.o vdbemem.o \
          where.o utf.o legacy.o loadext.o vtab.o
+
+
+SQLITE_OBJ = alter.o analyze.o attach.o auth.o btmutex.o btree.o build.o callback.o \
+        complete.o date.o delete.o expr.o func.o hash.o insert.o journal.o \
+        legacy.o loadext.o main.o malloc.o mem1.o mem2.o mem3.o mutex.o \
+        mutex_w32.o opcodes.o os.o os_win.o pager.o parse.o pragma.o prepare.o \
+        printf.o random.o select.o table.o tokenize.o trigger.o update.o utf.o \
+        util.o vacuum.o vdbeapi.o vdbeaux.o vdbeblob.o vdbe.o vdbefifo.o vdbemem.o \
+        vtab.o where.o
+
 SQLITE_PRG_OBJ=shell.o 
 
 all: sqlite3.lib
