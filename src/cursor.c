@@ -26,7 +26,7 @@
 #include "util.h"
 #include "sqlitecompat.h"
 
-/* used to decide wether to call PyInt_FromLong or PyLong_FromLongLong */
+/* used to decide wether to call PyLong_FromLong or PyLong_FromLongLong */
 #ifndef INT32_MIN
 #define INT32_MIN (-2147483647 - 1)
 #endif
@@ -101,7 +101,7 @@ int pysqlite_cursor_init(pysqlite_Cursor* self, PyObject* args, PyObject* kwargs
 
     self->arraysize = 1;
 
-    self->rowcount = PyInt_FromLong(-1L);
+    self->rowcount = PyLong_FromLong(-1L);
     if (!self->rowcount) {
         return -1;
     }
@@ -269,8 +269,6 @@ PyObject* _pysqlite_fetch_one_row(pysqlite_Cursor* self)
     PyObject* converter;
     PyObject* converted;
     Py_ssize_t nbytes;
-    PyObject* buffer;
-    void* raw_buffer;
     const char* val_str;
     char buf[200];
     const char* colname;
@@ -301,7 +299,7 @@ PyObject* _pysqlite_fetch_one_row(pysqlite_Cursor* self)
                 Py_INCREF(Py_None);
                 converted = Py_None;
             } else {
-                item = PyBytes_FromStringAndSize(val_str, nbytes);
+                item = PyString_FromStringAndSize(val_str, nbytes);
                 if (!item) {
                     return NULL;
                 }
@@ -323,7 +321,7 @@ PyObject* _pysqlite_fetch_one_row(pysqlite_Cursor* self)
                 if (intval < INT32_MIN || intval > INT32_MAX) {
                     converted = PyLong_FromLongLong(intval);
                 } else {
-                    converted = PyInt_FromLong((long)intval);
+                    converted = PyLong_FromLong((long)intval);
                 }
             } else if (coltype == SQLITE_FLOAT) {
                 converted = PyFloat_FromDouble(sqlite3_column_double(self->statement->st, i));
@@ -350,15 +348,10 @@ PyObject* _pysqlite_fetch_one_row(pysqlite_Cursor* self)
             } else {
                 /* coltype == SQLITE_BLOB */
                 nbytes = sqlite3_column_bytes(self->statement->st, i);
-                buffer = PyBuffer_New(nbytes);
-                if (!buffer) {
+                converted = PyString_FromStringAndSize(sqlite3_column_blob(self->statement->st, i), nbytes);
+                if (!converted) {
                     break;
                 }
-                if (PyObject_AsWriteBuffer(buffer, &raw_buffer, &nbytes)) {
-                    break;
-                }
-                memcpy(raw_buffer, sqlite3_column_blob(self->statement->st, i), nbytes);
-                converted = buffer;
             }
         }
 
@@ -658,7 +651,7 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
             Py_BEGIN_ALLOW_THREADS
             lastrowid = sqlite3_last_insert_rowid(self->connection->db);
             Py_END_ALLOW_THREADS
-            self->lastrowid = PyInt_FromLong((long)lastrowid);
+            self->lastrowid = PyLong_FromLong((long)lastrowid);
         } else {
             Py_INCREF(Py_None);
             self->lastrowid = Py_None;
@@ -685,11 +678,11 @@ error:
 
     if (PyErr_Occurred()) {
         Py_DECREF(self->rowcount);
-        self->rowcount = PyInt_FromLong(-1L);
+        self->rowcount = PyLong_FromLong(-1L);
         return NULL;
     } else {
         Py_DECREF(self->rowcount);
-        self->rowcount = PyInt_FromLong(rowcount);
+        self->rowcount = PyLong_FromLong(rowcount);
 
         Py_INCREF(self);
         return (PyObject*)self;

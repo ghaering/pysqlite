@@ -31,6 +31,7 @@
 #include "sqlitecompat.h"
 
 #include "pythread.h"
+#include "longobject.h"
 
 #define ACTION_FINALIZE 1
 #define ACTION_RESET 2
@@ -90,7 +91,7 @@ int pysqlite_connection_init(pysqlite_Connection* self, PyObject* args, PyObject
     }
 
     if (!isolation_level) {
-        isolation_level = PyString_FromString("");
+        isolation_level = PyUnicode_FromString("");
         if (!isolation_level) {
             return -1;
         }
@@ -420,7 +421,7 @@ error:
 
 void _pysqlite_set_result(sqlite3_context* context, PyObject* py_val)
 {
-    long longval;
+    long long longval;
     const char* buffer;
     Py_ssize_t buflen;
 
@@ -428,19 +429,19 @@ void _pysqlite_set_result(sqlite3_context* context, PyObject* py_val)
         sqlite3_result_null(context);
     } else if (py_val == Py_None) {
         sqlite3_result_null(context);
-    } else if (PyInt_Check(py_val)) {
-        longval = PyInt_AsLong(py_val);
+    } else if (PyLong_Check(py_val)) {
+        longval = PyLong_AsLongLong(py_val);
         sqlite3_result_int64(context, (PY_LONG_LONG)longval);
     } else if (PyFloat_Check(py_val)) {
         sqlite3_result_double(context, PyFloat_AsDouble(py_val));
-    } else if (PyBuffer_Check(py_val)) {
+    } else if (PyBytes_Check(py_val)) {
         if (PyObject_AsCharBuffer(py_val, &buffer, &buflen) != 0) {
             PyErr_SetString(PyExc_ValueError, "could not convert BLOB to buffer");
         } else {
             sqlite3_result_blob(context, buffer, buflen, SQLITE_TRANSIENT);
         }
     } else if (PyString_Check(py_val)) {
-        sqlite3_result_text(context, PyString_AsString(py_val), -1, SQLITE_TRANSIENT);
+        sqlite3_result_blob(context, PyString_AsString(py_val), PyString_Size(py_val), SQLITE_TRANSIENT);
     } else if (PyUnicode_Check(py_val)) {
         sqlite3_result_text(context, PyUnicode_AsString(py_val), -1, SQLITE_TRANSIENT);
     } else {
@@ -457,7 +458,6 @@ PyObject* _pysqlite_build_py_params(sqlite3_context *context, int argc, sqlite3_
     const char* val_str;
     PY_LONG_LONG val_int;
     Py_ssize_t buflen;
-    void* raw_buffer;
 
     args = PyTuple_New(argc);
     if (!args) {
@@ -469,7 +469,7 @@ PyObject* _pysqlite_build_py_params(sqlite3_context *context, int argc, sqlite3_
         switch (sqlite3_value_type(argv[i])) {
             case SQLITE_INTEGER:
                 val_int = sqlite3_value_int64(cur_value);
-                cur_py_value = PyInt_FromLong((long)val_int);
+                cur_py_value = PyLong_FromLong((long)val_int);
                 break;
             case SQLITE_FLOAT:
                 cur_py_value = PyFloat_FromDouble(sqlite3_value_double(cur_value));
@@ -486,16 +486,10 @@ PyObject* _pysqlite_build_py_params(sqlite3_context *context, int argc, sqlite3_
                 break;
             case SQLITE_BLOB:
                 buflen = sqlite3_value_bytes(cur_value);
-                cur_py_value = PyBuffer_New(buflen);
+                cur_py_value = PyString_FromStringAndSize(sqlite3_value_blob(cur_value), buflen);
                 if (!cur_py_value) {
                     break;
                 }
-                if (PyObject_AsWriteBuffer(cur_py_value, &raw_buffer, &buflen)) {
-                    Py_DECREF(cur_py_value);
-                    cur_py_value = NULL;
-                    break;
-                }
-                memcpy(raw_buffer, sqlite3_value_blob(cur_value), buflen);
                 break;
             case SQLITE_NULL:
             default:
@@ -753,8 +747,8 @@ static int _authorizer_callback(void* user_arg, int action, const char* arg1, co
 
         rc = SQLITE_DENY;
     } else {
-        if (PyInt_Check(ret)) {
-            rc = (int)PyInt_AsLong(ret);
+        if (PyLong_Check(ret)) {
+            rc = (int)PyLong_AsLong(ret);
         } else {
             rc = SQLITE_DENY;
         }
@@ -875,6 +869,7 @@ static PyObject* pysqlite_connection_get_total_changes(pysqlite_Connection* self
 static int pysqlite_connection_set_isolation_level(pysqlite_Connection* self, PyObject* isolation_level)
 {
     PyObject* res;
+    PyObject* begin_snippet;
     PyObject* begin_statement;
 
     Py_XDECREF(self->isolation_level);
@@ -899,21 +894,22 @@ static int pysqlite_connection_set_isolation_level(pysqlite_Connection* self, Py
         Py_INCREF(isolation_level);
         self->isolation_level = isolation_level;
 
-        begin_statement = PyString_FromString("BEGIN ");
-        if (!begin_statement) {
+        begin_snippet = PyUnicode_FromString("BEGIN ");
+        if (!begin_snippet) {
             return -1;
         }
-        PyString_Concat(&begin_statement, isolation_level);
+        begin_statement = PyUnicode_Concat(begin_snippet, isolation_level);
+        Py_DECREF(begin_snippet);
         if (!begin_statement) {
             return -1;
         }
 
-        self->begin_statement = PyMem_Malloc(PyString_Size(begin_statement) + 2);
+        self->begin_statement = PyMem_Malloc(PyUnicode_GetSize(begin_statement) + 2);
         if (!self->begin_statement) {
             return -1;
         }
 
-        strcpy(self->begin_statement, PyString_AsString(begin_statement));
+        strcpy(self->begin_statement, PyUnicode_AsString(begin_statement));
         Py_DECREF(begin_statement);
     }
 
@@ -1102,7 +1098,7 @@ pysqlite_collation_callback(
         goto finally;
     }
 
-    result = PyInt_AsLong(retval);
+    result = PyLong_AsLong(retval);
     if (PyErr_Occurred()) {
         result = 0;
     }
@@ -1149,7 +1145,7 @@ pysqlite_connection_create_collation(pysqlite_Connection* self, PyObject* args)
         goto finally;
     }
 
-    if (!PyArg_ParseTuple(args, "O!O:create_collation(name, callback)", &PyUnicode_Type, &name, &callable)) {
+    if (!PyArg_ParseTuple(args, "UO:create_collation(name, callback)", &name, &callable)) {
         goto finally;
     }
 
@@ -1158,7 +1154,10 @@ pysqlite_connection_create_collation(pysqlite_Connection* self, PyObject* args)
         goto finally;
     }
 
-    chk = PyString_AsString(uppercase_name);
+    chk = PyUnicode_AsString(uppercase_name);
+    if (!chk) {
+        return NULL;
+    }
     while (*chk) {
         if ((*chk >= '0' && *chk <= '9')
          || (*chk >= 'A' && *chk <= 'Z')
@@ -1183,7 +1182,7 @@ pysqlite_connection_create_collation(pysqlite_Connection* self, PyObject* args)
     }
 
     rc = sqlite3_create_collation(self->db,
-                                  PyString_AsString(uppercase_name),
+                                  PyUnicode_AsString(uppercase_name),
                                   SQLITE_UTF8,
                                   (callable != Py_None) ? callable : NULL,
                                   (callable != Py_None) ? pysqlite_collation_callback : NULL);

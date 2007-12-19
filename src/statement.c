@@ -41,7 +41,6 @@ typedef enum {
 } parse_remaining_sql_state;
 
 typedef enum {
-    TYPE_INT,
     TYPE_LONG,
     TYPE_FLOAT,
     TYPE_STRING,
@@ -90,14 +89,12 @@ int pysqlite_statement_create(pysqlite_Statement* self, pysqlite_Connection* con
 int pysqlite_statement_bind_parameter(pysqlite_Statement* self, int pos, PyObject* parameter)
 {
     int rc = SQLITE_OK;
-    long longval;
 #ifdef HAVE_LONG_LONG
     PY_LONG_LONG longlongval;
 #endif
     const char* buffer;
     char* string;
     Py_ssize_t buflen;
-    PyObject* stringval;
     parameter_type paramtype;
 
     if (parameter == Py_None) {
@@ -105,26 +102,24 @@ int pysqlite_statement_bind_parameter(pysqlite_Statement* self, int pos, PyObjec
         goto final;
     }
 
-    if (PyInt_CheckExact(parameter)) {
-        paramtype = TYPE_INT;
-    } else if (PyLong_CheckExact(parameter)) {
+    if (PyLong_CheckExact(parameter)) {
         paramtype = TYPE_LONG;
     } else if (PyFloat_CheckExact(parameter)) {
         paramtype = TYPE_FLOAT;
     } else if (PyString_CheckExact(parameter)) {
-        paramtype = TYPE_STRING;
+        paramtype = TYPE_BUFFER;
     } else if (PyUnicode_CheckExact(parameter)) {
         paramtype = TYPE_UNICODE;
-    } else if (PyBuffer_Check(parameter)) {
+    } else if (PyBytes_Check(parameter)) {
         paramtype = TYPE_BUFFER;
-    } else if (PyInt_Check(parameter)) {
-        paramtype = TYPE_INT;
+    } else if (PyLong_Check(parameter)) {
+        paramtype = TYPE_LONG;
     } else if (PyLong_Check(parameter)) {
         paramtype = TYPE_LONG;
     } else if (PyFloat_Check(parameter)) {
         paramtype = TYPE_FLOAT;
     } else if (PyString_Check(parameter)) {
-        paramtype = TYPE_STRING;
+        paramtype = TYPE_BUFFER;
     } else if (PyUnicode_Check(parameter)) {
         paramtype = TYPE_UNICODE;
     } else {
@@ -132,17 +127,11 @@ int pysqlite_statement_bind_parameter(pysqlite_Statement* self, int pos, PyObjec
     }
 
     switch (paramtype) {
-        case TYPE_INT:
-            longval = PyInt_AsLong(parameter);
-            rc = sqlite3_bind_int64(self->st, pos, (sqlite_int64)longval);
-            break;
-#ifdef HAVE_LONG_LONG
         case TYPE_LONG:
             longlongval = PyLong_AsLongLong(parameter);
             /* in the overflow error case, longlongval is -1, and an exception is set */
             rc = sqlite3_bind_int64(self->st, pos, (sqlite_int64)longlongval);
             break;
-#endif
         case TYPE_FLOAT:
             rc = sqlite3_bind_double(self->st, pos, PyFloat_AsDouble(parameter));
             break;
@@ -177,9 +166,9 @@ static int _need_adapt(PyObject* obj)
         return 1;
     }
 
-    if (PyInt_CheckExact(obj) || PyLong_CheckExact(obj) 
+    if (PyLong_CheckExact(obj)
             || PyFloat_CheckExact(obj) || PyString_CheckExact(obj)
-            || PyUnicode_CheckExact(obj) || PyBuffer_Check(obj)) {
+            || PyUnicode_CheckExact(obj) || PyBytes_Check(obj)) {
         return 0;
     } else {
         return 1;

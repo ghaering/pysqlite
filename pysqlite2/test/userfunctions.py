@@ -36,7 +36,7 @@ def func_returnfloat():
 def func_returnnull():
     return None
 def func_returnblob():
-    return buffer(b"blob")
+    return b"blob"
 def func_raiseexception():
     5/0
 
@@ -49,7 +49,7 @@ def func_isfloat(v):
 def func_isnone(v):
     return type(v) is type(None)
 def func_isblob(v):
-    return type(v) is buffer
+    return type(v) is bytes
 
 class AggrNoStep:
     def __init__(self):
@@ -100,7 +100,7 @@ class AggrCheckType:
         self.val = None
 
     def step(self, whichType, val):
-        theType = {"str": str, "int": int, "float": float, "None": type(None), "blob": buffer}
+        theType = {"str": str, "int": int, "float": float, "None": type(None), "blob": bytes}
         self.val = int(theType[whichType] is type(val))
 
     def finalize(self):
@@ -196,8 +196,8 @@ class FunctionTests(unittest.TestCase):
         cur = self.con.cursor()
         cur.execute("select returnblob()")
         val = cur.fetchone()[0]
-        self.failUnlessEqual(type(val), buffer)
-        self.failUnlessEqual(val, buffer(b"blob"))
+        self.failUnlessEqual(type(val), bytes)
+        self.failUnlessEqual(val, b"blob")
 
     def CheckFuncException(self):
         cur = self.con.cursor()
@@ -234,7 +234,7 @@ class FunctionTests(unittest.TestCase):
 
     def CheckParamBlob(self):
         cur = self.con.cursor()
-        cur.execute("select isblob(?)", (buffer(b"blob"),))
+        cur.execute("select isblob(?)", (b"blob",))
         val = cur.fetchone()[0]
         self.failUnlessEqual(val, 1)
 
@@ -252,7 +252,7 @@ class AggregateTests(unittest.TestCase):
                 )
             """)
         cur.execute("insert into test(t, i, f, n, b) values (?, ?, ?, ?, ?)",
-            ("foo", 5, 3.14, None, buffer(b"blob"),))
+            ("foo", 5, 3.14, None, b"blob",))
 
         self.con.create_aggregate("nostep", 1, AggrNoStep)
         self.con.create_aggregate("nofinalize", 1, AggrNoFinalize)
@@ -344,7 +344,7 @@ class AggregateTests(unittest.TestCase):
 
     def CheckAggrCheckParamBlob(self):
         cur = self.con.cursor()
-        cur.execute("select checkType('blob', ?)", (buffer(b"blob"),))
+        cur.execute("select checkType('blob', ?)", (b"blob",))
         val = cur.fetchone()[0]
         self.failUnlessEqual(val, 1)
 

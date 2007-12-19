@@ -23,6 +23,7 @@
 
 #include "cache.h"
 #include <limits.h>
+#include "stringobject.h"
 
 /* only used internally */
 pysqlite_Node* pysqlite_new_node(PyObject* key, PyObject* data)
@@ -213,6 +214,7 @@ PyObject* pysqlite_cache_get(pysqlite_Cache* self, PyObject* args)
 
 PyObject* pysqlite_cache_display(pysqlite_Cache* self, PyObject* args)
 {
+#if 0
     pysqlite_Node* ptr;
     PyObject* prevkey;
     PyObject* nextkey;
@@ -260,7 +262,7 @@ PyObject* pysqlite_cache_display(pysqlite_Cache* self, PyObject* args)
 
         ptr = ptr->next;
     }
-
+#endif
     Py_INCREF(Py_None);
     return Py_None;
 }

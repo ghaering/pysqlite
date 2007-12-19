@@ -62,7 +62,7 @@ class SqliteTypeTests(unittest.TestCase):
         self.failUnlessEqual(row[0], val)
 
     def CheckBlob(self):
-        val = buffer(b"Guglhupf")
+        val = b"Guglhupf"
         self.cur.execute("insert into test(b) values (?)", (val,))
         self.cur.execute("select b from test")
         row = self.cur.fetchone()
@@ -76,7 +76,7 @@ class SqliteTypeTests(unittest.TestCase):
 class DeclTypesTests(unittest.TestCase):
     class Foo:
         def __init__(self, _val):
-            self.val = str(_val)
+            self.val = _val
 
         def __cmp__(self, other):
             if not isinstance(other, DeclTypesTests.Foo):
@@ -110,7 +110,7 @@ class DeclTypesTests(unittest.TestCase):
         sqlite.converters["FLOAT"] = lambda x: 47.2
 
         # and implement two custom ones
-        sqlite.converters["BOOL"] = lambda x: bool(int(x))
+        sqlite.converters["BOOL"] = lambda x: bool(int(str(x, "latin1")))
         sqlite.converters["FOO"] = DeclTypesTests.Foo
         sqlite.converters["WRONG"] = lambda x: "WRONG"
 
@@ -173,7 +173,7 @@ class DeclTypesTests(unittest.TestCase):
         self.failUnlessEqual(row[0], val)
 
     def CheckFoo(self):
-        val = DeclTypesTests.Foo("bla")
+        val = DeclTypesTests.Foo(b"bla")
         self.cur.execute("insert into test(foo) values (?)", (val,))
         self.cur.execute("select foo from test")
         row = self.cur.fetchone()
@@ -203,7 +203,7 @@ class DeclTypesTests(unittest.TestCase):
 
     def CheckBlob(self):
         # default
-        val = buffer(b"Guglhupf")
+        val = b"Guglhupf"
         self.cur.execute("insert into test(bin) values (?)", (val,))
         self.cur.execute("select bin from test")
         row = self.cur.fetchone()
@@ -216,7 +216,7 @@ class ColNamesTests(unittest.TestCase):
         self.cur.execute("create table test(x foo)")
 
         sqlite.converters["FOO"] = lambda x: "[%s]" % x
-        sqlite.converters["BAR"] = lambda x: "<%s>" % x
+        sqlite.converters["BAR"] = lambda x: "<%s>" % str(x, "utf-8")
         sqlite.converters["EXC"] = lambda x: 5/0
         sqlite.converters["B1B1"] = lambda x: "MARKER"
 
@@ -305,7 +305,7 @@ class BinaryConverterTests(unittest.TestCase):
 
     def CheckBinaryInputForConverter(self):
         testdata = b"abcdefg" * 10
-        result = self.con.execute('select ? as "x [bin]"', (buffer(zlib.compress(testdata)),)).fetchone()[0]
+        result = self.con.execute('select ? as "x [bin]"', (bytes(zlib.compress(testdata)),)).fetchone()[0]
         self.failUnlessEqual(testdata, result)
 
 class DateTimeTests(unittest.TestCase):

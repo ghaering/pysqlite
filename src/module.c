@@ -136,7 +136,7 @@ static PyObject* module_register_adapter(PyObject* self, PyObject* args, PyObjec
     /* a basic type is adapted; there's a performance optimization if that's not the case
      * (99 % of all usages) */
     if (/*type == &PyInt_Type ||*/ type == &PyLong_Type || type == &PyFloat_Type
-            || type == &PyString_Type || type == &PyUnicode_Type || type == &PyBuffer_Type) {
+            || type == &PyString_Type || type == &PyUnicode_Type || type == &PyBytes_Type) {
         pysqlite_BaseTypeAdapted = 1;
     }
 
@@ -153,7 +153,7 @@ static PyObject* module_register_converter(PyObject* self, PyObject* args, PyObj
     PyObject* callable;
     PyObject* retval = NULL;
 
-    if (!PyArg_ParseTuple(args, "SO", &orig_name, &callable)) {
+    if (!PyArg_ParseTuple(args, "UO", &orig_name, &callable)) {
         return NULL;
     }
 
@@ -356,7 +356,7 @@ PyMODINIT_FUNC init_sqlite(void)
 
     /* Set integer constants */
     for (i = 0; _int_constants[i].constant_name != 0; i++) {
-        tmp_obj = PyInt_FromLong(_int_constants[i].constant_value);
+        tmp_obj = PyLong_FromLong(_int_constants[i].constant_value);
         if (!tmp_obj) {
             goto error;
         }
@@ -364,13 +364,13 @@ PyMODINIT_FUNC init_sqlite(void)
         Py_DECREF(tmp_obj);
     }
 
-    if (!(tmp_obj = PyString_FromString(PYSQLITE_VERSION))) {
+    if (!(tmp_obj = PyUnicode_FromString(PYSQLITE_VERSION))) {
         goto error;
     }
     PyDict_SetItemString(dict, "version", tmp_obj);
     Py_DECREF(tmp_obj);
 
-    if (!(tmp_obj = PyString_FromString(sqlite3_libversion()))) {
+    if (!(tmp_obj = PyUnicode_FromString(sqlite3_libversion()))) {
         goto error;
     }
     PyDict_SetItemString(dict, "sqlite_version", tmp_obj);
