@@ -21,6 +21,7 @@
 #    misrepresented as being the original software.
 # 3. This notice may not be removed or altered from any source distribution.
 
+import datetime
 import unittest
 import pysqlite2.dbapi2 as sqlite
 
@@ -126,7 +127,7 @@ class RegressionTests(unittest.TestCase):
 
     def CheckUnicodeConnect(self):
         """
-        With pysqlite 2.5.0 you needed to use a string or a APSW connection
+        With pysqlite 2.4.0 you needed to use a string or a APSW connection
         object for opening database connections.
 
         Formerly, both bytestrings and unicode strings used to work.
@@ -135,6 +136,22 @@ class RegressionTests(unittest.TestCase):
         """
         con = sqlite.connect(u":memory:")
         con.close()
+
+    def CheckTypeMapUsage(self):
+        """
+        pysqlite until 2.4.1 did not rebuild the row_cast_map when recompiling
+        a statement. This test exhibits the problem.
+        """
+        SELECT = "select * from foo"
+        con = sqlite.connect(":memory:",detect_types=sqlite.PARSE_DECLTYPES)
+        con.execute("create table foo(bar timestamp)")
+        con.execute("insert into foo(bar) values (?)", (datetime.datetime.now(),))
+        con.execute(SELECT)
+        con.execute("drop table foo")
+        con.execute("create table foo(bar integer)")
+        con.execute("insert into foo(bar) values (5)")
+        con.execute(SELECT)
+
 
 def suite():
     regression_suite = unittest.makeSuite(RegressionTests, "Check")

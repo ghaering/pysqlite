@@ -597,11 +597,6 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
             goto error;
         }
 
-        if (pysqlite_build_row_cast_map(self) != 0) {
-            PyErr_SetString(pysqlite_OperationalError, "Error while building row_cast_map");
-            goto error;
-        }
-
         /* Keep trying the SQL statement until the schema stops changing. */
         while (1) {
             /* Actually execute the SQL statement. */
@@ -637,6 +632,11 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
                 _pysqlite_seterror(self->connection->db, NULL);
                 goto error;
             }
+        }
+
+        if (pysqlite_build_row_cast_map(self) != 0) {
+            PyErr_SetString(pysqlite_OperationalError, "Error while building row_cast_map");
+            goto error;
         }
 
         if (rc == SQLITE_ROW || (rc == SQLITE_DONE && statement_type == STATEMENT_SELECT)) {
