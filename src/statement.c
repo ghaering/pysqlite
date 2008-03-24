@@ -145,7 +145,7 @@ int pysqlite_statement_bind_parameter(pysqlite_Statement* self, int pos, PyObjec
         string = PyString_AS_STRING(parameter);
         for (c = string; *c != 0; c++) {
             if (*c & 0x80) {
-                PyErr_SetString(pysqlite_ProgrammingError, "You must not use 8-bit bytestrings unless you use a text_factory that can interpret 8-bit bytestrings (like text_factory = str). It is highly recommended hat instead you just switch your application to unicode strings.");
+                PyErr_SetString(pysqlite_ProgrammingError, "You must not use 8-bit bytestrings unless you use a text_factory that can interpret 8-bit bytestrings (like text_factory = str). It is highly recommended that you instead just switch your application to Unicode strings.");
                 rc = -1;
                 goto final;
             }
