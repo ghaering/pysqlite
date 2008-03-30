@@ -1,7 +1,7 @@
 #-*- coding: ISO-8859-1 -*-
 # setup.py: the distutils script
 #
-# Copyright (C) 2004-2007 Gerhard Häring <gh@ghaering.de>
+# Copyright (C) 2008 Gerhard Häring <gh@ghaering.de>
 #
 # This file is part of pysqlite.
 #
@@ -27,103 +27,30 @@ from distutils.core import setup, Extension, Command
 
 # If you need to change anything, it should be enough to change setup.cfg.
 
-sqlite = "sqlite"
-
-sources = ["src/module.c", "src/connection.c", "src/cursor.c", "src/cache.c",
-           "src/microprotocols.c", "src/prepare_protocol.c", "src/statement.c",
-           "src/util.c", "src/row.c"]
-
-include_dirs = []
-library_dirs = []
-libraries = []
-runtime_library_dirs = []
-extra_objects = []
-define_macros = []
-
 long_description = \
 """Python interface to SQLite 3
 
 pysqlite is an interface to the SQLite 3.x embedded relational database engine.
-It is almost fully compliant with the Python database API version 2.0 also
-exposes the unique features of SQLite."""
-
-if sys.platform != "win32":
-    define_macros.append(('MODULE_NAME', '"pysqlite2.dbapi2"'))
-else:
-    define_macros.append(('MODULE_NAME', '\\"pysqlite2.dbapi2\\"'))
-
-class DocBuilder(Command):
-    description = "Builds the documentation"
-    user_options = []
-
-    def initialize_options(self):
-        pass
-
-    def finalize_options(self):
-        pass
-
-    def run(self):
-        import os, stat
-
-        try:
-            import docutils.core
-            import docutilsupport
-        except ImportError:
-            print "Error: the build-docs command requires docutils and SilverCity to be installed"
-            return
-
-        docfiles = {
-            "usage-guide.html": "usage-guide.txt",
-            "install-source.html": "install-source.txt",
-            "install-source-win32.html": "install-source-win32.txt"
-        }
-
-        os.chdir("doc")
-        for dest, source in docfiles.items():
-            if not os.path.exists(dest) or os.stat(dest)[stat.ST_MTIME] < os.stat(source)[stat.ST_MTIME]:
-                print "Building documentation file %s." % dest
-                docutils.core.publish_cmdline(
-                    writer_name='html',
-                    argv=["--stylesheet=default.css", source, dest])
-
-        os.chdir("..")
+It is almost fully compliant with the Python database API version 2.0."""
 
 def get_setup_args():
-    PYSQLITE_VERSION = None
-
-    version_re = re.compile('#define PYSQLITE_VERSION "(.*)"')
-    f = open(os.path.join("src", "module.h"))
-    for line in f:
-        match = version_re.match(line)
-        if match:
-            PYSQLITE_VERSION = match.groups()[0]
-            PYSQLITE_MINOR_VERSION = ".".join(PYSQLITE_VERSION.split('.')[:2])
-            break
-    f.close()
-
-    if not PYSQLITE_VERSION:
-        print "Fatal error: PYSQLITE_VERSION could not be detected!"
-        sys.exit(1)
-
-    data_files = [("pysqlite2-doc",
-                        glob.glob("doc/*.html") \
-                      + glob.glob("doc/*.txt") \
-                      + glob.glob("doc/*.css")),
-                   ("pysqlite2-doc/code",
-                        glob.glob("doc/code/*.py"))]
+    from pysqlite2.dbapi2 import version, version_info
+    PYSQLITE_VERSION = version
+    PYSQLITE_MAJOR_VERSION = version_info[0]
+    PYSQLITE_MINOR_VERSION = version_info[1]
 
     py_modules = ["sqlite"]
     setup_args = dict(
             name = "pysqlite",
-            version = PYSQLITE_VERSION,
+            version = version,
             description = "DB-API 2.0 interface for SQLite 3.x",
             long_description=long_description,
             author = "Gerhard Haering",
             author_email = "gh@ghaering.de",
             license = "zlib/libpng license",
             platforms = "ALL",
-            url = "http://oss.itsystementwicklung.de/trac/pysqlite",
-            download_url = "http://oss.itsystementwicklung.de/download/pysqlite/%s/%s/" % \
+            url = "http://pysqlite.org/",
+            download_url = "http://initd.org/pub/software/pysqlite/releases/%s/%s/" % \
                 (PYSQLITE_MINOR_VERSION, PYSQLITE_VERSION),
 
 
@@ -131,19 +58,10 @@ def get_setup_args():
             package_dir = {"pysqlite2": "pysqlite2"},
             packages = ["pysqlite2", "pysqlite2.test"],
             scripts=[],
-            data_files = data_files,
+            data_files = [],
 
-            ext_modules = [Extension( name="pysqlite2._sqlite",
-                                      sources=sources,
-                                      include_dirs=include_dirs,
-                                      library_dirs=library_dirs,
-                                      runtime_library_dirs=runtime_library_dirs,
-                                      libraries=libraries,
-                                      extra_objects=extra_objects,
-                                      define_macros=define_macros
-                                      )],
             classifiers = [
-            "Development Status :: 5 - Production/Stable",
+            "Development Status :: 3 - Alpha",
             "Intended Audience :: Developers",
             "License :: OSI Approved :: zlib/libpng License",
             "Operating System :: MacOS :: MacOS X",

@@ -32,7 +32,7 @@ class TransactionTests(unittest.TestCase):
     def setUp(self):
         try:
             os.remove(get_db_path())
-        except OSError:
+        except:
             pass
 
         self.con1 = sqlite.connect(get_db_path(), timeout=0.1)
@@ -48,10 +48,7 @@ class TransactionTests(unittest.TestCase):
         self.cur2.close()
         self.con2.close()
 
-        try:
-            os.unlink(get_db_path())
-        except OSError:
-            pass
+        os.unlink(get_db_path())
 
     def CheckDMLdoesAutoCommitBefore(self):
         self.cur1.execute("create table test(i)")

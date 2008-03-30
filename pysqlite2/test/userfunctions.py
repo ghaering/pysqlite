@@ -278,6 +278,7 @@ class AggregateTests(unittest.TestCase):
         cur = self.con.cursor()
         try:
             cur.execute("select nostep(t) from test")
+            cur.fetchall()
             self.fail("should have raised an AttributeError")
         except AttributeError, e:
             self.failUnlessEqual(e.args[0], "AggrNoStep instance has no attribute 'step'")
@@ -400,8 +401,8 @@ class AuthorizerTests(unittest.TestCase):
         self.fail("should have raised an exception due to missing privileges")
 
 def suite():
-    function_suite = unittest.makeSuite(FunctionTests, "Check")
-    aggregate_suite = unittest.makeSuite(AggregateTests, "Check")
+    function_suite = unittest.makeSuite(FunctionTests, "XCheck")
+    aggregate_suite = unittest.makeSuite(AggregateTests, "CheckAggrNoStep")
     authorizer_suite = unittest.makeSuite(AuthorizerTests, "Check")
     return unittest.TestSuite((function_suite, aggregate_suite, authorizer_suite))
 

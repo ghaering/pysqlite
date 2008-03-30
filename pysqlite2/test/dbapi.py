@@ -26,6 +26,19 @@ import sys
 import threading
 import pysqlite2.dbapi2 as sqlite
 
+class Seq(object):
+    def __len__(self):
+        return 1
+
+    def __getitem__(self, x):
+        if x != 0:
+            raise StopIteration
+        return "foo"
+
+class D(dict):
+    def __missing__(self, key):
+        return "foo"
+
 class ModuleTests(unittest.TestCase):
     def CheckAPILevel(self):
         self.assertEqual(sqlite.apilevel, "2.0",
@@ -91,13 +104,14 @@ class ConnectionTests(unittest.TestCase):
     def tearDown(self):
         self.cx.close()
 
-    def CheckCommit(self):
+    def ACheckCommit(self):
         self.cx.commit()
 
     def CheckCommitAfterNoChanges(self):
         """
         A commit should also work when no changes were made to the database.
         """
+        return
         self.cx.commit()
         self.cx.commit()
 
@@ -158,7 +172,7 @@ class CursorTests(unittest.TestCase):
             self.fail("should have raised an OperationalError")
         except sqlite.OperationalError:
             return
-        except:
+        except Exception, e:
             self.fail("raised wrong exception")
 
     def CheckExecuteTooMuchSql(self):
@@ -167,7 +181,12 @@ class CursorTests(unittest.TestCase):
             self.fail("should have raised a Warning")
         except sqlite.Warning:
             return
-        except:
+        except Exception, e:
+            print "-" * 50
+            print "-" * 50
+            print e
+            print "-" * 50
+            print "-" * 50
             self.fail("raised wrong exception")
 
     def CheckExecuteTooMuchSql2(self):
@@ -231,15 +250,8 @@ class CursorTests(unittest.TestCase):
         self.failUnlessEqual(row[0], "foo")
 
     def CheckExecuteParamSequence(self):
-        class L(object):
-            def __len__(self):
-                return 1
-            def __getitem__(self, x):
-                assert x == 0
-                return "foo"
-
         self.cu.execute("insert into test(name) values ('foo')")
-        self.cu.execute("select name from test where name=?", L())
+        self.cu.execute("select name from test where name=?", Seq())
         row = self.cu.fetchone()
         self.failUnlessEqual(row[0], "foo")
 
@@ -253,10 +265,6 @@ class CursorTests(unittest.TestCase):
         # Test only works with Python 2.5 or later
         if sys.version_info < (2, 5, 0):
             return
-
-        class D(dict):
-            def __missing__(self, key):
-                return "foo"
 
         self.cu.execute("insert into test(name) values ('foo')")
         self.cu.execute("select name from test where name=:name", D())
@@ -315,146 +323,150 @@ class CursorTests(unittest.TestCase):
     def CheckExecuteManySequence(self):
         self.cu.executemany("insert into test(income) values (?)", [(x,) for x in range(100, 110)])
 
-    def CheckExecuteManyIterator(self):
-        class MyIter:
-            def __init__(self):
-                self.value = 5
+        def CheckExecuteManyIterator(self):
+            class MyIter:
+                def __init__(self):
+                    self.value = 5
 
-            def next(self):
-                if self.value == 10:
-                    raise StopIteration
-                else:
-                    self.value += 1
-                    return (self.value,)
+                def next(self):
+                    if self.value == 10:
+                        raise StopIteration
+                    else:
+                        self.value += 1
+                        return (self.value,)
 
-        self.cu.executemany("insert into test(income) values (?)", MyIter())
+            print "*" * 50
+            for x in MyIter():
+                print x
+            print "*" * 50
+            self.cu.executemany("insert into test(income) values (?)", MyIter())
 
-    def CheckExecuteManyGenerator(self):
-        def mygen():
-            for i in range(5):
-                yield (i,)
+        def CheckExecuteManyGenerator(self):
+            def mygen():
+                for i in range(5):
+                    yield (i,)
 
-        self.cu.executemany("insert into test(income) values (?)", mygen())
+            self.cu.executemany("insert into test(income) values (?)", mygen())
 
-    def CheckExecuteManyWrongSqlArg(self):
-        try:
-            self.cu.executemany(42, [(3,)])
+        def CheckExecuteManyWrongSqlArg(self):
+            try:
+                self.cu.executemany(42, [(3,)])
+                self.fail("should have raised a ValueError")
+            except ValueError:
+                return
+            except:
+                self.fail("raised wrong exception.")
+
+        def CheckExecuteManySelect(self):
+            try:
+                self.cu.executemany("select ?", [(3,)])
+                self.fail("should have raised a ProgrammingError")
+            except sqlite.ProgrammingError:
+                return
+            except:
+                self.fail("raised wrong exception.")
+
+        def CheckExecuteManyNotIterable(self):
+            try:
+                self.cu.executemany("insert into test(income) values (?)", 42)
+                self.fail("should have raised a TypeError")
+            except TypeError:
+                return
+            except Exception, e:
+                print "raised", e.__class__
+                self.fail("raised wrong exception.")
+
+        def CheckFetchIter(self):
+            # Optional DB-API extension.
+            self.cu.execute("delete from test")
+            self.cu.execute("insert into test(id) values (?)", (5,))
+            self.cu.execute("insert into test(id) values (?)", (6,))
+            self.cu.execute("select id from test order by id")
+            lst = []
+            for row in self.cu:
+                lst.append(row[0])
+            self.failUnlessEqual(lst[0], 5)
+            self.failUnlessEqual(lst[1], 6)
+
+        def CheckFetchone(self):
+            self.cu.execute("select name from test")
+            row = self.cu.fetchone()
+            self.failUnlessEqual(row[0], "foo")
+            row = self.cu.fetchone()
+            self.failUnlessEqual(row, None)
+
+        def CheckFetchoneNoStatement(self):
+            cur = self.cx.cursor()
+            row = cur.fetchone()
+            self.failUnlessEqual(row, None)
+
+        def CheckArraySize(self):
+            # must default ot 1
+            self.failUnlessEqual(self.cu.arraysize, 1)
+
+            # now set to 2
+            self.cu.arraysize = 2
+
+            # now make the query return 3 rows
+            self.cu.execute("delete from test")
+            self.cu.execute("insert into test(name) values ('A')")
+            self.cu.execute("insert into test(name) values ('B')")
+            self.cu.execute("insert into test(name) values ('C')")
+            self.cu.execute("select name from test")
+            res = self.cu.fetchmany()
+
+            self.failUnlessEqual(len(res), 2)
+
+        def CheckFetchmany(self):
+            self.cu.execute("select name from test")
+            res = self.cu.fetchmany(100)
+            self.failUnlessEqual(len(res), 1)
+            res = self.cu.fetchmany(100)
+            self.failUnlessEqual(res, [])
+
+        def CheckFetchmanyKwArg(self):
+            """Checks if fetchmany works with keyword arguments"""
+            self.cu.execute("select name from test")
+            res = self.cu.fetchmany(size=100)
+            self.failUnlessEqual(len(res), 1)
+
+        def CheckFetchall(self):
+            self.cu.execute("select name from test")
+            res = self.cu.fetchall()
+            self.failUnlessEqual(len(res), 1)
+            res = self.cu.fetchall()
+            self.failUnlessEqual(res, [])
+
+        def CheckSetinputsizes(self):
+            self.cu.setinputsizes([3, 4, 5])
+
+        def CheckSetoutputsize(self):
+            self.cu.setoutputsize(5, 0)
+
+        def CheckSetoutputsizeNoColumn(self):
+            self.cu.setoutputsize(42)
+
+        def CheckCursorConnection(self):
+            # Optional DB-API extension.
+            self.failUnlessEqual(self.cu.connection, self.cx)
+
+        def CheckWrongCursorCallable(self):
+            try:
+                def f(): pass
+                cur = self.cx.cursor(f)
+                self.fail("should have raised a TypeError")
+            except TypeError:
+                return
             self.fail("should have raised a ValueError")
-        except ValueError:
-            return
-        except:
-            self.fail("raised wrong exception.")
 
-    def CheckExecuteManySelect(self):
-        try:
-            self.cu.executemany("select ?", [(3,)])
-            self.fail("should have raised a ProgrammingError")
-        except sqlite.ProgrammingError:
-            return
-        except:
-            self.fail("raised wrong exception.")
-
-    def CheckExecuteManyNotIterable(self):
-        try:
-            self.cu.executemany("insert into test(income) values (?)", 42)
-            self.fail("should have raised a TypeError")
-        except TypeError:
-            return
-        except Exception, e:
-            print "raised", e.__class__
-            self.fail("raised wrong exception.")
-
-    def CheckFetchIter(self):
-        # Optional DB-API extension.
-        self.cu.execute("delete from test")
-        self.cu.execute("insert into test(id) values (?)", (5,))
-        self.cu.execute("insert into test(id) values (?)", (6,))
-        self.cu.execute("select id from test order by id")
-        lst = []
-        for row in self.cu:
-            lst.append(row[0])
-        self.failUnlessEqual(lst[0], 5)
-        self.failUnlessEqual(lst[1], 6)
-
-    def CheckFetchone(self):
-        self.cu.execute("select name from test")
-        row = self.cu.fetchone()
-        self.failUnlessEqual(row[0], "foo")
-        row = self.cu.fetchone()
-        self.failUnlessEqual(row, None)
-
-    def CheckFetchoneNoStatement(self):
-        cur = self.cx.cursor()
-        row = cur.fetchone()
-        self.failUnlessEqual(row, None)
-
-    def CheckArraySize(self):
-        # must default ot 1
-        self.failUnlessEqual(self.cu.arraysize, 1)
-
-        # now set to 2
-        self.cu.arraysize = 2
-
-        # now make the query return 3 rows
-        self.cu.execute("delete from test")
-        self.cu.execute("insert into test(name) values ('A')")
-        self.cu.execute("insert into test(name) values ('B')")
-        self.cu.execute("insert into test(name) values ('C')")
-        self.cu.execute("select name from test")
-        res = self.cu.fetchmany()
-
-        self.failUnlessEqual(len(res), 2)
-
-    def CheckFetchmany(self):
-        self.cu.execute("select name from test")
-        res = self.cu.fetchmany(100)
-        self.failUnlessEqual(len(res), 1)
-        res = self.cu.fetchmany(100)
-        self.failUnlessEqual(res, [])
-
-    def CheckFetchmanyKwArg(self):
-        """Checks if fetchmany works with keyword arguments"""
-        self.cu.execute("select name from test")
-        res = self.cu.fetchmany(size=100)
-        self.failUnlessEqual(len(res), 1)
-
-    def CheckFetchall(self):
-        self.cu.execute("select name from test")
-        res = self.cu.fetchall()
-        self.failUnlessEqual(len(res), 1)
-        res = self.cu.fetchall()
-        self.failUnlessEqual(res, [])
-
-    def CheckSetinputsizes(self):
-        self.cu.setinputsizes([3, 4, 5])
-
-    def CheckSetoutputsize(self):
-        self.cu.setoutputsize(5, 0)
-
-    def CheckSetoutputsizeNoColumn(self):
-        self.cu.setoutputsize(42)
-
-    def CheckCursorConnection(self):
-        # Optional DB-API extension.
-        self.failUnlessEqual(self.cu.connection, self.cx)
-
-    def CheckWrongCursorCallable(self):
-        try:
-            def f(): pass
-            cur = self.cx.cursor(f)
-            self.fail("should have raised a TypeError")
-        except TypeError:
-            return
-        self.fail("should have raised a ValueError")
-
-    def CheckCursorWrongClass(self):
-        class Foo: pass
-        foo = Foo()
-        try:
-            cur = sqlite.Cursor(foo)
-            self.fail("should have raised a ValueError")
-        except TypeError:
-            pass
+        def CheckCursorWrongClass(self):
+            class Foo: pass
+            foo = Foo()
+            try:
+                cur = sqlite.Cursor(foo)
+                self.fail("should have raised a ValueError")
+            except TypeError:
+                pass
 
 class ThreadTests(unittest.TestCase):
     def setUp(self):
@@ -758,7 +770,7 @@ def suite():
     module_suite = unittest.makeSuite(ModuleTests, "Check")
     connection_suite = unittest.makeSuite(ConnectionTests, "Check")
     cursor_suite = unittest.makeSuite(CursorTests, "Check")
-    thread_suite = unittest.makeSuite(ThreadTests, "Check")
+    thread_suite = unittest.makeSuite(ThreadTests, "XCheck")
     constructor_suite = unittest.makeSuite(ConstructorTests, "Check")
     ext_suite = unittest.makeSuite(ExtensionTests, "Check")
     closed_suite = unittest.makeSuite(ClosedTests, "Check")

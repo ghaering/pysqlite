@@ -74,27 +74,6 @@ class SqliteTypeTests(unittest.TestCase):
         self.failUnlessEqual(row[0], u"Österreich")
 
 class DeclTypesTests(unittest.TestCase):
-    class Foo:
-        def __init__(self, _val):
-            self.val = _val
-
-        def __cmp__(self, other):
-            if not isinstance(other, DeclTypesTests.Foo):
-                raise ValueError
-            if self.val == other.val:
-                return 0
-            else:
-                return 1
-
-        def __conform__(self, protocol):
-            if protocol is sqlite.PrepareProtocol:
-                return self.val
-            else:
-                return None
-
-        def __str__(self):
-            return "<%s>" % self.val
-
     def setUp(self):
         self.con = sqlite.connect(":memory:", detect_types=sqlite.PARSE_DECLTYPES)
         self.cur = self.con.cursor()
@@ -105,13 +84,11 @@ class DeclTypesTests(unittest.TestCase):
 
         # and implement two custom ones
         sqlite.converters["BOOL"] = lambda x: bool(int(x))
-        sqlite.converters["FOO"] = DeclTypesTests.Foo
         sqlite.converters["WRONG"] = lambda x: "WRONG"
 
     def tearDown(self):
         del sqlite.converters["FLOAT"]
         del sqlite.converters["BOOL"]
-        del sqlite.converters["FOO"]
         self.cur.close()
         self.con.close()
 
@@ -166,13 +143,6 @@ class DeclTypesTests(unittest.TestCase):
         row = self.cur.fetchone()
         self.failUnlessEqual(row[0], val)
 
-    def CheckFoo(self):
-        val = DeclTypesTests.Foo("bla")
-        self.cur.execute("insert into test(foo) values (?)", (val,))
-        self.cur.execute("select foo from test")
-        row = self.cur.fetchone()
-        self.failUnlessEqual(row[0], val)
-
     def CheckUnsupportedSeq(self):
         class Bar: pass
         val = Bar()
@@ -181,7 +151,7 @@ class DeclTypesTests(unittest.TestCase):
             self.fail("should have raised an InterfaceError")
         except sqlite.InterfaceError:
             pass
-        except:
+        except Exception, e:
             self.fail("should have raised an InterfaceError")
 
     def CheckUnsupportedDict(self):
@@ -276,7 +246,7 @@ class ObjectAdaptationTests(unittest.TestCase):
         self.cur = self.con.cursor()
 
     def tearDown(self):
-        del sqlite.adapters[(int, sqlite.PrepareProtocol)]
+        del sqlite.adapters[int]
         self.cur.close()
         self.con.close()
 
