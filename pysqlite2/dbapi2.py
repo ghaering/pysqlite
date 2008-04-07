@@ -252,6 +252,7 @@ class Connection(object):
         self.text_factory = lambda x: unicode(x, "utf-8")
         self.closed = False
         self.statements = []
+        self.statement_counter = 0
         self.row_factory = None
         self._isolation_level = isolation_level
         self.detect_types = detect_types
@@ -295,6 +296,13 @@ class Connection(object):
         exc = exc(error_message)
         exc.error_code = error_code
         return exc
+
+    def _remember_statement(self, statement):
+        self.statements.append(weakref.ref(statement))
+        self.statement_counter += 1
+
+        if self.statement_counter % 100 == 0:
+            self.statements = [ref for ref in self.statements if ref() is not None]
 
     def cursor(self, factory=None):
         self._check_closed()
@@ -593,8 +601,7 @@ class Statement(object):
 
         self._build_row_cast_map()
 
-        # TODO self.con.statements needs to be compacted from time to time
-        self.con.statements.append(weakref.ref(self))
+        self.con._remember_statement(self)
 
     def _build_row_cast_map(self):
         self.row_cast_map = []
