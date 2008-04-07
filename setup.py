@@ -13,7 +13,7 @@ def get_setup_args():
 
     ext = Extension(
         "_pysqlite4",
-        ["sqlite.pyx"]
+        ["sqlite.pyx", "amalgamation/sqlite3.c"]
     )
 
     setup_args = dict(
