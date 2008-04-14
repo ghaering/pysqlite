@@ -22,6 +22,7 @@
 # 3. This notice may not be removed or altered from any source distribution.
 
 import glob, os, sys
+import cross_bdist_wininst
 
 from ez_setup import use_setuptools
 from distutils.command.build import build
@@ -93,7 +94,7 @@ def main():
     setup_args = setup.get_setup_args()
     setup_args["extras_require"] = {"build_docs": ["docutils", "SilverCity"]}
     setup_args["test_suite"] = "pysqlite2.test.suite"
-    setup_args["cmdclass"] = {"build_docs": DocBuilder, "build_ext": MyBuildExt, "build_static": AmalgamationBuilder}
+    setup_args["cmdclass"] = {"build_docs": DocBuilder, "build_ext": MyBuildExt, "build_static": AmalgamationBuilder, "cross_bdist_wininst": cross_bdist_wininst.bdist_wininst}
     setup_args["extras_require"] = {"build_docs": ["docutils", "SilverCity"]}
     setuptools.setup(**setup_args)
 

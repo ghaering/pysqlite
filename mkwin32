@@ -1,0 +1,10 @@
+#!/bin/sh
+CC=/usr/bin/i586-mingw32msvc-gcc
+SRC="src/module.c src/connection.c src/cursor.c src/cache.c src/microprotocols.c src/prepare_protocol.c src/statement.c src/util.c src/row.c sqlite3.c"
+
+CROSS_TOOLS=../pyext_cross_linux_to_win32
+INC=$CROSS_TOOLS/python24/include
+
+$CC -mno-cygwin -mdll -DMODULE_NAME=\"pysqlite2._sqlite\" -I $INC -I . $SRC -L $CROSS_TOOLS/python24/libs -lpython24 -o _sqlite.pyd
+strip --strip-all _sqlite.pyd
+cp *.pyd /home/gerhard/www/tmp/
