@@ -33,8 +33,8 @@ def get_setup_args():
             # download_url = "..."
 
             # Description of the modules and packages in the distribution
-            package_dir = {"pysqlite2": "pysqlite2"},
-            packages = ["pysqlite2", "pysqlite2.test"],
+            package_dir = {"pysqlite4": "pysqlite4"},
+            packages = ["pysqlite4", "pysqlite4.test"],
             scripts=[],
             data_files = [],
             ext_modules = [ext],

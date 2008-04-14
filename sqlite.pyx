@@ -88,7 +88,6 @@ cdef set_error(int errorcode, Connection con, Statement st):
         exc = InternalError
     elif errorcode == SQLITE_NOMEM:
         exc = InternalError
-        #  PyErr_NoMemory
     elif errorcode in (SQLITE_ERROR, SQLITE_PERM, SQLITE_ABORT, SQLITE_BUSY, SQLITE_LOCKED, SQLITE_READONLY, SQLITE_INTERRUPT, SQLITE_IOERR, SQLITE_FULL, SQLITE_CANTOPEN, SQLITE_PROTOCOL, SQLITE_EMPTY, SQLITE_SCHEMA):
         exc = OperationalError
     elif errorcode == SQLITE_CORRUPT:
