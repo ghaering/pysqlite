@@ -1,3 +1,9 @@
+# Gerhard Haering <gh@gharing.d> is responsible for the hacked version of this
+# module.
+#
+# This is a modified version of the bdist_wininst distutils command to make it
+# possible to build installers *with extension modules* on Unix.
+
 """distutils.command.bdist_wininst
 
 Implements the Distutils 'bdist_wininst' command: create a windows installer
@@ -96,6 +102,7 @@ class bdist_wininst (Command):
 
 
     def run (self):
+        # HACK I disabled this check.
         if 0 and (sys.platform != "win32" and
             (self.distribution.has_ext_modules() or
              self.distribution.has_c_libraries())):
@@ -323,7 +330,10 @@ class bdist_wininst (Command):
         directory = os.path.dirname(__file__)
         # we must use a wininst-x.y.exe built with the same C compiler
         # used for python.  XXX What about mingw, borland, and so on?
-    
+
+        # The uninstallers need to be available in $PYEXT_CROSS/uninst/*.exe
+        # Use http://oss.itsystementwicklung.de/hg/pyext_cross_linux_to_win32/
+        # and copy it alongside your pysqlite checkout.
         if self.target_version in ("2.3", "2.4"):
             uninst_ver = "6"
         else:
