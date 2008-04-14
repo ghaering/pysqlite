@@ -1,0 +1,4 @@
+amalgamation
+build
+dist/*
+pysqlite.egg-info/
