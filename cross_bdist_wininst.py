@@ -323,6 +323,12 @@ class bdist_wininst (Command):
         directory = os.path.dirname(__file__)
         # we must use a wininst-x.y.exe built with the same C compiler
         # used for python.  XXX What about mingw, borland, and so on?
-        filename = os.path.join(directory, "wininst-6.0.exe")
+    
+        if self.target_version in ("2.3", "2.4"):
+            uninst_ver = "6"
+        else:
+            uninst_ver = "7.1"
+
+        filename = os.path.join(directory, os.path.join(os.environ["PYEXT_CROSS"], "uninst", "wininst-%s.exe" % uninst_ver))
         return open(filename, "rb").read()
 # class bdist_wininst

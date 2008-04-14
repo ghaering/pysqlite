@@ -1,3 +1,7 @@
+#!/usr/bin/env python
+#
+# The way this works is very ugly, but hey, it *works*!
+# And I didn't have to reinvent the wheel using NSIS.
 import os
 
 CC = "/usr/bin/i586-mingw32msvc-gcc"
@@ -9,13 +13,17 @@ def compile_module(pyver):
     INC = "%s/python%s/include" % (CROSS_TOOLS, VER)
     vars = locals()
     vars.update(globals())
-    cmd = '%(CC)s -mno-cygwin -mdll -DMODULE_NAME=\\"pysqlite2._sqlite\\" -I amalgamation -I %(INC)s -I . %(SRC)s -L %(CROSS_TOOLS)s/python%(VER)s/libs -lpython%(VER)s -o _sqlite.pyd' % vars
+    cmd = '%(CC)s -mno-cygwin -mdll -DMODULE_NAME=\\"pysqlite2._sqlite\\" -I amalgamation -I %(INC)s -I . %(SRC)s -L %(CROSS_TOOLS)s/python%(VER)s/libs -lpython%(VER)s -o build/lib.linux-i686-2.5/pysqlite2/_sqlite.pyd' % vars
     print cmd
     os.system(cmd)
-    # strip --strip-all _sqlite.pyd
+    os.system("strip --strip-all build/lib.linux-i686-2.5/pysqlite2/_sqlite.pyd")
 
-compile_module("2.5")
-compile_module("2.4")
-compile_module("2.3")
-
+for ver in ["2.3", "2.4", "2.5"]:
+    os.system("rm -rf build")
+    os.system("python2.5 setup.py build")
+    os.unlink("build/lib.linux-i686-2.5/pysqlite2/_sqlite.so")
+    compile_module(ver)
+    os.rename("build/lib.linux-i686-2.5", "build/lib.linux-i686-%s" % ver)
+    os.putenv("PYEXT_CROSS", CROSS_TOOLS)
+    os.system("python2.5 extended_setup.py cross_bdist_wininst --skip-build --target-version=" + ver)
 
