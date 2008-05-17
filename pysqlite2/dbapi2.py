@@ -459,10 +459,11 @@ class Cursor(object):
         self.connection._check_closed()
         self.statement = Statement(self, sql, self.row_factory)
 
-        if self.statement.kind == "DDL":
-            self.connection.commit()
-        elif self.statement.kind == "DML":
-            self.connection._begin()
+        if self.connection._isolation_level is not None:
+            if self.statement.kind == "DDL":
+                self.connection.commit()
+            elif self.statement.kind == "DML":
+                self.connection._begin()
 
         self.statement.set_params(params)
         if self.statement.kind in ("DML", "DDL"):
