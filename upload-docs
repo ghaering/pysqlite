@@ -1,2 +1,3 @@
 #!/bin/sh
+# this file is obsolete
 scp doc/*.css doc/*.html gh@initd.org:/var/www/pub/software/pysqlite/doc
