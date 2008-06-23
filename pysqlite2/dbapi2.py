@@ -614,12 +614,13 @@ class Statement(object):
 
         if ret != SQLITE_OK:
             raise self.con._get_exception()
+        self.con._remember_statement(self)
         if _check_remaining_sql(next_char.value):
             raise Warning, "One and only one statement required"
 
         self._build_row_cast_map()
 
-        self.con._remember_statement(self)
+        self.started = False
 
     def _build_row_cast_map(self):
         self.row_cast_map = []
@@ -711,12 +712,20 @@ class Statement(object):
         return self
 
     def next(self):
+        if not self.started:
+            self.item = self._readahead()
+            self.started = True
         if self.exhausted:
             raise StopIteration
+        item = self.item
+        self.item = self._readahead()
+        return item
+
+    def _readahead(self):
         ret = sqlite.sqlite3_step(self.statement)
         if ret == SQLITE_DONE:
             self.exhausted = True
-            raise StopIteration
+            return
         elif ret == SQLITE_ERROR:
             sqlite.sqlite3_reset(self.statement)
             exc = self.con._get_exception()

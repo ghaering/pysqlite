@@ -336,6 +336,7 @@ class CursorTests(unittest.TestCase):
     def CheckExecuteManySequence(self):
         self.cu.executemany("insert into test(income) values (?)", [(x,) for x in range(100, 110)])
 
+        # XXX fairly obscure way of disabling tests
         def CheckExecuteManyIterator(self):
             class MyIter:
                 def __init__(self):
@@ -727,6 +728,7 @@ class ExtensionTests(unittest.TestCase):
         result = con.execute("select foo from test").fetchone()[0]
         self.failUnlessEqual(result, 5, "Basic test of Connection.executescript")
 
+
 class ClosedTests(unittest.TestCase):
     def setUp(self):
         pass
@@ -779,6 +781,25 @@ class ClosedTests(unittest.TestCase):
         except:
             self.fail("Should have raised a ProgrammingError")
 
+class BugTests(unittest.TestCase):
+    def CheckOpenCursor(self):
+        con = sqlite.connect(":memory:")
+        con.execute("""
+            CREATE TABLE IF NOT EXISTS Triple (
+                tid    INTEGER
+            )
+        """)
+        con.execute("INSERT INTO Triple (tid) VALUES(789)")
+        con.commit()
+        cur1 = con.execute("SELECT COUNT(*) FROM Triple")
+        res = iter(cur1).next()
+        assert res == (1,)
+        con.execute("INSERT INTO Triple (tid) VALUES(43)")
+        con.commit()
+        cur1 = con.execute("SELECT COUNT(*) FROM Triple")
+        res = iter(cur1).next()
+        assert res == (2,)
+
 def suite():
     module_suite = unittest.makeSuite(ModuleTests, "Check")
     connection_suite = unittest.makeSuite(ConnectionTests, "Check")
@@ -787,7 +808,8 @@ def suite():
     constructor_suite = unittest.makeSuite(ConstructorTests, "Check")
     ext_suite = unittest.makeSuite(ExtensionTests, "Check")
     closed_suite = unittest.makeSuite(ClosedTests, "Check")
-    return unittest.TestSuite((module_suite, connection_suite, cursor_suite, thread_suite, constructor_suite, ext_suite, closed_suite))
+    bug_suite = unittest.makeSuite(BugTests, "Check")
+    return unittest.TestSuite((module_suite, connection_suite, cursor_suite, thread_suite, constructor_suite, ext_suite, closed_suite, bug_suite))
 
 def test():
     runner = unittest.TextTestRunner()
