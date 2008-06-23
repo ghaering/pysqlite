@@ -27,15 +27,21 @@ import datetime
 import sys
 import time
 import weakref
+from threading import _get_ident as thread_get_ident
 
 apilevel = "2.0"
 paramstyle = "qmark"
 threadsafety = 1
 
-try:
-    sqlite = cdll.LoadLibrary("sqlite3.dll")
-except:
-    sqlite = cdll.LoadLibrary("libsqlite3.so")
+names = "sqlite3.dll libsqlite3.so libsqlite3.dylib".split()
+for name in names: 
+    try:
+        sqlite = cdll.LoadLibrary(name) 
+        break
+    except OSError:
+        continue
+else:
+    raise ImportError("Could not load C-library, tried: %s" %(names,))
 
 # pysqlite version information
 version_info = (3, 0, "a1")
@@ -270,6 +276,7 @@ class Connection(object):
         self.NotSupportedError = NotSupportedError
 
         self.func_cache = {}
+        self.thread_ident = thread_get_ident()
 
     def _get_exception(self, error_code = None):
         if error_code is None:
@@ -307,7 +314,15 @@ class Connection(object):
         if self.statement_counter % 100 == 0:
             self.statements = [ref for ref in self.statements if ref() is not None]
 
+    def _check_thread(self):
+        if self.thread_ident != thread_get_ident():
+            raise ProgrammingError(
+                "SQLite objects created in a thread can only be used in that same thread."
+                "The object was created in thread id %d and this is thread id %d",
+                self.thread_ident, thread_get_ident())
+
     def cursor(self, factory=None):
+        self._check_thread()
         self._check_closed()
         if factory is None:
             factory = Cursor
@@ -364,6 +379,7 @@ class Connection(object):
                 sqlite.sqlite3_finalize(statement)
 
     def commit(self):
+        self._check_thread()
         self._check_closed()
         if sqlite.sqlite3_get_autocommit(self.db):
             return
@@ -381,6 +397,7 @@ class Connection(object):
             sqlite.sqlite3_finalize(statement)
 
     def rollback(self):
+        self._check_thread()
         self._check_closed()
         if sqlite.sqlite3_get_autocommit(self.db):
             return
@@ -415,6 +432,7 @@ class Connection(object):
     total_changes = property(_get_total_changes)
 
     def close(self):
+        self._check_thread()
         if self.closed:
             return
         for statement in self.statements:
@@ -460,6 +478,7 @@ class Cursor(object):
     def __init__(self, con):
         if not isinstance(con, Connection):
             raise ValueError
+        con._check_thread()
         con._check_closed()
         self.connection = con
         self._description = None
@@ -473,6 +492,7 @@ class Cursor(object):
         self._description = None
         if type(sql) is unicode:
             sql = sql.encode("utf-8")
+        self.connection._check_thread()
         self.connection._check_closed()
         self.statement = Statement(self, sql, self.row_factory)
 
@@ -497,6 +517,7 @@ class Cursor(object):
         if type(sql) is unicode:
             sql = sql.encode("utf-8")
         self.connection._check_closed()
+        self.connection._check_thread()
         self.statement = Statement(self, sql, self.row_factory)
         if self.statement.kind == "DML":
             self.connection._begin()
@@ -517,6 +538,8 @@ class Cursor(object):
         self._description = None
         if type(sql) is unicode:
             sql = sql.encode("utf-8")
+        self.connection._check_closed()
+        self.connection._check_thread()
         statement = c_void_p()
         next_char = c_char_p(sql)
 
@@ -574,8 +597,8 @@ class Cursor(object):
         return sqlite.sqlite3_last_insert_rowid(self.connection.db)
 
     def close(self):
-        pass
-
+        self.connection._check_thread()
+        self.connection._check_closed()
 
     def setinputsize(self, *args):
         pass
@@ -712,6 +735,8 @@ class Statement(object):
         return self
 
     def next(self):
+        self.con._check_closed()
+        self.con._check_thread()
         if not self.started:
             self.item = self._readahead()
             self.started = True
