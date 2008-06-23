@@ -1,7 +1,7 @@
-#-*- coding: ISO-8859-1 -*-
+#-*- coding: utf-8 -*-
 # pysqlite2/test/__init__.py: the package containing the test suite
 #
-# Copyright (C) 2004-2007 Gerhard Häring <gh@ghaering.de>
+# Copyright (C) 2004-2007 Gerhard HÃ¤ring <gh@ghaering.de>
 #
 # This file is part of pysqlite.
 #
@@ -38,7 +38,8 @@ from pysqlite2 import dbapi2 as sqlite
 
 def suite():
     tests = [dbapi.suite(), types.suite(),
-      factory.suite(), transactions.suite(), regression.suite()]
+      factory.suite(), transactions.suite(), regression.suite(),
+             userfunctions.suite()]
     if sys.version_info >= (2, 5, 0):
         from pysqlite2.test import py25tests
         tests.append(py25tests.suite())

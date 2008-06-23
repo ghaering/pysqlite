@@ -1,4 +1,4 @@
-#-*- coding: ISO-8859-1 -*-
+#-*- coding: utf-8 -*-
 # pysqlite2/dbapi.py: pysqlite DB-API module
 #
 # Copyright (C) 2007-2008 Gerhard Häring <gh@ghaering.de>
@@ -21,7 +21,8 @@
 #    misrepresented as being the original software.
 # 3. This notice may not be removed or altered from any source distribution.
 
-from ctypes import c_void_p, c_int, c_double, c_int64, c_char_p, cdll, POINTER, byref, string_at
+from ctypes import c_void_p, c_int, c_double, c_int64, c_char_p, cdll
+from ctypes import POINTER, byref, string_at, CFUNCTYPE, cast
 import datetime
 import sys
 import time
@@ -268,6 +269,8 @@ class Connection(object):
         self.DataError = DataError
         self.NotSupportedError = NotSupportedError
 
+        self.func_cache = {}
+
     def _get_exception(self, error_code = None):
         if error_code is None:
             error_code = sqlite.sqlite3_errcode(self.db)
@@ -434,7 +437,21 @@ class Connection(object):
         raise NotImplementedError
 
     def create_function(self, name, num_args, callback):
-        raise NotImplementedError
+        try:
+            c_closure, _ = self.func_cache[callback]
+        except KeyError:            
+            def closure(context, nargs, c_params):
+                function_callback(callback, context, nargs, c_params)
+                return 0
+            c_closure = FUNC(closure)
+            self.func_cache[callback] = c_closure, closure
+        ret = sqlite.sqlite3_create_function(self.db, name, num_args,
+                                             SQLITE_UTF8, None,
+                                             c_closure,
+                                             cast(None, STEP),
+                                             cast(None, FINAL))
+        if ret != SQLITE_OK:
+            raise self._get_exception()
 
     def create_aggregate(self, name, num_args, cls):
         raise NotImplementedError
@@ -846,11 +863,47 @@ def _convert_params(con, nargs, params):
             val = None
         elif typ == SQLITE_TEXT:
             val = sqlite.sqlite3_value_text(params[i])
-            val = con.text_factory(val)
+            # XXX changed from con.text_factory
+            val = unicode(val, 'utf-8')
         else:
             raise NotImplementedError
         _params.append(val)
     return _params
+
+def _convert_result(con, val):
+    if isinstance(val, (bool, int, long)):
+        sqlite.sqlite3_result_int64(con, int(val))
+    elif isinstance(val, str):
+        # XXX ignoring unicode issue
+        sqlite.sqlite3_result_text(con, val, len(val), SQLITE_TRANSIENT)
+    elif isinstance(val, unicode):
+        val = val.encode('utf-8')
+        sqlite.sqlite3_result_text(con, val, len(val), SQLITE_TRANSIENT)
+    elif isinstance(val, float):
+        sqlite.sqlite3_result_double(con, val)
+    elif val is None:
+        sqlite.sqlite3_result_null(con)
+    elif isinstance(val, buffer):
+        sqlite.sqlite3_result_blob(con, str(val), len(val), SQLITE_TRANSIENT)
+    else:
+        raise NotImplementedError
+
+def function_callback(real_cb, context, nargs, c_params):
+    params = _convert_params(context, nargs, c_params)
+    try:
+        val = real_cb(*params)
+    except Exception, e:
+        msg = "user-defined function raised exception"
+        sqlite.sqlite3_result_error(context, msg, len(msg))
+    else:
+        _convert_result(context, val)
+    return 0
+
+FUNC = CFUNCTYPE(c_int, c_void_p, c_int, POINTER(c_void_p))
+STEP = CFUNCTYPE(c_int, c_void_p, c_int, POINTER(c_void_p))
+FINAL = CFUNCTYPE(c_int, c_void_p)
+sqlite.sqlite3_create_function.argtypes = [c_void_p, c_char_p, c_int, c_int, c_void_p, FUNC, STEP, FINAL]
+sqlite.sqlite3_create_function.restype = c_int
 
 converters = {}
 adapters = {}

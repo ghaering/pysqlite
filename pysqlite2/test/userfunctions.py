@@ -1,8 +1,8 @@
-#-*- coding: ISO-8859-1 -*-
+#-*- coding: utf-8 -*-
 # pysqlite2/test/userfunctions.py: tests for user-defined functions and
 #                                  aggregates.
 #
-# Copyright (C) 2005-2007 Gerhard Häring <gh@ghaering.de>
+# Copyright (C) 2005-2007 Gerhard HÃ¤ring <gh@ghaering.de>
 #
 # This file is part of pysqlite.
 #
@@ -401,9 +401,9 @@ class AuthorizerTests(unittest.TestCase):
         self.fail("should have raised an exception due to missing privileges")
 
 def suite():
-    function_suite = unittest.makeSuite(FunctionTests, "XCheck")
-    aggregate_suite = unittest.makeSuite(AggregateTests, "CheckAggrNoStep")
-    authorizer_suite = unittest.makeSuite(AuthorizerTests, "Check")
+    function_suite = unittest.makeSuite(FunctionTests, "Check")
+    aggregate_suite = unittest.makeSuite(AggregateTests, "XCheckAggrNoStep")
+    authorizer_suite = unittest.makeSuite(AuthorizerTests, "XCheck")
     return unittest.TestSuite((function_suite, aggregate_suite, authorizer_suite))
 
 def test():
