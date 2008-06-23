@@ -416,7 +416,7 @@ class Connection(object):
 
     def _check_closed(self):
         if self.closed:
-            raise ProgrammingError("cannot operate on closed database")
+            raise ProgrammingError("Cannot operate on a closed database.")
 
     def __enter__(self):
         return self
@@ -599,6 +599,7 @@ class Cursor(object):
     def close(self):
         self.connection._check_thread()
         self.connection._check_closed()
+        # XXX this should do reset and set statement to None it seems
 
     def setinputsize(self, *args):
         pass
