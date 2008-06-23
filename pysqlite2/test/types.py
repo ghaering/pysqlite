@@ -1,7 +1,7 @@
-#-*- coding: ISO-8859-1 -*-
+#-*- coding: utf-8 -*-
 # pysqlite2/test/types.py: tests for type conversion and detection
 #
-# Copyright (C) 2005-2007 Gerhard Häring <gh@ghaering.de>
+# Copyright (C) 2005-2007 Gerhard HÃ¤ring <gh@ghaering.de>
 #
 # This file is part of pysqlite.
 #
@@ -36,10 +36,10 @@ class SqliteTypeTests(unittest.TestCase):
         self.con.close()
 
     def CheckString(self):
-        self.cur.execute("insert into test(s) values (?)", (u"Österreich",))
+        self.cur.execute("insert into test(s) values (?)", (u"Ã–sterreich",))
         self.cur.execute("select s from test")
         row = self.cur.fetchone()
-        self.failUnlessEqual(row[0], u"Österreich")
+        self.failUnlessEqual(row[0], u"Ã–sterreich")
 
     def CheckSmallInt(self):
         self.cur.execute("insert into test(i) values (?)", (42,))
@@ -53,7 +53,6 @@ class SqliteTypeTests(unittest.TestCase):
         self.cur.execute("select i from test")
         row = self.cur.fetchone()
         self.failUnlessEqual(row[0], num)
-
     def CheckFloat(self):
         val = 3.14
         self.cur.execute("insert into test(f) values (?)", (val,))
@@ -69,9 +68,9 @@ class SqliteTypeTests(unittest.TestCase):
         self.failUnlessEqual(row[0], val)
 
     def CheckUnicodeExecute(self):
-        self.cur.execute(u"select 'Österreich'")
+        self.cur.execute(u"select 'Ã–sterreich'")
         row = self.cur.fetchone()
-        self.failUnlessEqual(row[0], u"Österreich")
+        self.failUnlessEqual(row[0], u"Ã–sterreich")
 
 class DeclTypesTests(unittest.TestCase):
     def setUp(self):
@@ -134,6 +133,12 @@ class DeclTypesTests(unittest.TestCase):
         self.cur.execute("select b from test")
         row = self.cur.fetchone()
         self.failUnlessEqual(row[0], True)
+
+        self.cur.execute("delete from test")
+        self.cur.execute("insert into test(b) values (?)", (None,))
+        self.cur.execute("select b from test")
+        row = self.cur.fetchone()
+        self.failUnlessEqual(row[0], None)
 
     def CheckUnicode(self):
         # default

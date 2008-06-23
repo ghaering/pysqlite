@@ -663,9 +663,9 @@ class Statement(object):
             sqlite.sqlite3_bind_int64(self.statement, idx, param)
         elif type(param) is float:
             sqlite.sqlite3_bind_double(self.statement, idx, param)
-        elif type(param) is str:
+        elif isinstance(param, str):
             sqlite.sqlite3_bind_text(self.statement, idx, param, -1, SQLITE_TRANSIENT)
-        elif type(param) is unicode:
+        elif isinstance(param, unicode):
             param = param.encode("utf-8")
             sqlite.sqlite3_bind_text(self.statement, idx, param, -1, SQLITE_TRANSIENT)
         elif type(param) is buffer:
@@ -746,13 +746,13 @@ class Statement(object):
                     val = sqlite.sqlite3_column_text(self.statement, i)
                     val = self.cur().text_factory(val)
             else:
-                if typ == SQLITE_BLOB:
-                    blob_len = sqlite.sqlite3_column_bytes(self.statement, i)
-                    blob = sqlite.sqlite3_column_blob(self.statement, i)
-                    val = string_at(blob, blob_len)
+                blob = sqlite.sqlite3_column_blob(self.statement, i)
+                if not blob:
+                    val = None
                 else:
-                    val = sqlite.sqlite3_column_text(self.statement, i)
-                val = converter(val)
+                    blob_len = sqlite.sqlite3_column_bytes(self.statement, i)
+                    val = string_at(blob, blob_len)
+                    val = converter(val)
             row.append(val)
 
         row = tuple(row)
@@ -871,7 +871,9 @@ def _convert_params(con, nargs, params):
     return _params
 
 def _convert_result(con, val):
-    if isinstance(val, (bool, int, long)):
+    if val is None:
+        sqlite.sqlite3_result_null(con)        
+    elif isinstance(val, (bool, int, long)):
         sqlite.sqlite3_result_int64(con, int(val))
     elif isinstance(val, str):
         # XXX ignoring unicode issue
@@ -881,8 +883,6 @@ def _convert_result(con, val):
         sqlite.sqlite3_result_text(con, val, len(val), SQLITE_TRANSIENT)
     elif isinstance(val, float):
         sqlite.sqlite3_result_double(con, val)
-    elif val is None:
-        sqlite.sqlite3_result_null(con)
     elif isinstance(val, buffer):
         sqlite.sqlite3_result_blob(con, str(val), len(val), SQLITE_TRANSIENT)
     else:

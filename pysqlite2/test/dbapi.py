@@ -1,7 +1,7 @@
-#-*- coding: ISO-8859-1 -*-
+#-*- coding: utf-8 -*-
 # pysqlite2/test/dbapi.py: tests for DB-API compliance
 #
-# Copyright (C) 2004-2007 Gerhard Häring <gh@ghaering.de>
+# Copyright (C) 2004-2007 Gerhard HÃ¤ring <gh@ghaering.de>
 #
 # This file is part of pysqlite.
 #
@@ -218,6 +218,19 @@ class CursorTests(unittest.TestCase):
 
     def CheckExecuteArgString(self):
         self.cu.execute("insert into test(name) values (?)", ("Hugo",))
+
+    def CheckExecuteArgStringSubclass(self):
+        class S(str):
+            pass
+        self.cu.execute("insert into test(name) values (?)", (S("Hugo"),))
+
+    def CheckExecuteArgUnicode(self):
+        self.cu.execute("insert into test(name) values (?)", (u"Bla",))
+
+    def CheckExecuteArgUnicodeSubclass(self):
+        class U(unicode):
+            pass
+        self.cu.execute("insert into test(name) values (?)", (U("Bla"),))
 
     def CheckExecuteWrongNoOfArgs1(self):
         # too many parameters
