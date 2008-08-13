@@ -31,6 +31,10 @@ use_setuptools()
 
 import setuptools
 import setup
+import urllib
+import zipfile
+
+AMALGAMATION_ROOT = "amalgamation"
 
 class DocBuilder(setuptools.Command):
     description = "Builds the documentation"
@@ -68,6 +72,23 @@ class DocBuilder(setuptools.Command):
 
         os.chdir("..")
 
+def get_amalgamation():
+    """Download the SQLite amalgamation if it isn't there, already."""
+    if os.path.exists(AMALGAMATION_ROOT):
+        return
+    os.mkdir(AMALGAMATION_ROOT)
+    print "Downloading amalgation."
+    urllib.urlretrieve("http://sqlite.org/sqlite-amalgamation-3_6_1.zip", "tmp.zip")
+    zf = zipfile.ZipFile("tmp.zip")
+    files = ["sqlite3.c", "sqlite3.h"]
+    for fn in files:
+        print "Extracting", fn
+        outf = open(AMALGAMATION_ROOT + os.sep + fn, "wb")
+        outf.write(zf.read(fn))
+        outf.close()
+    zf.close()
+    os.unlink("tmp.zip")
+
 class AmalgamationBuilder(build):
     description = "Build a statically built pysqlite using the amalgamtion."
 
@@ -79,9 +100,10 @@ class MyBuildExt(build_ext):
     amalgamation = False
 
     def build_extension(self, ext):
+        get_amalgamation()
         if self.amalgamation:
-            ext.sources.append("sqlite3.c")
-        build_ext.build_extension(self, ext)
+            ext.sources.append(os.path.join(AMALGAMATION_ROOT, "sqlite3.c"))
+            build_ext.build_extension(self, ext)
 
     def __setattr__(self, k, v):
         # Make sure we don't link against the SQLite library, no matter what setup.cfg says
