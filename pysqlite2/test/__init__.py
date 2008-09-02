@@ -33,12 +33,12 @@ if os.path.exists("extended_setup.py"):
     sys.exit(1)
 
 from pysqlite2.test import dbapi, types, userfunctions, factory, transactions,\
-    hooks, regression
+    hooks, regression, dump
 from pysqlite2 import dbapi2 as sqlite
 
 def suite():
     tests = [dbapi.suite(), types.suite(), userfunctions.suite(),
-      factory.suite(), transactions.suite(), hooks.suite(), regression.suite()]
+      factory.suite(), transactions.suite(), hooks.suite(), regression.suite(), dump.suite()]
     if sys.version_info >= (2, 5, 0):
         from pysqlite2.test import py25tests
         tests.append(py25tests.suite())
