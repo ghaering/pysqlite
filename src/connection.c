@@ -35,6 +35,10 @@
 #define ACTION_FINALIZE 1
 #define ACTION_RESET 2
 
+#if SQLITE_VERSION_NUMBER >= 3003008
+#define HAVE_LOAD_EXTENSION
+#endif
+
 static int pysqlite_connection_set_isolation_level(pysqlite_Connection* self, PyObject* isolation_level);
 
 
@@ -905,6 +909,28 @@ PyObject* pysqlite_connection_set_progress_handler(pysqlite_Connection* self, Py
     return Py_None;
 }
 
+#ifdef HAVE_LOAD_EXTENSION
+PyObject* pysqlite_enable_load_extension(pysqlite_Connection* self, PyObject* args)
+{
+    int rc;
+    int onoff;
+
+    if (!PyArg_ParseTuple(args, "i", &onoff)) {
+        return NULL;
+    }
+
+    rc = sqlite3_enable_load_extension(self->db, onoff);
+
+    if (rc != SQLITE_OK) {
+        PyErr_SetString(pysqlite_OperationalError, "Error enabling load extension");
+        return NULL;
+    } else {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+}
+#endif
+
 int pysqlite_check_thread(pysqlite_Connection* self)
 {
     if (self->check_same_thread) {
@@ -1378,6 +1404,10 @@ static PyMethodDef connection_methods[] = {
         PyDoc_STR("Creates a new aggregate. Non-standard.")},
     {"set_authorizer", (PyCFunction)pysqlite_connection_set_authorizer, METH_VARARGS|METH_KEYWORDS,
         PyDoc_STR("Sets authorizer callback. Non-standard.")},
+    #ifdef HAVE_LOAD_EXTENSION
+    {"enable_load_extension", (PyCFunction)pysqlite_enable_load_extension, METH_VARARGS,
+        PyDoc_STR("Enable dynamic loading of SQLite extension modules. Non-standard.")},
+    #endif
     {"set_progress_handler", (PyCFunction)pysqlite_connection_set_progress_handler, METH_VARARGS|METH_KEYWORDS,
         PyDoc_STR("Sets progress handler callback. Non-standard.")},
     {"execute", (PyCFunction)pysqlite_connection_execute, METH_VARARGS,
