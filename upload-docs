@@ -1,3 +1,6 @@
 #!/bin/sh
-# this file is obsolete
-scp doc/*.css doc/*.html gh@initd.org:/var/www/pub/software/pysqlite/doc
+DOCDIR=/tmp/pysqlite-doc
+rm -rf $DOCDIR
+mkdir $DOCDIR
+sphinx-build doc/sphinx $DOCDIR
+scp -r $DOCDIR/* develop@ghaering.de:/home/develop/download/pysqlite/doc
