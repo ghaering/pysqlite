@@ -26,7 +26,7 @@ def get_amalgamation():
         return
     os.mkdir(AMALGAMATION_ROOT)
     print "Downloading amalgation."
-    urllib.urlretrieve("http://sqlite.org/sqlite-amalgamation-3_5_7.zip", "tmp.zip")
+    urllib.urlretrieve("http://sqlite.org/sqlite-amalgamation-3_6_2.zip", "tmp.zip")
     zf = zipfile.ZipFile("tmp.zip")
     files = ["sqlite3.c", "sqlite3.h"]
     for fn in files:

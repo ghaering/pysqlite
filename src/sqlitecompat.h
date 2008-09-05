@@ -36,4 +36,16 @@ typedef int (*lenfunc)(PyObject*);
 #define PyDict_CheckExact(op) ((op)->ob_type == &PyDict_Type)
 #endif
 
+/* define Py_CLEAR for pre-2.4 versions of Python */
+#ifndef Py_CLEAR
+#define Py_CLEAR(op)				\
+        do {                            	\
+                if (op) {			\
+                        PyObject *tmp = (PyObject *)(op);	\
+                        (op) = NULL;		\
+                        Py_DECREF(tmp);		\
+                }				\
+        } while (0)
+#endif
+
 #endif
