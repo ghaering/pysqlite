@@ -1,7 +1,7 @@
-from pysqlite2 import dbapi2 as sqlite
+from pysqlite2 import dbapi2 as sqlite3
 import datetime
 
-con = sqlite.connect(":memory:", detect_types=sqlite.PARSE_DECLTYPES|sqlite.PARSE_COLNAMES)
+con = sqlite3.connect(":memory:", detect_types=sqlite3.PARSE_DECLTYPES|sqlite3.PARSE_COLNAMES)
 cur = con.cursor()
 cur.execute("create table test(d date, ts timestamp)")
 

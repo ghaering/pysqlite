@@ -1,9 +1,9 @@
-from pysqlite2 import dbapi2 as sqlite
+from pysqlite2 import dbapi2 as sqlite3
 
 def collate_reverse(string1, string2):
     return -cmp(string1, string2)
 
-con = sqlite.connect(":memory:")
+con = sqlite3.connect(":memory:")
 con.create_collation("reverse", collate_reverse)
 
 cur = con.cursor()

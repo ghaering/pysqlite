@@ -1,8 +1,8 @@
 # A minimal SQLite shell for experiments
 
-from pysqlite2 import dbapi2 as sqlite
+from pysqlite2 import dbapi2 as sqlite3
 
-con = sqlite.connect(":memory:")
+con = sqlite3.connect(":memory:")
 con.isolation_level = None
 cur = con.cursor()
 
@@ -16,14 +16,14 @@ while True:
     if line == "":
         break
     buffer += line
-    if sqlite.complete_statement(buffer):
+    if sqlite3.complete_statement(buffer):
         try:
             buffer = buffer.strip()
             cur.execute(buffer)
 
             if buffer.lstrip().upper().startswith("SELECT"):
                 print cur.fetchall()
-        except sqlite.Error, e:
+        except sqlite3.Error, e:
             print "An error occurred:", e.args[0]
         buffer = ""
 

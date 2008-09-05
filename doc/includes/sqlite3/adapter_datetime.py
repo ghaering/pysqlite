@@ -1,12 +1,12 @@
-from pysqlite2 import dbapi2 as sqlite
+from pysqlite2 import dbapi2 as sqlite3
 import datetime, time
 
 def adapt_datetime(ts):
     return time.mktime(ts.timetuple())
 
-sqlite.register_adapter(datetime.datetime, adapt_datetime)
+sqlite3.register_adapter(datetime.datetime, adapt_datetime)
 
-con = sqlite.connect(":memory:")
+con = sqlite3.connect(":memory:")
 cur = con.cursor()
 
 now = datetime.datetime.now()

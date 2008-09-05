@@ -1,6 +1,6 @@
-from pysqlite2 import dbapi2 as sqlite
+from pysqlite2 import dbapi2 as sqlite3
 
-con = sqlite.connect(":memory:")
+con = sqlite3.connect(":memory:")
 cur = con.cursor()
 
 # Create the table
@@ -32,7 +32,7 @@ assert type(row[0]) == unicode
 
 # pysqlite offers a builtin optimized text_factory that will return bytestring
 # objects, if the data is in ASCII only, and otherwise return unicode objects
-con.text_factory = sqlite.OptimizedUnicode
+con.text_factory = sqlite3.OptimizedUnicode
 cur.execute("select ?", (AUSTRIA,))
 row = cur.fetchone()
 assert type(row[0]) == unicode

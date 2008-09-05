@@ -1,10 +1,10 @@
-from pysqlite2 import dbapi2 as sqlite
+from pysqlite2 import dbapi2 as sqlite3
 
 FIELD_MAX_WIDTH = 20
 TABLE_NAME = 'people'
 SELECT = 'select * from %s order by age, name_last' % TABLE_NAME
 
-con = sqlite.connect("mydb")
+con = sqlite3.connect("mydb")
 
 cur = con.cursor()
 cur.execute(SELECT)

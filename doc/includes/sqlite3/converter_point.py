@@ -1,4 +1,4 @@
-from pysqlite2 import dbapi2 as sqlite
+from pysqlite2 import dbapi2 as sqlite3
 
 class Point(object):
     def __init__(self, x, y):
@@ -15,16 +15,16 @@ def convert_point(s):
     return Point(x, y)
 
 # Register the adapter
-sqlite.register_adapter(Point, adapt_point)
+sqlite3.register_adapter(Point, adapt_point)
 
 # Register the converter
-sqlite.register_converter("point", convert_point)
+sqlite3.register_converter("point", convert_point)
 
 p = Point(4.0, -3.2)
 
 #########################
 # 1) Using declared types
-con = sqlite.connect(":memory:", detect_types=sqlite.PARSE_DECLTYPES)
+con = sqlite3.connect(":memory:", detect_types=sqlite3.PARSE_DECLTYPES)
 cur = con.cursor()
 cur.execute("create table test(p point)")
 
@@ -36,7 +36,7 @@ con.close()
 
 #######################
 # 1) Using column names
-con = sqlite.connect(":memory:", detect_types=sqlite.PARSE_COLNAMES)
+con = sqlite3.connect(":memory:", detect_types=sqlite3.PARSE_COLNAMES)
 cur = con.cursor()
 cur.execute("create table test(p)")
 

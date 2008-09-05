@@ -1,7 +1,7 @@
-from pysqlite2 import dbapi2 as sqlite
+from pysqlite2 import dbapi2 as sqlite3
 
 # Create a connection to the database file "mydb":
-con = sqlite.connect("mydb")
+con = sqlite3.connect("mydb")
 
 # Get a Cursor object that operates in the context of Connection con:
 cur = con.cursor()

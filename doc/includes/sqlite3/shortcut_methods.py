@@ -1,11 +1,11 @@
-from pysqlite2 import dbapi2 as sqlite
+from pysqlite2 import dbapi2 as sqlite3
 
 persons = [
     ("Hugo", "Boss"),
     ("Calvin", "Klein")
     ]
 
-con = sqlite.connect(":memory:")
+con = sqlite3.connect(":memory:")
 
 # Create the table
 con.execute("create table person(firstname, lastname)")

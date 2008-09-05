@@ -1,3 +1,3 @@
-from pysqlite2 import dbapi2 as sqlite
+from pysqlite2 import dbapi2 as sqlite3
 
-con = sqlite.connect("mydb")
+con = sqlite3.connect("mydb")

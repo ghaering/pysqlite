@@ -1,4 +1,4 @@
-from pysqlite2 import dbapi2 as sqlite
+from pysqlite2 import dbapi2 as sqlite3
 
 class Point(object):
     def __init__(self, x, y):
@@ -7,9 +7,9 @@ class Point(object):
 def adapt_point(point):
     return "%f;%f" % (point.x, point.y)
 
-sqlite.register_adapter(Point, adapt_point)
+sqlite3.register_adapter(Point, adapt_point)
 
-con = sqlite.connect(":memory:")
+con = sqlite3.connect(":memory:")
 cur = con.cursor()
 
 p = Point(4.0, -3.2)

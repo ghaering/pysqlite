@@ -1,9 +1,9 @@
-from pysqlite2 import dbapi2 as sqlite
+from pysqlite2 import dbapi2 as sqlite3
 
 def progress():
     print "Query still executing. Please wait ..."
 
-con = sqlite.connect(":memory:")
+con = sqlite3.connect(":memory:")
 con.execute("create table test(x)")
 
 # Let's create some data

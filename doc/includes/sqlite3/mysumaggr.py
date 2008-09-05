@@ -1,4 +1,4 @@
-from pysqlite2 import dbapi2 as sqlite
+from pysqlite2 import dbapi2 as sqlite3
 
 class MySum:
     def __init__(self):
@@ -10,7 +10,7 @@ class MySum:
     def finalize(self):
         return self.count
 
-con = sqlite.connect(":memory:")
+con = sqlite3.connect(":memory:")
 con.create_aggregate("mysum", 1, MySum)
 cur = con.cursor()
 cur.execute("create table test(i)")

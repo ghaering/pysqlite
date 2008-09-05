@@ -1,14 +1,14 @@
-from pysqlite2 import dbapi2 as sqlite
+from pysqlite2 import dbapi2 as sqlite3
 
 class Point(object):
     def __init__(self, x, y):
         self.x, self.y = x, y
 
     def __conform__(self, protocol):
-        if protocol is sqlite.PrepareProtocol:
+        if protocol is sqlite3.PrepareProtocol:
             return "%f;%f" % (self.x, self.y)
 
-con = sqlite.connect(":memory:")
+con = sqlite3.connect(":memory:")
 cur = con.cursor()
 
 p = Point(4.0, -3.2)

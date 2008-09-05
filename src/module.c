@@ -129,6 +129,7 @@ static PyObject* module_register_adapter(PyObject* self, PyObject* args, PyObjec
 {
     PyTypeObject* type;
     PyObject* caster;
+    int rc;
 
     if (!PyArg_ParseTuple(args, "OO", &type, &caster)) {
         return NULL;

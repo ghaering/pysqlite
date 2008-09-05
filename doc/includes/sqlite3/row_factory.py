@@ -1,4 +1,4 @@
-from pysqlite2 import dbapi2 as sqlite
+from pysqlite2 import dbapi2 as sqlite3
 
 def dict_factory(cursor, row):
     d = {}
@@ -6,7 +6,7 @@ def dict_factory(cursor, row):
         d[col[0]] = row[idx]
     return d
 
-con = sqlite.connect(":memory:")
+con = sqlite3.connect(":memory:")
 con.row_factory = dict_factory
 cur = con.cursor()
 cur.execute("select 1 as a")

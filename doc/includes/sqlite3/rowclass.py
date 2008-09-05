@@ -1,7 +1,7 @@
-from pysqlite2 import dbapi2 as sqlite
+from pysqlite2 import dbapi2 as sqlite3
 
-con = sqlite.connect("mydb")
-con.row_factory = sqlite.Row
+con = sqlite3.connect("mydb")
+con.row_factory = sqlite3.Row
 
 cur = con.cursor()
 cur.execute("select name_last, age from people")

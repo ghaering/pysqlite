@@ -1,4 +1,4 @@
-from pysqlite2 import dbapi2 as sqlite
+from pysqlite2 import dbapi2 as sqlite3
 
 class IterChars:
     def __init__(self):
@@ -13,7 +13,7 @@ class IterChars:
         self.count += 1
         return (chr(self.count - 1),) # this is a 1-tuple
 
-con = sqlite.connect(":memory:")
+con = sqlite3.connect(":memory:")
 cur = con.cursor()
 cur.execute("create table characters(c)")
 

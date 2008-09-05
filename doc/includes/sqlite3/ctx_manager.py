@@ -1,7 +1,7 @@
 from __future__ import with_statement
-from pysqlite2 import dbapi2 as sqlite
+from pysqlite2 import dbapi2 as sqlite3
 
-con = sqlite.connect(":memory:")
+con = sqlite3.connect(":memory:")
 con.execute("create table person (id integer primary key, firstname varchar unique)")
 
 # Successful, con.commit() is called automatically afterwards
@@ -13,7 +13,7 @@ with con:
 try:
     with con:
         con.execute("insert into person(firstname) values (?)", ("Joe",))
-except sqlite.IntegrityError:
+except sqlite3.IntegrityError:
     print "couldn't add Joe twice"
 
 
