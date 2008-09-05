@@ -1047,19 +1047,16 @@ PyObject* pysqlite_connection_call(pysqlite_Connection* self, PyObject* args, Py
             _pysqlite_seterror(self->db, NULL);
         }
 
-        Py_DECREF(statement);
-        statement = 0;
+        Py_CLEAR(statement);
     } else {
         weakref = PyWeakref_NewRef((PyObject*)statement, NULL);
         if (!weakref) {
-            Py_DECREF(statement);
-            statement = 0;
+            Py_CLEAR(statement);
             goto error;
         }
 
         if (PyList_Append(self->statements, weakref) != 0) {
-            Py_DECREF(weakref);
-            statement = 0;
+            Py_CLEAR(weakref);
             goto error;
         }
 
@@ -1083,15 +1080,13 @@ PyObject* pysqlite_connection_execute(pysqlite_Connection* self, PyObject* args,
 
     method = PyObject_GetAttrString(cursor, "execute");
     if (!method) {
-        Py_DECREF(cursor);
-        cursor = 0;
+        Py_CLEAR(cursor);
         goto error;
     }
 
     result = PyObject_CallObject(method, args);
     if (!result) {
-        Py_DECREF(cursor);
-        cursor = 0;
+        Py_CLEAR(cursor);
     }
 
 error:
@@ -1114,15 +1109,13 @@ PyObject* pysqlite_connection_executemany(pysqlite_Connection* self, PyObject* a
 
     method = PyObject_GetAttrString(cursor, "executemany");
     if (!method) {
-        Py_DECREF(cursor);
-        cursor = 0;
+        Py_CLEAR(cursor);
         goto error;
     }
 
     result = PyObject_CallObject(method, args);
     if (!result) {
-        Py_DECREF(cursor);
-        cursor = 0;
+        Py_CLEAR(cursor);
     }
 
 error:
@@ -1145,15 +1138,13 @@ PyObject* pysqlite_connection_executescript(pysqlite_Connection* self, PyObject*
 
     method = PyObject_GetAttrString(cursor, "executescript");
     if (!method) {
-        Py_DECREF(cursor);
-        cursor = 0;
+        Py_CLEAR(cursor);
         goto error;
     }
 
     result = PyObject_CallObject(method, args);
     if (!result) {
-        Py_DECREF(cursor);
-        cursor = 0;
+        Py_CLEAR(cursor);
     }
 
 error:
@@ -1248,7 +1239,7 @@ pysqlite_connection_iterdump(pysqlite_Connection* self, PyObject* args)
         goto finally;
     }
 
-    module = PyImport_ImportModule(MODULE_NAME ".dump");
+    module = PyImport_ImportModule("pysqlite2.dump");
     if (!module) {
         goto finally;
     }
