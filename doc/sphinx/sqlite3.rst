@@ -6,8 +6,6 @@
 .. sectionauthor:: Gerhard HÃ¤ring <gh@ghaering.de>
 
 
-.. versionadded:: 2.5
-
 SQLite is a C library that provides a lightweight disk-based database that
 doesn't require a separate server process and allows accessing the database
 using a nonstandard variant of the SQL query language. Some applications can use
@@ -114,10 +112,11 @@ Module functions and constants
    :func:`connect` function.
 
    Setting it makes the :mod:`sqlite3` module parse the declared type for each
-   column it returns.  It will parse out the first word of the declared type, i. e.
-   for "integer primary key", it will parse out "integer". Then for that column, it
-   will look into the converters dictionary and use the converter function
-   registered for that type there.  Converter names are case-sensitive!
+   column it returns.  It will parse out the first word of the declared type,
+   i. e.  for "integer primary key", it will parse out "integer", or for
+   "number(10)" it will parse out "number". Then for that column, it will look
+   into the converters dictionary and use the converter function registered for
+   that type there.
 
 
 .. data:: PARSE_COLNAMES
@@ -232,6 +231,24 @@ A :class:`Connection` instance has the following attributes and methods:
    :class:`sqlite3.Cursor`.
 
 
+.. method:: Connection.commit()
+
+   This method commits the current transaction. If you don't call this method,
+   anything you did since the last call to commit() is not visible from from
+   other database connections. If you wonder why you don't see the data you've
+   written to the database, please check you didn't forget to call this method.
+
+.. method:: Connection.rollback()
+
+   This method rolls back any changes to the database since the last call to 
+   :meth:`commit`.
+
+.. method:: Connection.close()
+
+   This closes the database connection. Note that this does not automatically
+   call :meth:`commit`. If you just close your database connection without
+   calling :meth:`commit` first, your changes will be lost!
+
 .. method:: Connection.execute(sql, [parameters])
 
    This is a nonstandard shortcut that creates an intermediate cursor object by
@@ -343,6 +360,16 @@ A :class:`Connection` instance has the following attributes and methods:
    method with :const:`None` for *handler*.
 
 
+.. method:: Connection.enable_load_extension(enabled)
+
+   This routine allows/disallows the SQLite engine to load SQLite extensions
+   from shared libraries.  SQLite extensions can define new functions,
+   aggregates or whole new virtual table implementations. One well-known
+   extension is the fulltext-search extension distributed with SQLite.
+
+   .. literalinclude:: ../includes/sqlite3/load_extension.py
+
+
 .. attribute:: Connection.row_factory
 
    You can change this attribute to a callable that accepts the cursor and the
@@ -387,6 +414,23 @@ A :class:`Connection` instance has the following attributes and methods:
 
    Returns the total number of database rows that have been modified, inserted, or
    deleted since the database connection was opened.
+.. attribute:: Connection.iterdump
+
+   Returns an iterator to dump the database in an SQL text format.  Useful when
+   saving an in-memory database for later restoration.  This function provides
+   the same capabilities as the :kbd:`.dump` command in the :program:`sqlite3`
+   shell.
+
+   Example::
+
+      # Convert file existing_db.db to SQL dump file dump.sql
+      import sqlite3, os
+
+      con = sqlite3.connect('existing_db.db')
+      full_dump = os.linesep.join([line for line in con.iterdump()])
+      f = open('dump.sql', 'w')
+      f.writelines(full_dump)
+      f.close()
 
 
 .. _sqlite3-cursor-objects:
@@ -444,29 +488,29 @@ A :class:`Cursor` instance has the following attributes and methods:
    .. literalinclude:: ../includes/sqlite3/executescript.py
 
 
-.. method:: Cursor.fetchone() 
-          
+.. method:: Cursor.fetchone()
+
    Fetches the next row of a query result set, returning a single sequence,
    or ``None`` when no more data is available.
 
 
 .. method:: Cursor.fetchmany([size=cursor.arraysize])
-          
+
    Fetches the next set of rows of a query result, returning a list.  An empty
    list is returned when no more rows are available.
-   
+
    The number of rows to fetch per call is specified by the *size* parameter.
    If it is not given, the cursor's arraysize determines the number of rows
    to be fetched. The method should try to fetch as many rows as indicated by
    the size parameter. If this is not possible due to the specified number of
    rows not being available, fewer rows may be returned.
-   
+
    Note there are performance considerations involved with the *size* parameter.
    For optimal performance, it is usually best to use the arraysize attribute.
    If the *size* parameter is used, then it is best for it to retain the same
    value from one :meth:`fetchmany` call to the next.
-            
-.. method:: Cursor.fetchall() 
+
+.. method:: Cursor.fetchall()
 
    Fetches all (remaining) rows of a query result, returning a list.  Note that
    the cursor's arraysize attribute can affect the performance of this operation.
@@ -492,6 +536,12 @@ A :class:`Cursor` instance has the following attributes and methods:
    This includes ``SELECT`` statements because we cannot determine the number of
    rows a query produced until all rows were fetched.
 
+.. attribute:: Cursor.lastrowid
+
+   This read-only attribute provides the rowid of the last modified row. It is
+   only set if you issued a ``INSERT`` statement using the :meth:`execute`
+   method. For operations other than ``INSERT`` or when :meth:`executemany` is
+   called, :attr:`lastrowid` is set to :const:`None`.
 
 .. _sqlite3-types:
 
@@ -619,10 +669,6 @@ and constructs a :class:`Point` object from it.
 
    Converter functions **always** get called with a string, no matter under which
    data type you sent the value to SQLite.
-
-.. note::
-
-   Converter names are looked up in a case-sensitive manner.
 
 ::
 
