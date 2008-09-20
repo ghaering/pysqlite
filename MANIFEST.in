@@ -2,9 +2,9 @@ include MANIFEST.in
 include LICENSE
 include ez_setup.py
 include extended_setup.py
-include docutilsupport.py
-include src/*.h
-include doc/*.html
+include cross_bdist_wininst.py
 include doc/*.txt
-include doc/*.css
-include doc/code/*.py
+include doc/includes/sqlite3/*.py
+include doc/sphinx/*
+include doc/sphinx/.static/.keepme
+include src/*.h

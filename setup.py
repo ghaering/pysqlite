@@ -63,30 +63,13 @@ class DocBuilder(Command):
         pass
 
     def run(self):
-        import os, stat
-
+        import os, shutil
         try:
-            import docutils.core
-            import docutilsupport
-        except ImportError:
-            print "Error: the build-docs command requires docutils and SilverCity to be installed"
-            return
-
-        docfiles = {
-            "usage-guide.html": "usage-guide.txt",
-            "install-source.html": "install-source.txt",
-            "install-source-win32.html": "install-source-win32.txt"
-        }
-
-        os.chdir("doc")
-        for dest, source in docfiles.items():
-            if not os.path.exists(dest) or os.stat(dest)[stat.ST_MTIME] < os.stat(source)[stat.ST_MTIME]:
-                print "Building documentation file %s." % dest
-                docutils.core.publish_cmdline(
-                    writer_name='html',
-                    argv=["--stylesheet=default.css", source, dest])
-
-        os.chdir("..")
+            shutil.rmtree("build/doc")
+        except OSError:
+            pass
+        os.makedirs("build/doc")
+        os.system("sphinx-build doc/sphinx build/doc")
 
 def get_setup_args():
     PYSQLITE_VERSION = None
@@ -152,7 +135,8 @@ def get_setup_args():
             "Programming Language :: C",
             "Programming Language :: Python",
             "Topic :: Database :: Database Engines/Servers",
-            "Topic :: Software Development :: Libraries :: Python Modules"]
+            "Topic :: Software Development :: Libraries :: Python Modules"],
+            cmdclass = {"build_docs": DocBuilder}
             )
     return setup_args
 

@@ -30,47 +30,12 @@ from distutils.command.build_ext import build_ext
 use_setuptools()
 
 import setuptools
-import setup
 import urllib
 import zipfile
 
+from setup import get_setup_args, DocBuilder
+
 AMALGAMATION_ROOT = "amalgamation"
-
-class DocBuilder(setuptools.Command):
-    description = "Builds the documentation"
-    user_options = []
-
-    def initialize_options(self):
-        pass
-
-    def finalize_options(self):
-        pass
-
-    def run(self):
-        import os, stat
-
-        try:
-            import docutils.core
-            import docutilsupport
-        except ImportError:
-            print "Error: the build-docs command requires docutils and SilverCity to be installed"
-            return
-
-        docfiles = {
-            "usage-guide.html": "usage-guide.txt",
-            "install-source.html": "install-source.txt",
-            "install-source-win32.html": "install-source-win32.txt"
-        }
-
-        os.chdir("doc")
-        for dest, source in docfiles.items():
-            if not os.path.exists(dest) or os.stat(dest)[stat.ST_MTIME] < os.stat(source)[stat.ST_MTIME]:
-                print "Building documentation file %s." % dest
-                docutils.core.publish_cmdline(
-                    writer_name='html',
-                    argv=["--stylesheet=default.css", source, dest])
-
-        os.chdir("..")
 
 def get_amalgamation():
     """Download the SQLite amalgamation if it isn't there, already."""
@@ -113,11 +78,9 @@ class MyBuildExt(build_ext):
 
 
 def main():
-    setup_args = setup.get_setup_args()
-    setup_args["extras_require"] = {"build_docs": ["docutils", "SilverCity"]}
+    setup_args = get_setup_args()
     setup_args["test_suite"] = "pysqlite2.test.suite"
-    setup_args["cmdclass"] = {"build_docs": DocBuilder, "build_ext": MyBuildExt, "build_static": AmalgamationBuilder, "cross_bdist_wininst": cross_bdist_wininst.bdist_wininst}
-    setup_args["extras_require"] = {"build_docs": ["docutils", "SilverCity"]}
+    setup_args["cmdclass"].update({"build_docs": DocBuilder, "build_ext": MyBuildExt, "build_static": AmalgamationBuilder, "cross_bdist_wininst": cross_bdist_wininst.bdist_wininst})
     setuptools.setup(**setup_args)
 
 if __name__ == "__main__":
