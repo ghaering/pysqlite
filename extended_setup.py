@@ -43,7 +43,7 @@ def get_amalgamation():
         return
     os.mkdir(AMALGAMATION_ROOT)
     print "Downloading amalgation."
-    urllib.urlretrieve("http://sqlite.org/sqlite-amalgamation-3_6_1.zip", "tmp.zip")
+    urllib.urlretrieve("http://sqlite.org/sqlite-amalgamation-3_6_4.zip", "tmp.zip")
     zf = zipfile.ZipFile("tmp.zip")
     files = ["sqlite3.c", "sqlite3.h"]
     for fn in files:
@@ -67,6 +67,7 @@ class MyBuildExt(build_ext):
     def build_extension(self, ext):
         get_amalgamation()
         if self.amalgamation:
+            ext.define_macros.append(("SQLITE_ENABLE_FTS3", "1"))   # build with fulltext search enabled
             ext.sources.append(os.path.join(AMALGAMATION_ROOT, "sqlite3.c"))
             build_ext.build_extension(self, ext)
 
