@@ -220,7 +220,7 @@ A :class:`Connection` instance has the following attributes and methods:
 .. attribute:: Connection.isolation_level
 
    Get or set the current isolation level. None for autocommit mode or one of
-   "DEFERRED", "IMMEDIATE" or "EXLUSIVE". See section
+   "DEFERRED", "IMMEDIATE" or "EXCLUSIVE". See section
    :ref:`sqlite3-controlling-transactions` for a more detailed explanation.
 
 
