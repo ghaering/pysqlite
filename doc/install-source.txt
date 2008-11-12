@@ -73,7 +73,7 @@ Otherwise you will have to customize the build process. That's what the file
 your C compiler will find the library and header files and you can also do a
 few other tweaks, like build pysqlite in debug mode.
 
-After you've customized *setup.cfg* apprporiately, try invoking ``python
+After you've customized *setup.cfg* appropriately, try invoking ``python
 setup.py build`` again.
 
 If setup.py raises no errors and its output concludes with something like
@@ -143,5 +143,5 @@ list`_.
 
 .. _distutils: http://www.python.org/sigs/distutils-sig/
 .. _this section of the Python documentation: http://www.python.org/doc/current/inst/inst.html
-.. _pysqlite bug tracker: http://initd.org/tracker/pysqlite
-.. _pysqlite mailing list: http://lists.initd.org/mailman/listinfo/pysqlite
+.. _pysqlite bug tracker: http://pysqlite.org/
+.. _pysqlite mailing list: http://itsystementwicklung.de/cgi-bin/mailman/listinfo/list-pysqlite
