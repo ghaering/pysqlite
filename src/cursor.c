@@ -753,7 +753,6 @@ PyObject* pysqlite_cursor_executescript(pysqlite_Cursor* self, PyObject* args)
     sqlite3_stmt* statement;
     int rc;
     PyObject* result;
-    int statement_completed = 0;
 
     if (!PyArg_ParseTuple(args, "O", &script_obj)) {
         return NULL;
@@ -785,11 +784,6 @@ PyObject* pysqlite_cursor_executescript(pysqlite_Cursor* self, PyObject* args)
     Py_DECREF(result);
 
     while (1) {
-        if (!sqlite3_complete(script_cstr)) {
-            break;
-        }
-        statement_completed = 1;
-
         Py_BEGIN_ALLOW_THREADS
         rc = sqlite3_prepare(self->connection->db,
                              script_cstr,
@@ -820,14 +814,14 @@ PyObject* pysqlite_cursor_executescript(pysqlite_Cursor* self, PyObject* args)
             _pysqlite_seterror(self->connection->db, NULL);
             goto error;
         }
+
+        if (*script_cstr == (char)0) {
+            break;
+        }
     }
 
 error:
     Py_XDECREF(script_str);
-
-    if (!statement_completed) {
-        PyErr_SetString(pysqlite_ProgrammingError, "you did not provide a complete SQL statement");
-    }
 
     if (PyErr_Occurred()) {
         return NULL;

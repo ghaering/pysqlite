@@ -672,13 +672,13 @@ class ExtensionTests(unittest.TestCase):
         res = cur.fetchone()[0]
         self.failUnlessEqual(res, 6)
 
-    def CheckScriptErrorIncomplete(self):
+    def CheckScriptSyntaxError(self):
         con = sqlite.connect(":memory:")
         cur = con.cursor()
         raised = False
         try:
-            cur.executescript("create table test(sadfsadfdsa")
-        except sqlite.ProgrammingError:
+            cur.executescript("create table test(x); asdf; create table test2(x)")
+        except sqlite.OperationalError:
             raised = True
         self.failUnlessEqual(raised, True, "should have raised an exception")
 
