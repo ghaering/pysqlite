@@ -1,7 +1,5 @@
 include MANIFEST.in
 include LICENSE
-include ez_setup.py
-include extended_setup.py
 include cross_bdist_wininst.py
 include doc/*.txt
 include doc/includes/sqlite3/*.py
