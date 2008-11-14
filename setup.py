@@ -22,8 +22,14 @@
 # 3. This notice may not be removed or altered from any source distribution.
 
 import glob, os, re, sys
+import urllib
+import zipfile
 
 from distutils.core import setup, Extension, Command
+from distutils.command.build import build
+from distutils.command.build_ext import build_ext
+
+import cross_bdist_wininst
 
 # If you need to change anything, it should be enough to change setup.cfg.
 
@@ -69,9 +75,54 @@ class DocBuilder(Command):
         except OSError:
             pass
         os.makedirs("build/doc")
-        os.system("sphinx-build doc/sphinx build/doc")
+        rc = os.system("sphinx-build doc/sphinx build/doc")
+        if rc != 0:
+            print "Is sphinx installed? If not, try 'sudo easy_install sphinx'."
+
+AMALGAMATION_ROOT = "amalgamation"
+
+def get_amalgamation():
+    """Download the SQLite amalgamation if it isn't there, already."""
+    if os.path.exists(AMALGAMATION_ROOT):
+        return
+    os.mkdir(AMALGAMATION_ROOT)
+    print "Downloading amalgation."
+    urllib.urlretrieve("http://sqlite.org/sqlite-amalgamation-3_6_4.zip", "tmp.zip")
+    zf = zipfile.ZipFile("tmp.zip")
+    files = ["sqlite3.c", "sqlite3.h"]
+    for fn in files:
+        print "Extracting", fn
+        outf = open(AMALGAMATION_ROOT + os.sep + fn, "wb")
+        outf.write(zf.read(fn))
+        outf.close()
+    zf.close()
+    os.unlink("tmp.zip")
+
+class AmalgamationBuilder(build):
+    description = "Build a statically built pysqlite using the amalgamtion."
+
+    def __init__(self, *args, **kwargs):
+        MyBuildExt.amalgamation = True
+        build.__init__(self, *args, **kwargs)
+
+class MyBuildExt(build_ext):
+    amalgamation = False
+
+    def build_extension(self, ext):
+        get_amalgamation()
+        if self.amalgamation:
+            ext.define_macros.append(("SQLITE_ENABLE_FTS3", "1"))   # build with fulltext search enabled
+            ext.sources.append(os.path.join(AMALGAMATION_ROOT, "sqlite3.c"))
+        build_ext.build_extension(self, ext)
+
+    def __setattr__(self, k, v):
+        # Make sure we don't link against the SQLite library, no matter what setup.cfg says
+        if self.amalgamation and k == "libraries":
+            v = None
+        self.__dict__[k] = v
 
 def get_setup_args():
+
     PYSQLITE_VERSION = None
 
     version_re = re.compile('#define PYSQLITE_VERSION "(.*)"')
@@ -138,6 +189,8 @@ def get_setup_args():
             "Topic :: Software Development :: Libraries :: Python Modules"],
             cmdclass = {"build_docs": DocBuilder}
             )
+
+    setup_args["cmdclass"].update({"build_docs": DocBuilder, "build_ext": MyBuildExt, "build_static": AmalgamationBuilder, "cross_bdist_wininst": cross_bdist_wininst.bdist_wininst})
     return setup_args
 
 def main():
