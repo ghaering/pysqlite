@@ -22,6 +22,10 @@ SRC = "src/module.c src/connection.c src/cursor.c src/cache.c src/microprotocols
 # http://oss.itsystementwicklung.de/hg/pyext_cross_linux_to_win32/
 CROSS_TOOLS = "../pyext_cross_linux_to_win32"
 
+def execute(cmd):
+    print cmd
+    return os.system(cmd)
+
 def get_amalgamation():
     """Download the SQLite amalgamation if it isn't there, already."""
     AMALGAMATION_ROOT = "amalgamation"
@@ -46,15 +50,15 @@ def compile_module(pyver):
     vars = locals()
     vars.update(globals())
     cmd = '%(CC)s -mno-cygwin %(OPT)s -mdll -DMODULE_NAME=\\"pysqlite2._sqlite\\" -DSQLITE_ENABLE_FTS3=1 -I amalgamation -I %(INC)s -I . %(SRC)s -L %(CROSS_TOOLS)s/python%(VER)s/libs -lpython%(VER)s -o build/lib.linux-i686-2.5/pysqlite2/_sqlite.pyd' % vars
-    os.system(cmd)
-    os.system("strip --strip-all build/lib.linux-i686-2.5/pysqlite2/_sqlite.pyd")
+    execute(cmd)
+    execute("strip --strip-all build/lib.linux-i686-2.5/pysqlite2/_sqlite.pyd")
 
 def main():
     get_amalgamation()
     for ver in ["2.3", "2.4", "2.5", "2.6"]:
-        os.system("rm -rf build")
+        execute("rm -rf build")
         # First, compile the Linux version. This is just to get the .py files in place.
-        os.system("python2.5 setup.py build")
+        execute("python2.5 setup.py build")
         # Yes, now delete the Linux extension module. What a waste of time.
         os.unlink("build/lib.linux-i686-2.5/pysqlite2/_sqlite.so")
         # Cross-compile win32 extension module.
@@ -63,7 +67,7 @@ def main():
         os.rename("build/lib.linux-i686-2.5", "build/lib.linux-i686-%s" % ver)
         # And create the installer!
         os.putenv("PYEXT_CROSS", CROSS_TOOLS)
-        os.system("python2.5 setup.py cross_bdist_wininst --skip-build --target-version=" + ver)
+        execute("python2.5 setup.py cross_bdist_wininst --skip-build --target-version=" + ver)
 
 if __name__ == "__main__":
     main()
