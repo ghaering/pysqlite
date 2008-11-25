@@ -87,7 +87,16 @@ def get_amalgamation():
         return
     os.mkdir(AMALGAMATION_ROOT)
     print "Downloading amalgation."
-    urllib.urlretrieve("http://sqlite.org/sqlite-amalgamation-3_6_4.zip", "tmp.zip")
+
+    # find out what's current amalgamation ZIP file
+    download_page = urllib.urlopen("http://sqlite.org/download.html").read()
+    pattern = re.compile("(sqlite-amalgamation.*?\.zip)")
+    download_file = pattern.findall(download_page)[0]
+    amalgamation_url = "http://sqlite.org/" + download_file
+
+    # and download it
+    urllib.urlretrieve(amalgamation_url, "tmp.zip")
+
     zf = zipfile.ZipFile("tmp.zip")
     files = ["sqlite3.c", "sqlite3.h"]
     for fn in files:
