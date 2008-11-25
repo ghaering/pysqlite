@@ -12,6 +12,9 @@ import zipfile
 # Cross-compiler
 CC = "/usr/bin/i586-mingw32msvc-gcc"
 
+# Optimization settings
+OPT = "-O2"
+
 # pysqlite sources + SQLite amalgamation
 SRC = "src/module.c src/connection.c src/cursor.c src/cache.c src/microprotocols.c src/prepare_protocol.c src/statement.c src/util.c src/row.c amalgamation/sqlite3.c"
 
@@ -42,7 +45,7 @@ def compile_module(pyver):
     INC = "%s/python%s/include" % (CROSS_TOOLS, VER)
     vars = locals()
     vars.update(globals())
-    cmd = '%(CC)s -mno-cygwin -mdll -DMODULE_NAME=\\"pysqlite2._sqlite\\" -DSQLITE_ENABLE_FTS3=1 -I amalgamation -I %(INC)s -I . %(SRC)s -L %(CROSS_TOOLS)s/python%(VER)s/libs -lpython%(VER)s -o build/lib.linux-i686-2.5/pysqlite2/_sqlite.pyd' % vars
+    cmd = '%(CC)s -mno-cygwin %(OPT)s -mdll -DMODULE_NAME=\\"pysqlite2._sqlite\\" -DSQLITE_ENABLE_FTS3=1 -I amalgamation -I %(INC)s -I . %(SRC)s -L %(CROSS_TOOLS)s/python%(VER)s/libs -lpython%(VER)s -o build/lib.linux-i686-2.5/pysqlite2/_sqlite.pyd' % vars
     os.system(cmd)
     os.system("strip --strip-all build/lib.linux-i686-2.5/pysqlite2/_sqlite.pyd")
 
@@ -60,7 +63,7 @@ def main():
         os.rename("build/lib.linux-i686-2.5", "build/lib.linux-i686-%s" % ver)
         # And create the installer!
         os.putenv("PYEXT_CROSS", CROSS_TOOLS)
-        os.system("python2.5 extended_setup.py cross_bdist_wininst --skip-build --target-version=" + ver)
+        os.system("python2.5 setup.py cross_bdist_wininst --skip-build --target-version=" + ver)
 
 if __name__ == "__main__":
     main()
