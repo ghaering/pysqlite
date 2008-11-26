@@ -860,7 +860,7 @@ static int _progress_handler(void* user_arg)
     return rc;
 }
 
-PyObject* pysqlite_connection_set_authorizer(pysqlite_Connection* self, PyObject* args, PyObject* kwargs)
+static PyObject* pysqlite_connection_set_authorizer(pysqlite_Connection* self, PyObject* args, PyObject* kwargs)
 {
     PyObject* authorizer_cb;
 
@@ -885,7 +885,7 @@ PyObject* pysqlite_connection_set_authorizer(pysqlite_Connection* self, PyObject
     }
 }
 
-PyObject* pysqlite_connection_set_progress_handler(pysqlite_Connection* self, PyObject* args, PyObject* kwargs)
+static PyObject* pysqlite_connection_set_progress_handler(pysqlite_Connection* self, PyObject* args, PyObject* kwargs)
 {
     PyObject* progress_handler;
     int n;
@@ -910,10 +910,14 @@ PyObject* pysqlite_connection_set_progress_handler(pysqlite_Connection* self, Py
 }
 
 #ifdef HAVE_LOAD_EXTENSION
-PyObject* pysqlite_enable_load_extension(pysqlite_Connection* self, PyObject* args)
+static PyObject* pysqlite_enable_load_extension(pysqlite_Connection* self, PyObject* args)
 {
     int rc;
     int onoff;
+
+    if (!pysqlite_check_thread(self) || !pysqlite_check_connection(self)) {
+        return NULL;
+    }
 
     if (!PyArg_ParseTuple(args, "i", &onoff)) {
         return NULL;
@@ -923,6 +927,30 @@ PyObject* pysqlite_enable_load_extension(pysqlite_Connection* self, PyObject* ar
 
     if (rc != SQLITE_OK) {
         PyErr_SetString(pysqlite_OperationalError, "Error enabling load extension");
+        return NULL;
+    } else {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+}
+
+static PyObject* pysqlite_load_extension(pysqlite_Connection* self, PyObject* args)
+{
+    int rc;
+    char* extension_name;
+    char* errmsg;
+
+    if (!pysqlite_check_thread(self) || !pysqlite_check_connection(self)) {
+        return NULL;
+    }
+
+    if (!PyArg_ParseTuple(args, "s", &extension_name)) {
+        return NULL;
+    }
+
+    rc = sqlite3_load_extension(self->db, extension_name, 0, &errmsg);
+    if (rc != 0) {
+        PyErr_SetString(pysqlite_OperationalError, errmsg);
         return NULL;
     } else {
         Py_INCREF(Py_None);
@@ -1405,6 +1433,8 @@ static PyMethodDef connection_methods[] = {
     #ifdef HAVE_LOAD_EXTENSION
     {"enable_load_extension", (PyCFunction)pysqlite_enable_load_extension, METH_VARARGS,
         PyDoc_STR("Enable dynamic loading of SQLite extension modules. Non-standard.")},
+    {"load_extension", (PyCFunction)pysqlite_load_extension, METH_VARARGS,
+        PyDoc_STR("Load SQLite extension module. Non-standard.")},
     #endif
     {"set_progress_handler", (PyCFunction)pysqlite_connection_set_progress_handler, METH_VARARGS|METH_KEYWORDS,
         PyDoc_STR("Sets progress handler callback. Non-standard.")},

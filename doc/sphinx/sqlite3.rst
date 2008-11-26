@@ -369,6 +369,11 @@ A :class:`Connection` instance has the following attributes and methods:
 
    .. literalinclude:: ../includes/sqlite3/load_extension.py
 
+.. method:: Connection.load_extension(path)
+
+   This routine loads a SQLite extension from a shared library. You have to
+   enable extension loading with ``enable_load_extension`` before you can use
+   this routine.
 
 .. attribute:: Connection.row_factory
 

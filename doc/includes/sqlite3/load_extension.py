@@ -2,9 +2,16 @@ from pysqlite2 import dbapi2 as sqlite3
 
 con = sqlite3.connect(":memory:")
 
-# Load the fulltext search extension
+# enable extension loading
 con.enable_load_extension(True)
+
+# Load the fulltext search extension
 con.execute("select load_extension('./fts3.so')")
+
+# alternatively you can load the extension using an API call:
+# con.load_extension("./fts3.so")
+
+# disable extension laoding again
 con.enable_load_extension(False)
 
 # example from SQLite wiki
