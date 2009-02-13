@@ -431,7 +431,7 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
 
     /* Make shooting yourself in the foot with not utf-8 decodable 8-bit-strings harder */
     allow_8bit_chars = ((self->connection->text_factory != (PyObject*)&PyUnicode_Type) &&
-        (self->connection->text_factory != (PyObject*)&PyUnicode_Type && pysqlite_OptimizedUnicode));
+        (self->connection->text_factory != pysqlite_OptimizedUnicode));
 
     Py_XDECREF(self->next_row);
     self->next_row = NULL;
