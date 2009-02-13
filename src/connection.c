@@ -36,7 +36,9 @@
 #define ACTION_RESET 2
 
 #if SQLITE_VERSION_NUMBER >= 3003008
+#ifndef SQLITE_OMIT_LOAD_EXTENSION
 #define HAVE_LOAD_EXTENSION
+#endif
 #endif
 
 static int pysqlite_connection_set_isolation_level(pysqlite_Connection* self, PyObject* isolation_level);
