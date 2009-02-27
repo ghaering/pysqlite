@@ -122,6 +122,7 @@ class MyBuildExt(build_ext):
         if self.amalgamation:
             ext.define_macros.append(("SQLITE_ENABLE_FTS3", "1"))   # build with fulltext search enabled
             ext.sources.append(os.path.join(AMALGAMATION_ROOT, "sqlite3.c"))
+            ext.include_dirs.append(AMALGAMATION_ROOT)
         build_ext.build_extension(self, ext)
 
     def __setattr__(self, k, v):
