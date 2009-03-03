@@ -1,7 +1,7 @@
 #-*- coding: ISO-8859-1 -*-
 # pysqlite2/test/regression.py: pysqlite regression tests
 #
-# Copyright (C) 2006-2007 Gerhard Häring <gh@ghaering.de>
+# Copyright (C) 2006-2009 Gerhard Häring <gh@ghaering.de>
 #
 # This file is part of pysqlite.
 #
@@ -69,16 +69,6 @@ class RegressionTests(unittest.TestCase):
 
         cur.execute('select 1 as "foo baz"')
         self.failUnlessEqual(cur.description[0][0], "foo baz")
-
-    def CheckStatementAvailable(self):
-        # pysqlite up to 2.3.2 crashed on this, because the active statement handle was not checked
-        # before trying to fetch data from it. close() destroys the active statement ...
-        con = sqlite.connect(":memory:", detect_types=sqlite.PARSE_DECLTYPES)
-        cur = con.cursor()
-        cur.execute("select 4 union select 5")
-        cur.close()
-        cur.fetchone()
-        cur.fetchone()
 
     def CheckStatementFinalizationOnCloseDb(self):
         # pysqlite versions <= 2.3.3 only finalized statements in the statement

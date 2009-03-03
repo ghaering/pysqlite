@@ -1,6 +1,6 @@
 /* connection.c - the connection type
  *
- * Copyright (C) 2004-2007 Gerhard Häring <gh@ghaering.de>
+ * Copyright (C) 2004-2009 Gerhard Häring <gh@ghaering.de>
  *
  * This file is part of pysqlite.
  * 
@@ -42,6 +42,7 @@
 #endif
 
 static int pysqlite_connection_set_isolation_level(pysqlite_Connection* self, PyObject* isolation_level);
+static void _pysqlite_drop_unused_cursor_references(pysqlite_Connection* self);
 
 
 static void _sqlite3_result_error(sqlite3_context* ctx, const char* errmsg, int len)
@@ -83,6 +84,7 @@ int pysqlite_connection_init(pysqlite_Connection* self, PyObject* args, PyObject
 
     self->statement_cache = NULL;
     self->statements = NULL;
+    self->cursors = NULL;
 
     Py_INCREF(Py_None);
     self->row_factory = Py_None;
@@ -156,11 +158,15 @@ int pysqlite_connection_init(pysqlite_Connection* self, PyObject* args, PyObject
         return -1;
     }
 
+    self->created_statements = 0;
+    self->created_cursors = 0;
+
+    /* Create lists of weak references to statements/cursors */
     self->statements = PyList_New(0);
-    if (!self->statements) {
+    self->cursors = PyList_New(0);
+    if (!self->statements || !self->cursors) {
         return -1;
     }
-    self->created_statements = 0;
 
     /* By default, the Cache class INCREFs the factory in its initializer, and
      * decrefs it in its deallocator method. Since this would create a circular
@@ -228,6 +234,7 @@ void pysqlite_do_all_statements(pysqlite_Connection* self, int action)
     int i;
     PyObject* weakref;
     PyObject* statement;
+    pysqlite_Cursor* cursor;
 
     for (i = 0; i < PyList_Size(self->statements); i++) {
         weakref = PyList_GetItem(self->statements, i);
@@ -238,6 +245,14 @@ void pysqlite_do_all_statements(pysqlite_Connection* self, int action)
             } else {
                 (void)pysqlite_statement_finalize((pysqlite_Statement*)statement);
             }
+        }
+    }
+
+    for (i = 0; i < PyList_Size(self->cursors); i++) {
+        weakref = PyList_GetItem(self->cursors, i);
+        cursor = (pysqlite_Cursor*)PyWeakref_GetObject(weakref);
+        if ((PyObject*)cursor != Py_None) {
+            cursor->reset = 1;
         }
     }
 }
@@ -268,6 +283,7 @@ void pysqlite_connection_dealloc(pysqlite_Connection* self)
     Py_XDECREF(self->text_factory);
     Py_XDECREF(self->collations);
     Py_XDECREF(self->statements);
+    Py_XDECREF(self->cursors);
 
     self->ob_type->tp_free((PyObject*)self);
 }
@@ -277,7 +293,7 @@ PyObject* pysqlite_connection_cursor(pysqlite_Connection* self, PyObject* args, 
     static char *kwlist[] = {"factory", NULL, NULL};
     PyObject* factory = NULL;
     PyObject* cursor;
-
+    PyObject* weakref;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|O", kwlist,
                                      &factory)) {
@@ -292,7 +308,25 @@ PyObject* pysqlite_connection_cursor(pysqlite_Connection* self, PyObject* args, 
         factory = (PyObject*)&pysqlite_CursorType;
     }
 
+    _pysqlite_drop_unused_cursor_references(self);
+
     cursor = PyObject_CallFunction(factory, "O", self);
+
+    if (cursor) {
+        weakref = PyWeakref_NewRef((PyObject*)cursor, NULL);
+        if (!weakref) {
+            Py_CLEAR(cursor);
+            goto error;
+        }
+
+        if (PyList_Append(self->cursors, weakref) != 0) {
+            Py_CLEAR(weakref);
+            Py_CLEAR(cursor);
+            goto error;
+        }
+
+        Py_DECREF(weakref);
+    }
 
     if (cursor && self->row_factory != Py_None) {
         Py_XDECREF(((pysqlite_Cursor*)cursor)->row_factory);
@@ -300,6 +334,7 @@ PyObject* pysqlite_connection_cursor(pysqlite_Connection* self, PyObject* args, 
         ((pysqlite_Cursor*)cursor)->row_factory = self->row_factory;
     }
 
+error:
     return cursor;
 }
 
@@ -404,6 +439,8 @@ PyObject* pysqlite_connection_commit(pysqlite_Connection* self, PyObject* args)
     }
 
     if (self->inTransaction) {
+        pysqlite_do_all_statements(self, ACTION_RESET);
+
         Py_BEGIN_ALLOW_THREADS
         rc = sqlite3_prepare(self->db, "COMMIT", -1, &statement, &tail);
         Py_END_ALLOW_THREADS
@@ -717,7 +754,7 @@ error:
     PyGILState_Release(threadstate);
 }
 
-void _pysqlite_drop_unused_statement_references(pysqlite_Connection* self)
+static void _pysqlite_drop_unused_statement_references(pysqlite_Connection* self)
 {
     PyObject* new_list;
     PyObject* weakref;
@@ -747,6 +784,38 @@ void _pysqlite_drop_unused_statement_references(pysqlite_Connection* self)
 
     Py_DECREF(self->statements);
     self->statements = new_list;
+}
+
+static void _pysqlite_drop_unused_cursor_references(pysqlite_Connection* self)
+{
+    PyObject* new_list;
+    PyObject* weakref;
+    int i;
+
+    /* we only need to do this once in a while */
+    if (self->created_cursors++ < 200) {
+        return;
+    }
+
+    self->created_cursors = 0;
+
+    new_list = PyList_New(0);
+    if (!new_list) {
+        return;
+    }
+
+    for (i = 0; i < PyList_Size(self->cursors); i++) {
+        weakref = PyList_GetItem(self->cursors, i);
+        if (PyWeakref_GetObject(weakref) != Py_None) {
+            if (PyList_Append(new_list, weakref) != 0) {
+                Py_DECREF(new_list);
+                return;
+            }
+        }
+    }
+
+    Py_DECREF(self->cursors);
+    self->cursors = new_list;
 }
 
 PyObject* pysqlite_connection_create_function(pysqlite_Connection* self, PyObject* args, PyObject* kwargs)

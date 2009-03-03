@@ -1,6 +1,6 @@
 /* connection.h - definitions for the connection type
  *
- * Copyright (C) 2004-2007 Gerhard Häring <gh@ghaering.de>
+ * Copyright (C) 2004-2009 Gerhard Häring <gh@ghaering.de>
  *
  * This file is part of pysqlite.
  *
@@ -68,12 +68,14 @@ typedef struct
 
     pysqlite_Cache* statement_cache;
 
-    /* A list of weak references to statements used within this connection */
+    /* Lists of weak references to statements and cursors used within this connection */
     PyObject* statements;
+    PyObject* cursors;
 
-    /* a counter for how many statements were created in the connection. May be
+    /* Counters for how many statements/cursors were created in the connection. May be
      * reset to 0 at certain intervals */
     int created_statements;
+    int created_cursors;
 
     PyObject* row_factory;
 

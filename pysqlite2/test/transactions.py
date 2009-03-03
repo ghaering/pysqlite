@@ -1,7 +1,7 @@
 #-*- coding: ISO-8859-1 -*-
 # pysqlite2/test/transactions.py: tests transactions
 #
-# Copyright (C) 2005-2007 Gerhard Häring <gh@ghaering.de>
+# Copyright (C) 2005-2009 Gerhard Häring <gh@ghaering.de>
 #
 # This file is part of pysqlite.
 #
@@ -147,6 +147,46 @@ class TransactionTests(unittest.TestCase):
             self.fail("should have raised an OperationalError")
         # NO self.con2.rollback() HERE!!!
         self.con1.commit()
+
+    def CheckRollbackCursorConsistency(self):
+        """
+        Checks if cursors on the connection are set into a "reset" state
+        when a rollback is done on the connection.
+        """
+        con = sqlite.connect(":memory:")
+        cur = con.cursor()
+        cur.execute("create table test(x)")
+        cur.execute("insert into test(x) values (5)")
+        cur.execute("select 1 union select 2 union select 3")
+
+        con.rollback()
+        try:
+            cur.fetchall()
+            self.fail("InterfaceError should have been raised")
+        except sqlite.InterfaceError, e:
+            pass
+        except:
+            self.fail("InterfaceError should have been raised")
+
+    def CheckCommitCursorConsistency(self):
+        """
+        Checks if cursors on the connection are set into a "reset" state
+        when a rollback is done on the connection.
+        """
+        con = sqlite.connect(":memory:")
+        cur = con.cursor()
+        cur.execute("create table test(x)")
+        cur.execute("insert into test(x) values (5)")
+        cur.execute("select 1 union select 2 union select 3")
+
+        con.commit()
+        try:
+            cur.fetchall()
+            self.fail("InterfaceError should have been raised")
+        except sqlite.InterfaceError, e:
+            pass
+        except:
+            self.fail("InterfaceError should have been raised")
 
 class SpecialCommandTests(unittest.TestCase):
     def setUp(self):

@@ -1,7 +1,7 @@
 #-*- coding: ISO-8859-1 -*-
 # pysqlite2/test/dbapi.py: tests for DB-API compliance
 #
-# Copyright (C) 2004-2007 Gerhard Häring <gh@ghaering.de>
+# Copyright (C) 2004-2009 Gerhard Häring <gh@ghaering.de>
 #
 # This file is part of pysqlite.
 #
@@ -711,7 +711,7 @@ class ExtensionTests(unittest.TestCase):
         result = con.execute("select foo from test").fetchone()[0]
         self.failUnlessEqual(result, 5, "Basic test of Connection.executescript")
 
-class ClosedTests(unittest.TestCase):
+class ClosedConTests(unittest.TestCase):
     def setUp(self):
         pass
 
@@ -763,6 +763,36 @@ class ClosedTests(unittest.TestCase):
         except:
             self.fail("Should have raised a ProgrammingError")
 
+class ClosedCurTests(unittest.TestCase):
+    def setUp(self):
+        pass
+
+    def tearDown(self):
+        pass
+
+    def CheckClosed(self):
+        con = sqlite.connect(":memory:")
+        cur = con.cursor()
+        cur.close()
+
+        for method_name in ("execute", "executemany", "executescript", "fetchall", "fetchmany", "fetchone"):
+            if method_name in ("execute", "executescript"):
+                params = ("select 4 union select 5",)
+            elif method_name == "executemany":
+                params = ("insert into foo(bar) values (?)", [(3,), (4,)])
+            else:
+                params = []
+
+            try:
+                method = getattr(cur, method_name)
+
+                method(*params)
+                self.fail("Should have raised a ProgrammingError: method " + method_name)
+            except sqlite.ProgrammingError:
+                pass
+            except:
+                self.fail("Should have raised a ProgrammingError: " + method_name)
+
 def suite():
     module_suite = unittest.makeSuite(ModuleTests, "Check")
     connection_suite = unittest.makeSuite(ConnectionTests, "Check")
@@ -770,8 +800,9 @@ def suite():
     thread_suite = unittest.makeSuite(ThreadTests, "Check")
     constructor_suite = unittest.makeSuite(ConstructorTests, "Check")
     ext_suite = unittest.makeSuite(ExtensionTests, "Check")
-    closed_suite = unittest.makeSuite(ClosedTests, "Check")
-    return unittest.TestSuite((module_suite, connection_suite, cursor_suite, thread_suite, constructor_suite, ext_suite, closed_suite))
+    closed_con_suite = unittest.makeSuite(ClosedConTests, "Check")
+    closed_cur_suite = unittest.makeSuite(ClosedCurTests, "Check")
+    return unittest.TestSuite((module_suite, connection_suite, cursor_suite, thread_suite, constructor_suite, ext_suite, closed_con_suite, closed_cur_suite))
 
 def test():
     runner = unittest.TextTestRunner()
