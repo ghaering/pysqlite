@@ -42,6 +42,7 @@ typedef struct
     pysqlite_Statement* statement;
     int closed;
     int reset;
+    int initialized;
 
     /* the next row to be returned, NULL if no next row available */
     PyObject* next_row;

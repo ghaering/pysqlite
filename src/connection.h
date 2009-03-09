@@ -63,6 +63,8 @@ typedef struct
      * used from the same thread it was created in */
     int check_same_thread;
 
+    int initialized;
+
     /* thread identification of the thread the connection was created in */
     long thread_ident;
 
@@ -127,6 +129,7 @@ PyObject* pysqlite_connection_rollback(pysqlite_Connection* self, PyObject* args
 PyObject* pysqlite_connection_new(PyTypeObject* type, PyObject* args, PyObject* kw);
 int pysqlite_connection_init(pysqlite_Connection* self, PyObject* args, PyObject* kwargs);
 
+int pysqlite_connection_register_cursor(pysqlite_Connection* connection, PyObject* cursor);
 int pysqlite_check_thread(pysqlite_Connection* self);
 int pysqlite_check_connection(pysqlite_Connection* con);
 

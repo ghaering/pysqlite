@@ -113,6 +113,12 @@ static int pysqlite_cursor_init(pysqlite_Cursor* self, PyObject* args, PyObject*
         return -1;
     }
 
+    if (!pysqlite_connection_register_cursor(connection, self)) {
+        return -1;
+    }
+
+    self->initialized = 1;
+
     return 0;
 }
 
@@ -419,17 +425,22 @@ PyObject* _pysqlite_fetch_one_row(pysqlite_Cursor* self)
 }
 
 /*
- * Checks if a connection object is usable (i. e. not closed).
+ * Checks if a cursor object is usable.
  *
  * 0 => error; 1 => ok
  */
 static int check_cursor(pysqlite_Cursor* cur)
 {
+    if (!cur->initialized) {
+        PyErr_SetString(pysqlite_ProgrammingError, "Base Cursor.__init__ not called.");
+        return 0;
+    }
+
     if (cur->closed) {
         PyErr_SetString(pysqlite_ProgrammingError, "Cannot operate on a closed cursor.");
         return 0;
     } else {
-        return 1;
+        return pysqlite_check_thread(cur->connection) && pysqlite_check_connection(cur->connection);
     }
 }
 
@@ -452,7 +463,7 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
     PyObject* second_argument = NULL;
     int allow_8bit_chars;
 
-    if (!pysqlite_check_thread(self->connection) || !pysqlite_check_connection(self->connection) || !check_cursor(self)) {
+    if (!check_cursor(self)) {
         return NULL;
     }
 
@@ -787,7 +798,7 @@ PyObject* pysqlite_cursor_executescript(pysqlite_Cursor* self, PyObject* args)
         return NULL;
     }
 
-    if (!pysqlite_check_thread(self->connection) || !pysqlite_check_connection(self->connection) || !check_cursor(self)) {
+    if (!check_cursor(self)) {
         return NULL;
     }
 
@@ -874,7 +885,7 @@ PyObject* pysqlite_cursor_iternext(pysqlite_Cursor *self)
     PyObject* next_row;
     int rc;
 
-    if (!pysqlite_check_thread(self->connection) || !pysqlite_check_connection(self->connection) || !check_cursor(self)) {
+    if (!check_cursor(self)) {
         return NULL;
     }
 

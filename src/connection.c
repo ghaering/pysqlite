@@ -205,6 +205,8 @@ int pysqlite_connection_init(pysqlite_Connection* self, PyObject* args, PyObject
     self->ProgrammingError      = pysqlite_ProgrammingError;
     self->NotSupportedError     = pysqlite_NotSupportedError;
 
+    self->initialized = 1;
+
     return 0;
 }
 
@@ -288,12 +290,37 @@ void pysqlite_connection_dealloc(pysqlite_Connection* self)
     self->ob_type->tp_free((PyObject*)self);
 }
 
+/*
+ * Registers a cursor with the connection.
+ *
+ * 0 => error; 1 => ok
+ */
+int pysqlite_connection_register_cursor(pysqlite_Connection* connection, PyObject* cursor)
+{
+    PyObject* weakref;
+
+    weakref = PyWeakref_NewRef((PyObject*)cursor, NULL);
+    if (!weakref) {
+        goto error;
+    }
+
+    if (PyList_Append(connection->cursors, weakref) != 0) {
+        Py_CLEAR(weakref);
+        goto error;
+    }
+
+    Py_DECREF(weakref);
+
+    return 1;
+error:
+    return 0;
+}
+
 PyObject* pysqlite_connection_cursor(pysqlite_Connection* self, PyObject* args, PyObject* kwargs)
 {
     static char *kwlist[] = {"factory", NULL, NULL};
     PyObject* factory = NULL;
     PyObject* cursor;
-    PyObject* weakref;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|O", kwlist,
                                      &factory)) {
@@ -308,25 +335,9 @@ PyObject* pysqlite_connection_cursor(pysqlite_Connection* self, PyObject* args, 
         factory = (PyObject*)&pysqlite_CursorType;
     }
 
-    _pysqlite_drop_unused_cursor_references(self);
-
     cursor = PyObject_CallFunction(factory, "O", self);
 
-    if (cursor) {
-        weakref = PyWeakref_NewRef((PyObject*)cursor, NULL);
-        if (!weakref) {
-            Py_CLEAR(cursor);
-            goto error;
-        }
-
-        if (PyList_Append(self->cursors, weakref) != 0) {
-            Py_CLEAR(weakref);
-            Py_CLEAR(cursor);
-            goto error;
-        }
-
-        Py_DECREF(weakref);
-    }
+    _pysqlite_drop_unused_cursor_references(self);
 
     if (cursor && self->row_factory != Py_None) {
         Py_XDECREF(((pysqlite_Cursor*)cursor)->row_factory);
@@ -334,7 +345,6 @@ PyObject* pysqlite_connection_cursor(pysqlite_Connection* self, PyObject* args, 
         ((pysqlite_Cursor*)cursor)->row_factory = self->row_factory;
     }
 
-error:
     return cursor;
 }
 
@@ -375,12 +385,17 @@ PyObject* pysqlite_connection_close(pysqlite_Connection* self, PyObject* args)
 }
 
 /*
- * Checks if a connection object is usable (i. e. not closed).
+ * Checks if a connection object is usable.
  *
  * 0 => error; 1 => ok
  */
 int pysqlite_check_connection(pysqlite_Connection* con)
 {
+    if (!con->initialized) {
+        PyErr_SetString(pysqlite_ProgrammingError, "Base Connection.__init__ not called.");
+        return 0;
+    }
+
     if (!con->db) {
         PyErr_SetString(pysqlite_ProgrammingError, "Cannot operate on a closed database.");
         return 0;
