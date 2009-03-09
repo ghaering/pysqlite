@@ -157,6 +157,67 @@ class RegressionTests(unittest.TestCase):
         self.assertRaises(UnicodeEncodeError, setattr, con,
                           "isolation_level", u"\xe9")
 
+    def CheckCursorConstructorCallCheck(self):
+        """
+        Verifies that cursor methods check wether base class __init__ was called.
+        """
+        class Cursor(sqlite.Cursor):
+            def __init__(self, con):
+                pass
+
+        con = sqlite.connect(":memory:")
+        cur = Cursor(con)
+        try:
+            cur.execute("select 4+5").fetchall()
+            self.fail("should have raised ProgrammingError")
+        except sqlite.ProgrammingError:
+            pass
+        except:
+            self.fail("should have raised ProgrammingError")
+
+    def CheckConnectionConstructorCallCheck(self):
+        """
+        Verifies that connection methods check wether base class __init__ was called.
+        """
+        class Connection(sqlite.Connection):
+            def __init__(self, name):
+                pass
+
+        con = Connection(":memory:")
+        try:
+            cur = con.cursor()
+            self.fail("should have raised ProgrammingError")
+        except sqlite.ProgrammingError:
+            pass
+        except:
+            self.fail("should have raised ProgrammingError")
+
+    def CheckCursorRegistration(self):
+        """
+        Verifies that subclassed cursor classes are correctly registered with
+        the connection object, too.  (fetch-across-rollback problem)
+        """
+        class Connection(sqlite.Connection):
+            def cursor(self):
+                return Cursor(self)
+
+        class Cursor(sqlite.Cursor):
+            def __init__(self, con):
+                sqlite.Cursor.__init__(self, con)
+
+        con = Connection(":memory:")
+        cur = con.cursor()
+        cur.execute("create table foo(x)")
+        cur.executemany("insert into foo(x) values (?)", [(3,), (4,), (5,)])
+        cur.execute("select x from foo")
+        con.rollback()
+        try:
+            cur.fetchall()
+            self.fail("should have raised InterfaceError")
+        except sqlite.InterfaceError:
+            pass
+        except:
+            self.fail("should have raised InterfaceError")
 
 def suite():
     regression_suite = unittest.makeSuite(RegressionTests, "Check")
