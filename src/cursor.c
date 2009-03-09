@@ -36,6 +36,8 @@
 
 PyObject* pysqlite_cursor_iternext(pysqlite_Cursor* self);
 
+static char* errmsg_fetch_across_rollback = "Cursor needed to be reset because of commit/rollback and can no longer be fetched from.";
+
 static pysqlite_StatementKind detect_statement_type(char* statement)
 {
     char buf[20];
@@ -113,7 +115,7 @@ static int pysqlite_cursor_init(pysqlite_Cursor* self, PyObject* args, PyObject*
         return -1;
     }
 
-    if (!pysqlite_connection_register_cursor(connection, self)) {
+    if (!pysqlite_connection_register_cursor(connection, (PyObject*)self)) {
         return -1;
     }
 
@@ -315,7 +317,7 @@ PyObject* _pysqlite_fetch_one_row(pysqlite_Cursor* self)
     const char* colname;
 
     if (self->reset) {
-        PyErr_SetString(pysqlite_InterfaceError, "Cursor needed to be reset because of commit/rollback and can no longer be fetched from.");
+        PyErr_SetString(pysqlite_InterfaceError, errmsg_fetch_across_rollback);
         return NULL;
     }
 
@@ -886,6 +888,11 @@ PyObject* pysqlite_cursor_iternext(pysqlite_Cursor *self)
     int rc;
 
     if (!check_cursor(self)) {
+        return NULL;
+    }
+
+    if (self->reset) {
+        PyErr_SetString(pysqlite_InterfaceError, errmsg_fetch_across_rollback);
         return NULL;
     }
 
