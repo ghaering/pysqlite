@@ -219,6 +219,14 @@ class RegressionTests(unittest.TestCase):
         except:
             self.fail("should have raised InterfaceError")
 
+    def CheckAutoCommit(self):
+        """
+        Verifies that creating a connection in autocommit mode works.
+        2.5.3 introduced a regression so that these could no longer
+        be created.
+        """
+        con = sqlite.connect(":memory:", isolation_level=None)
+
 def suite():
     regression_suite = unittest.makeSuite(RegressionTests, "Check")
     return unittest.TestSuite((regression_suite,))

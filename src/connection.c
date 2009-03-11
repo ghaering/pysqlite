@@ -80,6 +80,8 @@ int pysqlite_connection_init(pysqlite_Connection* self, PyObject* args, PyObject
         return -1;
     }
 
+    self->initialized = 1;
+
     self->begin_statement = NULL;
 
     self->statement_cache = NULL;
@@ -204,8 +206,6 @@ int pysqlite_connection_init(pysqlite_Connection* self, PyObject* args, PyObject
     self->InternalError         = pysqlite_InternalError;
     self->ProgrammingError      = pysqlite_ProgrammingError;
     self->NotSupportedError     = pysqlite_NotSupportedError;
-
-    self->initialized = 1;
 
     return 0;
 }
