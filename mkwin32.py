@@ -1,16 +1,24 @@
 #!/usr/bin/env python
 #
-# Cross-compile and build pysqlite installers for win32 on Linux IA32.
+# Cross-compile and build pysqlite installers for win32 on Linux or Mac OS X.
 #
 # The way this works is very ugly, but hey, it *works*!  And I didn't have to
 # reinvent the wheel using NSIS.
 
 import os
+import sys
 import urllib
 import zipfile
 
 # Cross-compiler
-CC = "/usr/bin/i586-mingw32msvc-gcc"
+if sys.platform == "darwin":
+    CC = "/usr/local/i386-mingw32-4.3.0/bin/i386-mingw32-gcc"
+    LIBDIR = "lib.macosx-10.5-i386-2.5"
+    STRIP = "/usr/local/i386-mingw32-4.3.0/bin/i386-mingw32-gcc --strip-all"
+else:
+    CC = "/usr/bin/i586-mingw32msvc-gcc"
+    LIBDIR = "lib.linux-i686-2.5"
+    STRIP = "strip --strip-all"
 
 # Optimization settings
 OPT = "-O2"
@@ -49,22 +57,25 @@ def compile_module(pyver):
     INC = "%s/python%s/include" % (CROSS_TOOLS, VER)
     vars = locals()
     vars.update(globals())
-    cmd = '%(CC)s -mno-cygwin %(OPT)s -mdll -DMODULE_NAME=\\"pysqlite2._sqlite\\" -DSQLITE_ENABLE_FTS3=1 -I amalgamation -I %(INC)s -I . %(SRC)s -L %(CROSS_TOOLS)s/python%(VER)s/libs -lpython%(VER)s -o build/lib.linux-i686-2.5/pysqlite2/_sqlite.pyd' % vars
+    cmd = '%(CC)s -mno-cygwin %(OPT)s -mdll -DMODULE_NAME=\\"pysqlite2._sqlite\\" -DSQLITE_ENABLE_FTS3=1 -I amalgamation -I %(INC)s -I . %(SRC)s -L %(CROSS_TOOLS)s/python%(VER)s/libs -lpython%(VER)s -o build/%(LIBDIR)s/pysqlite2/_sqlite.pyd' % vars
     execute(cmd)
-    execute("strip --strip-all build/lib.linux-i686-2.5/pysqlite2/_sqlite.pyd")
+    execute("%(STRIP)s build/%(LIBDIR)s/pysqlite2/_sqlite.pyd" % vars)
 
 def main():
+    vars = locals()
+    vars.update(globals())
     get_amalgamation()
     for ver in ["2.3", "2.4", "2.5", "2.6"]:
         execute("rm -rf build")
-        # First, compile the Linux version. This is just to get the .py files in place.
+        # First, compile the host version. This is just to get the .py files in place.
         execute("python2.5 setup.py build")
-        # Yes, now delete the Linux extension module. What a waste of time.
-        os.unlink("build/lib.linux-i686-2.5/pysqlite2/_sqlite.so")
+        # Yes, now delete the host extension module. What a waste of time.
+        os.unlink("build/%(LIBDIR)s/pysqlite2/_sqlite.so" % vars)
         # Cross-compile win32 extension module.
         compile_module(ver)
         # Prepare for target Python version.
-        os.rename("build/lib.linux-i686-2.5", "build/lib.linux-i686-%s" % ver)
+        libdir_ver = LIBDIR[:-3] + ver
+        os.rename("build/%(LIBDIR)s" % vars, "build/" + libdir_ver)
         # And create the installer!
         os.putenv("PYEXT_CROSS", CROSS_TOOLS)
         execute("python2.5 setup.py cross_bdist_wininst --skip-build --target-version=" + ver)
