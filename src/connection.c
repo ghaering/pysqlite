@@ -231,7 +231,7 @@ void pysqlite_flush_statement_cache(pysqlite_Connection* self)
 }
 
 /* action in (ACTION_RESET, ACTION_FINALIZE) */
-void pysqlite_do_all_statements(pysqlite_Connection* self, int action)
+void pysqlite_do_all_statements(pysqlite_Connection* self, int action, int reset_cursors)
 {
     int i;
     PyObject* weakref;
@@ -250,11 +250,13 @@ void pysqlite_do_all_statements(pysqlite_Connection* self, int action)
         }
     }
 
-    for (i = 0; i < PyList_Size(self->cursors); i++) {
-        weakref = PyList_GetItem(self->cursors, i);
-        cursor = (pysqlite_Cursor*)PyWeakref_GetObject(weakref);
-        if ((PyObject*)cursor != Py_None) {
-            cursor->reset = 1;
+    if (reset_cursors) {
+        for (i = 0; i < PyList_Size(self->cursors); i++) {
+            weakref = PyList_GetItem(self->cursors, i);
+            cursor = (pysqlite_Cursor*)PyWeakref_GetObject(weakref);
+            if ((PyObject*)cursor != Py_None) {
+                cursor->reset = 1;
+            }
         }
     }
 }
@@ -357,7 +359,7 @@ PyObject* pysqlite_connection_close(pysqlite_Connection* self, PyObject* args)
         return NULL;
     }
 
-    pysqlite_do_all_statements(self, ACTION_FINALIZE);
+    pysqlite_do_all_statements(self, ACTION_FINALIZE, 1);
 
     if (self->db) {
         if (self->apsw_connection) {
@@ -454,7 +456,7 @@ PyObject* pysqlite_connection_commit(pysqlite_Connection* self, PyObject* args)
     }
 
     if (self->inTransaction) {
-        pysqlite_do_all_statements(self, ACTION_RESET);
+        pysqlite_do_all_statements(self, ACTION_RESET, 0);
 
         Py_BEGIN_ALLOW_THREADS
         rc = sqlite3_prepare(self->db, "COMMIT", -1, &statement, &tail);
@@ -500,7 +502,7 @@ PyObject* pysqlite_connection_rollback(pysqlite_Connection* self, PyObject* args
     }
 
     if (self->inTransaction) {
-        pysqlite_do_all_statements(self, ACTION_RESET);
+        pysqlite_do_all_statements(self, ACTION_RESET, 1);
 
         Py_BEGIN_ALLOW_THREADS
         rc = sqlite3_prepare(self->db, "ROLLBACK", -1, &statement, &tail);

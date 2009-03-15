@@ -227,6 +227,19 @@ class RegressionTests(unittest.TestCase):
         """
         con = sqlite.connect(":memory:", isolation_level=None)
 
+    def CheckPragmaAutocommit(self):
+        """
+        Verifies that running a PRAGMA statement that does an autocommit does
+        work. This did not work in 2.5.3/2.5.4.
+        """
+        con = sqlite.connect(":memory:")
+        cur = con.cursor()
+        cur.execute("create table foo(bar)")
+        cur.execute("insert into foo(bar) values (5)")
+
+        cur.execute("pragma page_size")
+        row = cur.fetchone()
+
 def suite():
     regression_suite = unittest.makeSuite(RegressionTests, "Check")
     return unittest.TestSuite((regression_suite,))
