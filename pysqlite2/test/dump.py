@@ -42,7 +42,7 @@ class DumpTests(unittest.TestCase):
             for i in xrange(len(expected_sqls))]
 
 def suite():
-    return unittest.TestSuite(unittest.makeSuite(DumpTests, "Check"))
+    return unittest.TestSuite([unittest.makeSuite(DumpTests, "Check")])
 
 def test():
     runner = unittest.TextTestRunner()
