@@ -61,7 +61,7 @@ def read_modify_write():
     # Or use this recipe. It's useful and gets everything done in two lines of
     # code.
     with con:
-        cur.execute("update test set data=? where id=?", (lst[1], lst[0] * 1000))
+        cur.execute("update test set data=? where id=?", (lst[1], lst[0]))
 
 def delete_older_than():
     # Use detect_types if you want to use date/time types in pysqlite.
