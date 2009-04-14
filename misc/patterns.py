@@ -97,7 +97,6 @@ def modify_insert():
     create unique index idx_test_data_unique on test(name);
     """)
 
-    # Modify record 'foo' to have data 'boo'
     with con:
         # Make Adam age 19
         cur.execute("replace into test(name, age) values ('Adam', 19)")
