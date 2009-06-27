@@ -34,7 +34,7 @@ master_doc = 'index'
 
 # General substitutions.
 project = 'pysqlite'
-copyright = '2008, Gerhard Häring'
+copyright = u'2008-2009, Gerhard Häring'
 
 # The default replacements for |version| and |release|, also used in various
 # other places throughout the built documents.
