@@ -166,10 +166,8 @@ def get_setup_args():
             author_email = "gh@ghaering.de",
             license = "zlib/libpng license",
             platforms = "ALL",
-            url = "http://oss.itsystementwicklung.de/trac/pysqlite",
-            download_url = "http://oss.itsystementwicklung.de/download/pysqlite/%s/%s/" % \
-                (PYSQLITE_MINOR_VERSION, PYSQLITE_VERSION),
-
+            url = "http://pysqlite.googlecode.com/",
+            download_url = "http://code.google.com/p/pysqlite/downloads/",
 
             # Description of the modules and packages in the distribution
             package_dir = {"pysqlite2": "lib"},
