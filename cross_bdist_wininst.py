@@ -312,16 +312,16 @@ class bdist_wininst (Command):
         # as the real sys.version string for the build.
         cur_version = get_python_version()
         if self.target_version and self.target_version != cur_version:
-            # If the target version is *later* than us, then we assume they
-            # use what we use
-            # string compares seem wrong, but are what sysconfig.py itself uses
-            if self.target_version > cur_version:
-                bv = get_build_version()
+            if self.target_version < "2.3":
+                raise NotImplementedError
+            elif self.target_version == "2.3":
+               bv = "6"
+            elif self.target_version in ("2.4", "2.5"):
+               bv = "7.1"
+            elif self.target_version in ("2.6", "2.7"):
+                bv = "9.0"
             else:
-                if self.target_version < "2.4":
-                    bv = "6"
-                else:
-                    bv = "7.1"
+                raise NotImplementedError
         else:
             # for current version - use authoritative check.
             bv = get_build_version()
@@ -334,11 +334,7 @@ class bdist_wininst (Command):
         # The uninstallers need to be available in $PYEXT_CROSS/uninst/*.exe
         # Use http://oss.itsystementwicklung.de/hg/pyext_cross_linux_to_win32/
         # and copy it alongside your pysqlite checkout.
-        if self.target_version in ("2.3", "2.4"):
-            uninst_ver = "6"
-        else:
-            uninst_ver = "7.1"
 
-        filename = os.path.join(directory, os.path.join(os.environ["PYEXT_CROSS"], "uninst", "wininst-%s.exe" % uninst_ver))
+        filename = os.path.join(directory, os.path.join(os.environ["PYEXT_CROSS"], "uninst", "wininst-%s.exe" % bv))
         return open(filename, "rb").read()
 # class bdist_wininst
