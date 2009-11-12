@@ -167,7 +167,7 @@ def get_setup_args():
             license = "zlib/libpng license",
             platforms = "ALL",
             url = "http://pysqlite.googlecode.com/",
-            download_url = "http://code.google.com/p/pysqlite/downloads/",
+            download_url = "http://code.google.com/p/pysqlite/downloads/list",
 
             # Description of the modules and packages in the distribution
             package_dir = {"pysqlite2": "lib"},
