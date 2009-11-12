@@ -89,7 +89,7 @@ This example uses the iterator form::
 
 .. seealso::
 
-   http://www.pysqlite.org
+   http://pysqlite.googlecode.com/
       The pysqlite web page.
 
    http://www.sqlite.org
