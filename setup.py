@@ -171,7 +171,8 @@ def get_setup_args():
 
             # Description of the modules and packages in the distribution
             package_dir = {"pysqlite2": "lib"},
-            packages = ["pysqlite2", "pysqlite2.test"],
+            packages = ["pysqlite2", "pysqlite2.test"] +
+                       (["pysqlite2.test.py25"], [])[sys.version_info < (2, 5)],
             scripts=[],
             data_files = data_files,
 
