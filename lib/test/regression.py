@@ -240,6 +240,25 @@ class RegressionTests(unittest.TestCase):
         cur.execute("pragma page_size")
         row = cur.fetchone()
 
+    def CheckSetDict(self):
+        """
+        See http://bugs.python.org/issue7478
+
+        It was possible to successfully register callbacks that could not be
+        hashed. Return codes of PyDict_SetItem were not checked properly.
+        """
+        class NotHashable:
+            def __call__(self, *args, **kw):
+                pass
+            def __hash__(self):
+                raise TypeError()
+        var = NotHashable()
+        con = sqlite.connect(":memory:")
+        self.assertRaises(TypeError, con.create_function, var)
+        self.assertRaises(TypeError, con.create_aggregate, var)
+        self.assertRaises(TypeError, con.set_authorizer, var)
+        self.assertRaises(TypeError, con.set_progress_handler, var)
+
 def suite():
     regression_suite = unittest.makeSuite(RegressionTests, "Check")
     return unittest.TestSuite((regression_suite,))

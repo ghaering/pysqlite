@@ -857,7 +857,8 @@ PyObject* pysqlite_connection_create_function(pysqlite_Connection* self, PyObjec
         PyErr_SetString(pysqlite_OperationalError, "Error creating function");
         return NULL;
     } else {
-        PyDict_SetItem(self->function_pinboard, func, Py_None);
+        if (PyDict_SetItem(self->function_pinboard, func, Py_None) == -1)
+            return NULL;
 
         Py_INCREF(Py_None);
         return Py_None;
@@ -884,7 +885,8 @@ PyObject* pysqlite_connection_create_aggregate(pysqlite_Connection* self, PyObje
         PyErr_SetString(pysqlite_OperationalError, "Error creating aggregate");
         return NULL;
     } else {
-        PyDict_SetItem(self->function_pinboard, aggregate_class, Py_None);
+        if (PyDict_SetItem(self->function_pinboard, aggregate_class, Py_None) == -1)
+            return NULL;
 
         Py_INCREF(Py_None);
         return Py_None;
@@ -966,7 +968,8 @@ static PyObject* pysqlite_connection_set_authorizer(pysqlite_Connection* self, P
         PyErr_SetString(pysqlite_OperationalError, "Error setting authorizer callback");
         return NULL;
     } else {
-        PyDict_SetItem(self->function_pinboard, authorizer_cb, Py_None);
+        if (PyDict_SetItem(self->function_pinboard, authorizer_cb, Py_None) == -1)
+            return NULL;
 
         Py_INCREF(Py_None);
         return Py_None;
@@ -990,7 +993,8 @@ static PyObject* pysqlite_connection_set_progress_handler(pysqlite_Connection* s
         sqlite3_progress_handler(self->db, 0, 0, (void*)0);
     } else {
         sqlite3_progress_handler(self->db, n, _progress_handler, progress_handler);
-        PyDict_SetItem(self->function_pinboard, progress_handler, Py_None);
+        if (PyDict_SetItem(self->function_pinboard, progress_handler, Py_None) == -1)
+            return NULL;
     }
 
     Py_INCREF(Py_None);
@@ -1427,9 +1431,11 @@ pysqlite_connection_create_collation(pysqlite_Connection* self, PyObject* args)
     }
 
     if (callable != Py_None) {
-        PyDict_SetItem(self->collations, uppercase_name, callable);
+        if (PyDict_SetItem(self->collations, uppercase_name, callable) == -1)
+            goto finally;
     } else {
-        PyDict_DelItem(self->collations, uppercase_name);
+        if (PyDict_DelItem(self->collations, uppercase_name) == -1)
+            goto finally;
     }
 
     rc = sqlite3_create_collation(self->db,
