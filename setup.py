@@ -121,6 +121,7 @@ class MyBuildExt(build_ext):
         if self.amalgamation:
             get_amalgamation()
             ext.define_macros.append(("SQLITE_ENABLE_FTS3", "1"))   # build with fulltext search enabled
+            ext.define_macros.append(("SQLITE_ENABLE_RTREE", "1"))   # build with fulltext search enabled
             ext.sources.append(os.path.join(AMALGAMATION_ROOT, "sqlite3.c"))
             ext.include_dirs.append(AMALGAMATION_ROOT)
         build_ext.build_extension(self, ext)
@@ -167,11 +168,12 @@ def get_setup_args():
             license = "zlib/libpng license",
             platforms = "ALL",
             url = "http://pysqlite.googlecode.com/",
-            download_url = "http://code.google.com/p/pysqlite/downloads/",
+            download_url = "http://code.google.com/p/pysqlite/downloads/list",
 
             # Description of the modules and packages in the distribution
             package_dir = {"pysqlite2": "lib"},
-            packages = ["pysqlite2", "pysqlite2.test"],
+            packages = ["pysqlite2", "pysqlite2.test"] +
+                       (["pysqlite2.test.py25"], [])[sys.version_info < (2, 5)],
             scripts=[],
             data_files = data_files,
 

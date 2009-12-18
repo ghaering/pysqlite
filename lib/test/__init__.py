@@ -40,7 +40,7 @@ def suite():
     tests = [dbapi.suite(), types.suite(), userfunctions.suite(),
       factory.suite(), transactions.suite(), hooks.suite(), regression.suite(), dump.suite()]
     if sys.version_info >= (2, 5, 0):
-        from pysqlite2.test import py25tests
+        from pysqlite2.test.py25 import py25tests
         tests.append(py25tests.suite())
 
     return unittest.TestSuite(tuple(tests))

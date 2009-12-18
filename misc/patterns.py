@@ -23,7 +23,7 @@ def read_modify_write():
     #
     #    Advantage: Low memory consumption, good for large resultsets, data is
     #    fetched on demand.
-    #    Disadvantage: Dataase locked as long as you iterate over cursor.
+    #    Disadvantage: Database locked as long as you iterate over cursor.
     #
     # 2. "Eager reading"
     #   cur.fetchone() to fetch one row

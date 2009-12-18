@@ -143,5 +143,5 @@ list`_.
 
 .. _distutils: http://www.python.org/sigs/distutils-sig/
 .. _this section of the Python documentation: http://www.python.org/doc/current/inst/inst.html
-.. _pysqlite bug tracker: http://pysqlite.org/
+.. _pysqlite bug tracker: http://pysqlite.googlecode.com/
 .. _pysqlite mailing list: http://itsystementwicklung.de/cgi-bin/mailman/listinfo/list-pysqlite

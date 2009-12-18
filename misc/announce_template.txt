@@ -9,7 +9,7 @@ SQLite is a in-process library that implements a self-contained,
 serverless, zero-configuration, transactional SQL database
 engine.
 
-Go to http://pysqlite.org/ for downloads, online documentation and
+Go to http://pysqlite.googlecode.com/ for downloads, online documentation and
 for reporting bugs.
 
 Changes
