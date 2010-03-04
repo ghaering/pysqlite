@@ -1,6 +1,6 @@
 /* module.c - the module itself
  *
- * Copyright (C) 2004-2007 Gerhard Häring <gh@ghaering.de>
+ * Copyright (C) 2004-2010 Gerhard Häring <gh@ghaering.de>
  *
  * This file is part of pysqlite.
  *
@@ -445,7 +445,9 @@ PyMODINIT_FUNC init_sqlite(void)
      * threads have already been initialized.
      *  (see pybsddb-users mailing list post on 2002-08-07)
      */
+#ifdef WITH_THREAD
     PyEval_InitThreads();
+#endif
 
 error:
     if (PyErr_Occurred())

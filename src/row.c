@@ -1,6 +1,6 @@
 /* row.c - an enhanced tuple for database rows
  *
- * Copyright (C) 2005-2007 Gerhard Häring <gh@ghaering.de>
+ * Copyright (C) 2005-2010 Gerhard Häring <gh@ghaering.de>
  *
  * This file is part of pysqlite.
  *
@@ -30,7 +30,7 @@ void pysqlite_row_dealloc(pysqlite_Row* self)
     Py_XDECREF(self->data);
     Py_XDECREF(self->description);
 
-    self->ob_type->tp_free((PyObject*)self);
+    Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
 int pysqlite_row_init(pysqlite_Row* self, PyObject* args, PyObject* kwargs)
@@ -180,7 +180,7 @@ static PyObject* pysqlite_row_richcompare(pysqlite_Row *self, PyObject *_other, 
         Py_INCREF(Py_NotImplemented);
         return Py_NotImplemented;
     }
-    if (PyType_IsSubtype(_other->ob_type, &pysqlite_RowType)) {
+    if (PyType_IsSubtype(Py_TYPE(_other), &pysqlite_RowType)) {
         pysqlite_Row *other = (pysqlite_Row *)_other;
         PyObject *res = PyObject_RichCompare(self->description, other->description, opid);
         if ((opid == Py_EQ && res == Py_True)
@@ -207,8 +207,7 @@ static PyMethodDef pysqlite_row_methods[] = {
 
 
 PyTypeObject pysqlite_RowType = {
-        PyObject_HEAD_INIT(NULL)
-        0,                                              /* ob_size */
+        PyVarObject_HEAD_INIT(NULL, 0)
         MODULE_NAME ".Row",                             /* tp_name */
         sizeof(pysqlite_Row),                           /* tp_basicsize */
         0,                                              /* tp_itemsize */
