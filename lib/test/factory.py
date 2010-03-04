@@ -142,14 +142,14 @@ class RowFactoryTests(unittest.TestCase):
         self.assertTrue(row_1 == row_2)
         self.assertTrue(row_2 != row_3)
 
-        self.failIf(row_1 != row_1)
-        self.failIf(row_1 != row_2)
-        self.failIf(row_2 == row_3)
+        self.assertFalse(row_1 != row_1)
+        self.assertFalse(row_1 != row_2)
+        self.assertFalse(row_2 == row_3)
 
         self.assertEqual(row_1, row_2)
         self.assertEqual(hash(row_1), hash(row_2))
-        self.failIfEqual(row_1, row_3)
-        self.failIfEqual(hash(row_1), hash(row_3))
+        self.assertNotEqual(row_1, row_3)
+        self.assertNotEqual(hash(row_1), hash(row_3))
 
     def tearDown(self):
         self.con.close()

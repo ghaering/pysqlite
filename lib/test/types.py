@@ -21,9 +21,11 @@
 #    misrepresented as being the original software.
 # 3. This notice may not be removed or altered from any source distribution.
 
-import zlib, datetime
+import datetime
 import unittest
 import pysqlite2.dbapi2 as sqlite
+import zlib
+
 
 class SqliteTypeTests(unittest.TestCase):
     def setUp(self):
