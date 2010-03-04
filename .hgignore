@@ -1,0 +1,11 @@
+syntax: glob
+
+*.db
+*.pyc
+*.swp
+*~
+.DS_Store
+MANIFEST
+amalgamation
+build
+dist
