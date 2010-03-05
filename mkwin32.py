@@ -13,7 +13,7 @@ import zipfile
 # Cross-compiler
 if sys.platform == "darwin":
     CC = "/usr/local/i386-mingw32-4.3.0/bin/i386-mingw32-gcc"
-    LIBDIR = "lib.macosx-10.5-i386-2.5"
+    LIBDIR = "lib.macosx-10.6-i386-2.5"
     STRIP = "/usr/local/i386-mingw32-4.3.0/bin/i386-mingw32-gcc --strip-all"
 else:
     CC = "/usr/bin/i586-mingw32msvc-gcc"
@@ -65,7 +65,7 @@ def main():
     vars = locals()
     vars.update(globals())
     get_amalgamation()
-    for ver in ["2.3", "2.4", "2.5", "2.6"]:
+    for ver in ["2.5", "2.6"]:
         execute("rm -rf build")
         # First, compile the host version. This is just to get the .py files in place.
         execute("python2.5 setup.py build")
