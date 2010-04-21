@@ -27,8 +27,8 @@ OPT = "-O2"
 SRC = "src/module.c src/connection.c src/cursor.c src/cache.c src/microprotocols.c src/prepare_protocol.c src/statement.c src/util.c src/row.c amalgamation/sqlite3.c"
 
 # You will need to fetch these from
-# http://oss.itsystementwicklung.de/hg/pyext_cross_linux_to_win32/
-CROSS_TOOLS = "../pyext_cross_linux_to_win32"
+# https://pyext-cross.pysqlite.googlecode.com/hg/
+CROSS_TOOLS = "../pysqlite-pyext-cross"
 
 def execute(cmd):
     print cmd
