@@ -1,6 +1,0 @@
-#!/bin/sh
-DOCDIR=/tmp/pysqlite-doc
-rm -rf $DOCDIR
-mkdir $DOCDIR
-sphinx-build doc/sphinx $DOCDIR
-scp -r $DOCDIR/* develop@ghaering.de:/home/develop/download/pysqlite/doc
