@@ -164,8 +164,8 @@ class CursorTests(unittest.TestCase):
     def CheckExecuteTooMuchSql(self):
         try:
             self.cu.execute("select 5+4; select 4+5")
-            self.fail("should have raised a Warning")
-        except sqlite.Warning:
+            self.fail("should have raised a ProgrammingError")
+        except sqlite.ProgrammingError:
             return
         except:
             self.fail("raised wrong exception")
