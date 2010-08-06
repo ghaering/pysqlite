@@ -871,20 +871,16 @@ committed:
 .. literalinclude:: ../includes/sqlite3/ctx_manager.py
 
 
-Combining APSW and pysqlite
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Common issues
+-------------
 
-APSW is "Another Python SQLite Wrapper". Its goal is to directly wrap the
-SQLite API for Python. If there's SQLite functionality that is only wrapped via
-APSW, but not (yet) via pysqlite, then you can still use the APSW functionality
-in pysqlite.
+Multithreading
+^^^^^^^^^^^^^^
 
-Just use the APSW Connection as a parameter to the connect function and reuse
-an existing APSW connection like this.
+Older SQLite versions had issues with sharing connections between threads.
+That's why the Python module disallows sharing connections and cursors between
+threads. If you still try to do so, you will get an exception at runtime.
 
-.. literalinclude:: ../includes/sqlite3/apsw_example.py
-
-This feature only works if both APSW and pysqlite are dynamically linked
-against the same SQLite shared library. I. e. it will *not* work on Windows
-without a custom built pysqlite and APSW.
+The only exception is calling the :meth:`~Connection.interrupt` method, which
+only makes sense to call from a different thread.
 
