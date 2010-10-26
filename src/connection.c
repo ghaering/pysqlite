@@ -21,6 +21,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
+#include "backup.h"
 #include "cache.h"
 #include "module.h"
 #include "connection.h"
@@ -349,6 +350,39 @@ PyObject* pysqlite_connection_cursor(pysqlite_Connection* self, PyObject* args, 
     }
 
     return cursor;
+}
+
+PyObject* pysqlite_connection_backup(pysqlite_Connection* self, PyObject* args, PyObject* kwargs)
+{
+    static char *kwlist[] = {"dest_db", "source_name", "dest_db_name", NULL, NULL};
+    char* source_name;
+    char* dest_name;
+    pysqlite_Connection* dest_con;
+    pysqlite_Backup* backup;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O!ss", kwlist,
+                                     &pysqlite_ConnectionType, &dest_con, &source_name, &dest_name)) {
+        return NULL;
+    }
+
+    if (!pysqlite_check_thread(self) || !pysqlite_check_connection(self)) {
+        return NULL;
+    }
+
+    backup = PyObject_New(pysqlite_Backup, &pysqlite_BackupType);
+    if (!backup) {
+        return NULL;
+    }
+
+    Py_INCREF(self);
+    backup->source_con = self;
+
+    Py_INCREF(dest_con);
+    backup->dest_con = dest_con;
+
+    backup->backup = sqlite3_backup_init(dest_con->db, dest_name, self->db, source_name);
+
+    return (PyObject*)backup;
 }
 
 PyObject* pysqlite_connection_close(pysqlite_Connection* self, PyObject* args)
@@ -1554,6 +1588,8 @@ static PyGetSetDef connection_getset[] = {
 };
 
 static PyMethodDef connection_methods[] = {
+    {"backup", (PyCFunction)pysqlite_connection_backup, METH_VARARGS|METH_KEYWORDS,
+        PyDoc_STR("Backup database.")},
     {"cursor", (PyCFunction)pysqlite_connection_cursor, METH_VARARGS|METH_KEYWORDS,
         PyDoc_STR("Return a cursor for the connection.")},
     {"close", (PyCFunction)pysqlite_connection_close, METH_NOARGS,

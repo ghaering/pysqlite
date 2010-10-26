@@ -24,6 +24,7 @@
 #include "connection.h"
 #include "statement.h"
 #include "cursor.h"
+#include "backup.h"
 #include "cache.h"
 #include "prepare_protocol.h"
 #include "microprotocols.h"
@@ -314,6 +315,7 @@ PyMODINIT_FUNC init_sqlite(void)
         (pysqlite_connection_setup_types() < 0) ||
         (pysqlite_cache_setup_types() < 0) ||
         (pysqlite_statement_setup_types() < 0) ||
+        (pysqlite_backup_setup_types() < 0) ||
         (pysqlite_prepare_protocol_setup_types() < 0)
        ) {
         return;
