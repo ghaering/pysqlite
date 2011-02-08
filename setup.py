@@ -99,10 +99,11 @@ def get_amalgamation():
 
     zf = zipfile.ZipFile("tmp.zip")
     files = ["sqlite3.c", "sqlite3.h"]
+    directory = zf.namelist()[0]
     for fn in files:
         print "Extracting", fn
         outf = open(AMALGAMATION_ROOT + os.sep + fn, "wb")
-        outf.write(zf.read(fn))
+        outf.write(zf.read(directory + fn))
         outf.close()
     zf.close()
     os.unlink("tmp.zip")
