@@ -35,9 +35,14 @@ import cross_bdist_wininst
 
 sqlite = "sqlite"
 
+PYSQLITE_EXPERIMENTAL = True
+
 sources = ["src/module.c", "src/connection.c", "src/cursor.c", "src/cache.c",
            "src/microprotocols.c", "src/prepare_protocol.c", "src/statement.c",
-           "src/util.c", "src/row.c", "src/backup.c"]
+           "src/util.c", "src/row.c"]
+
+if PYSQLITE_EXPERIMENTAL:
+    sources.append("src/backup.c")
 
 include_dirs = []
 library_dirs = []

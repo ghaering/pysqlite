@@ -21,7 +21,6 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "backup.h"
 #include "cache.h"
 #include "module.h"
 #include "connection.h"
@@ -30,6 +29,10 @@
 #include "prepare_protocol.h"
 #include "util.h"
 #include "sqlitecompat.h"
+
+#ifdef PYSQLITE_EXPERIMENTAL
+#include "backup.h"
+#endif
 
 #include "pythread.h"
 
@@ -352,6 +355,7 @@ PyObject* pysqlite_connection_cursor(pysqlite_Connection* self, PyObject* args, 
     return cursor;
 }
 
+#ifdef PYSQLITE_EXPERIMENTAL
 PyObject* pysqlite_connection_backup(pysqlite_Connection* self, PyObject* args, PyObject* kwargs)
 {
     static char *kwlist[] = {"dest_db", "source_name", "dest_db_name", NULL, NULL};
@@ -384,6 +388,7 @@ PyObject* pysqlite_connection_backup(pysqlite_Connection* self, PyObject* args, 
 
     return (PyObject*)backup;
 }
+#endif
 
 PyObject* pysqlite_connection_close(pysqlite_Connection* self, PyObject* args)
 {
@@ -1588,10 +1593,10 @@ static PyGetSetDef connection_getset[] = {
 };
 
 static PyMethodDef connection_methods[] = {
-    /*
+    #ifdef PYSQLITE_EXPERIMENTAL
     {"backup", (PyCFunction)pysqlite_connection_backup, METH_VARARGS|METH_KEYWORDS,
         PyDoc_STR("Backup database.")},
-    */
+    #endif
     {"cursor", (PyCFunction)pysqlite_connection_cursor, METH_VARARGS|METH_KEYWORDS,
         PyDoc_STR("Return a cursor for the connection.")},
     {"close", (PyCFunction)pysqlite_connection_close, METH_NOARGS,
