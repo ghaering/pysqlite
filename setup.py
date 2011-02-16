@@ -35,7 +35,7 @@ import cross_bdist_wininst
 
 sqlite = "sqlite"
 
-PYSQLITE_EXPERIMENTAL = True
+PYSQLITE_EXPERIMENTAL = False
 
 sources = ["src/module.c", "src/connection.c", "src/cursor.c", "src/cache.c",
            "src/microprotocols.c", "src/prepare_protocol.c", "src/statement.c",
