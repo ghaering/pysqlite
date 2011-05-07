@@ -10,6 +10,8 @@ import sys
 import urllib
 import zipfile
 
+from setup import get_amalgamation
+
 # Cross-compiler
 if sys.platform == "darwin":
     CC = "/usr/local/i386-mingw32-4.3.0/bin/i386-mingw32-gcc"
@@ -34,24 +36,6 @@ def execute(cmd):
     print cmd
     return os.system(cmd)
 
-def get_amalgamation():
-    """Download the SQLite amalgamation if it isn't there, already."""
-    AMALGAMATION_ROOT = "amalgamation"
-    if os.path.exists(AMALGAMATION_ROOT):
-        return
-    os.mkdir(AMALGAMATION_ROOT)
-    print "Downloading amalgation."
-    urllib.urlretrieve("http://sqlite.org/sqlite-amalgamation-3_6_2.zip", "tmp.zip")
-    zf = zipfile.ZipFile("tmp.zip")
-    files = ["sqlite3.c", "sqlite3.h"]
-    for fn in files:
-        print "Extracting", fn
-        outf = open(AMALGAMATION_ROOT + os.sep + fn, "wb")
-        outf.write(zf.read(fn))
-        outf.close()
-    zf.close()
-    os.unlink("tmp.zip")
-
 def compile_module(pyver):
     VER = pyver.replace(".", "")
     INC = "%s/python%s/include" % (CROSS_TOOLS, VER)
@@ -65,7 +49,7 @@ def main():
     vars = locals()
     vars.update(globals())
     get_amalgamation()
-    for ver in ["2.5", "2.6"]:
+    for ver in ["2.5", "2.6", "2.7"]:
         execute("rm -rf build")
         # First, compile the host version. This is just to get the .py files in place.
         execute("python2.5 setup.py build")
