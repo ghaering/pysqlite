@@ -765,7 +765,8 @@ error:
      * ROLLBACK could have happened */
     #ifdef SQLITE_VERSION_NUMBER
     #if SQLITE_VERSION_NUMBER >= 3002002
-    self->connection->inTransaction = !sqlite3_get_autocommit(self->connection->db);
+    if (self->connection && self->connection->db)
+        self->connection->inTransaction = !sqlite3_get_autocommit(self->connection->db);
     #endif
     #endif
 
