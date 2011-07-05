@@ -167,12 +167,14 @@ int pysqlite_statement_bind_parameter(pysqlite_Statement* self, int pos, PyObjec
             break;
         case TYPE_STRING:
             string = PyString_AS_STRING(parameter);
-            rc = sqlite3_bind_text(self->st, pos, string, -1, SQLITE_TRANSIENT);
+            buflen = PyString_Size(parameter);
+            rc = sqlite3_bind_text(self->st, pos, string, buflen, SQLITE_TRANSIENT);
             break;
         case TYPE_UNICODE:
             stringval = PyUnicode_AsUTF8String(parameter);
             string = PyString_AsString(stringval);
-            rc = sqlite3_bind_text(self->st, pos, string, -1, SQLITE_TRANSIENT);
+            buflen = PyString_Size(stringval);
+            rc = sqlite3_bind_text(self->st, pos, string, buflen, SQLITE_TRANSIENT);
             Py_DECREF(stringval);
             break;
         case TYPE_BUFFER:

@@ -102,6 +102,16 @@ class SqliteTypeTests(unittest.TestCase):
         finally:
             self.con.text_factory = orig_text_factory
 
+    def CheckBinaryString(self):
+        bin_string = u"foo\x00bar"
+        self.cur.execute("select ?", (bin_string,))
+        self.assertEqual(self.cur.fetchone()[0], bin_string)
+
+    def CheckBinaryByteString(self):
+        bin_string = "bla\x00bla"
+        self.cur.execute("select ?", (bin_string,))
+        self.assertEqual(self.cur.fetchone()[0], bin_string)
+
 class DeclTypesTests(unittest.TestCase):
     class Foo:
         def __init__(self, _val):
