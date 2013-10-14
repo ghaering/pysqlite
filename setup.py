@@ -84,35 +84,6 @@ class DocBuilder(Command):
         if rc != 0:
             print "Is sphinx installed? If not, try 'sudo easy_install sphinx'."
 
-AMALGAMATION_ROOT = "amalgamation"
-
-def get_amalgamation():
-    """Download the SQLite amalgamation if it isn't there, already."""
-    if os.path.exists(AMALGAMATION_ROOT):
-        return
-    os.mkdir(AMALGAMATION_ROOT)
-    print "Downloading amalgation."
-
-    # find out what's current amalgamation ZIP file
-    download_page = urllib.urlopen("http://sqlite.org/download.html").read()
-    pattern = re.compile("(sqlite-amalgamation.*?\.zip)")
-    download_file = pattern.findall(download_page)[0]
-    amalgamation_url = "http://sqlite.org/" + download_file
-
-    # and download it
-    urllib.urlretrieve(amalgamation_url, "tmp.zip")
-
-    zf = zipfile.ZipFile("tmp.zip")
-    files = ["sqlite3.c", "sqlite3.h"]
-    directory = zf.namelist()[0]
-    for fn in files:
-        print "Extracting", fn
-        outf = open(AMALGAMATION_ROOT + os.sep + fn, "wb")
-        outf.write(zf.read(directory + fn))
-        outf.close()
-    zf.close()
-    os.unlink("tmp.zip")
-
 class AmalgamationBuilder(build):
     description = "Build a statically built pysqlite using the amalgamtion."
 
@@ -125,11 +96,9 @@ class MyBuildExt(build_ext):
 
     def build_extension(self, ext):
         if self.amalgamation:
-            get_amalgamation()
             ext.define_macros.append(("SQLITE_ENABLE_FTS3", "1"))   # build with fulltext search enabled
             ext.define_macros.append(("SQLITE_ENABLE_RTREE", "1"))   # build with fulltext search enabled
-            ext.sources.append(os.path.join(AMALGAMATION_ROOT, "sqlite3.c"))
-            ext.include_dirs.append(AMALGAMATION_ROOT)
+            ext.sources.append("sqlite3.c")
         build_ext.build_extension(self, ext)
 
     def __setattr__(self, k, v):
