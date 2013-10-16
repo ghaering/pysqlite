@@ -4,8 +4,8 @@ cdef extern from "sqlite3.h":
     ctypedef struct sqlite3_stmt:
         pass
 
-    int sqlite3_open_v2(char *filename, sqlite3 **ppDb, int flags, char *zVfs)
-    int sqlite3_prepare_v2(sqlite3 *db, char *zSql, int nByte, sqlite3_stmt **ppStmt, char **pzTail)
+    int sqlite3_open_v2(const char *filename, sqlite3 **ppDb, int flags, char *zVfs)
+    int sqlite3_prepare_v2(sqlite3 *db, const char *zSql, int nByte, sqlite3_stmt **ppStmt, const char **pzTail)
     int sqlite3_step(sqlite3_stmt*)
     char* sqlite3_column_text(sqlite3_stmt*, int iCol)
     int sqlite3_errcode(sqlite3 *db)
