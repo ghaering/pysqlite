@@ -16,8 +16,8 @@ def get_setup_args():
 
     ext = Extension(
         name = "_pysqlite4",
-        sources = ["sqlite.pyx", "amalgamation/sqlite3.c"],
-        include_dirs = ["amalgamation"]
+        sources = ["sqlite.pyx"],
+        libraries = ["sqlite3"],
     )
 
     setup_args = dict(
@@ -54,27 +54,7 @@ def get_setup_args():
             )
     return setup_args
 
-def get_amalgamation():
-    """Download the SQLite amalgamation if it isn't there, already."""
-    AMALGAMATION_ROOT = "amalgamation"
-    if os.path.exists(AMALGAMATION_ROOT):
-        return
-    os.mkdir(AMALGAMATION_ROOT)
-    print "Downloading amalgation."
-    urllib.urlretrieve("http://sqlite.org/sqlite-amalgamation-3_5_7.zip", "tmp.zip")
-    zf = zipfile.ZipFile("tmp.zip")
-    files = ["sqlite3.c", "sqlite3.h"]
-    for fn in files:
-        print "Extracting", fn
-        outf = open(AMALGAMATION_ROOT + os.sep + fn, "wb")
-        outf.write(zf.read(fn))
-        outf.close()
-    zf.close()
-    os.unlink("tmp.zip")
-
-
 def main():
-    get_amalgamation()
     setup(**get_setup_args())
 
 if __name__ == "__main__":
