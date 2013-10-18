@@ -340,19 +340,24 @@ PyObject* _pysqlite_fetch_one_row(pysqlite_Cursor* self)
         }
 
         if (converter != Py_None) {
-            val_str = (const char*)sqlite3_column_blob(self->statement->st, i);
-            if (!val_str) {
+            if (sqlite3_column_type(self->statement->st, i) == SQLITE_NULL) {
                 Py_INCREF(Py_None);
                 converted = Py_None;
             } else {
-                item = PyString_FromStringAndSize(val_str, nbytes);
-                if (!item) {
-                    return NULL;
-                }
-                converted = PyObject_CallFunction(converter, "O", item);
-                Py_DECREF(item);
-                if (!converted) {
-                    break;
+                val_str = (const char*)sqlite3_column_blob(self->statement->st, i);
+                if (!val_str) {
+                    Py_INCREF(Py_None);
+                    converted = Py_None;
+                } else {
+                    item = PyString_FromStringAndSize(val_str, nbytes);
+                    if (!item) {
+                        return NULL;
+                    }
+                    converted = PyObject_CallFunction(converter, "O", item);
+                    Py_DECREF(item);
+                    if (!converted) {
+                        break;
+                    }
                 }
             }
         } else {

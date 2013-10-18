@@ -147,6 +147,7 @@ class DeclTypesTests(unittest.TestCase):
         sqlite.converters["FOO"] = DeclTypesTests.Foo
         sqlite.converters["WRONG"] = lambda x: "WRONG"
         sqlite.converters["NUMBER"] = float
+        sqlite.converters["TEXT"] = str
 
     def tearDown(self):
         del sqlite.converters["FLOAT"]
@@ -162,6 +163,19 @@ class DeclTypesTests(unittest.TestCase):
         self.cur.execute('select s as "s [WRONG]" from test')
         row = self.cur.fetchone()
         self.assertEqual(row[0], "foo")
+
+    def CheckTextEmptyString(self):
+        """
+        Make sure that empty strings are converted to empty strings and not to None.
+        """
+        self.cur.execute("insert into test(s) values (?)", ("",))
+        self.cur.execute("insert into test(s) values (?)", (None,))
+        self.cur.execute('select s as "s [TEXT]" from test')
+        row = self.cur.fetchone()
+        self.assertEqual(row[0], "")
+        row = self.cur.fetchone()
+        self.assertEqual(row[0], None)
+
 
     def CheckSmallInt(self):
         # default
