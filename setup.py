@@ -22,6 +22,7 @@
 # 3. This notice may not be removed or altered from any source distribution.
 
 import glob, os, re, sys
+import subprocess
 import urllib
 import zipfile
 
@@ -94,11 +95,28 @@ class AmalgamationBuilder(build):
 class MyBuildExt(build_ext):
     amalgamation = False
 
+    def _pkgconfig(self, flag, package):
+        output = subprocess.check_output(["pkg-config", flag, package])
+        return output
+
+    def _pkgconfig_include_dirs(self, package):
+        return [x.strip() for x in 
+                self._pkgconfig("--cflags-only-I",
+                                package).replace("-I", " ").split()]
+
+    def _pkgconfig_library_dirs(self, package):
+        return [x.strip() for x in 
+                self._pkgconfig("--libs-only-L",
+                                package).replace("-L", " ").split()]
+
+
     def build_extension(self, ext):
         if self.amalgamation:
             ext.define_macros.append(("SQLITE_ENABLE_FTS3", "1"))   # build with fulltext search enabled
             ext.define_macros.append(("SQLITE_ENABLE_RTREE", "1"))   # build with fulltext search enabled
             ext.sources.append("sqlite3.c")
+        ext.include_dirs = self._pkgconfig_include_dirs("sqlite3")
+        ext.library_dirs = self._pkgconfig_library_dirs("sqlite3")
         build_ext.build_extension(self, ext)
 
     def __setattr__(self, k, v):
