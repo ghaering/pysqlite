@@ -99,8 +99,7 @@ static int pysqlite_cursor_init(pysqlite_Cursor* self, PyObject* args, PyObject*
     Py_INCREF(Py_None);
     self->description = Py_None;
 
-    Py_INCREF(Py_None);
-    self->lastrowid= Py_None;
+    self->lastrowid= 0;
 
     self->arraysize = 1;
     self->closed = 0;
@@ -137,7 +136,6 @@ static void pysqlite_cursor_dealloc(pysqlite_Cursor* self)
     Py_XDECREF(self->connection);
     Py_XDECREF(self->row_cast_map);
     Py_XDECREF(self->description);
-    Py_XDECREF(self->lastrowid);
     Py_XDECREF(self->row_factory);
     Py_XDECREF(self->next_row);
 
@@ -467,7 +465,6 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
     PyObject* func_args;
     PyObject* result;
     int numcols;
-    PY_LONG_LONG lastrowid;
     int statement_type;
     PyObject* descriptor;
     PyObject* second_argument = NULL;
@@ -746,16 +743,9 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
                 self->rowcount += (long)sqlite3_changes(self->connection->db);
         }
 
-        Py_DECREF(self->lastrowid);
-        if (!multiple && statement_type == STATEMENT_INSERT) {
-            Py_BEGIN_ALLOW_THREADS
-            lastrowid = sqlite3_last_insert_rowid(self->connection->db);
-            Py_END_ALLOW_THREADS
-            self->lastrowid = PyInt_FromLong((long)lastrowid);
-        } else {
-            Py_INCREF(Py_None);
-            self->lastrowid = Py_None;
-        }
+        Py_BEGIN_ALLOW_THREADS
+        self->lastrowid = sqlite3_last_insert_rowid(self->connection->db);
+        Py_END_ALLOW_THREADS
 
         if (multiple) {
             rc = pysqlite_statement_reset(self->statement);
@@ -1080,7 +1070,7 @@ static struct PyMemberDef cursor_members[] =
     {"connection", T_OBJECT, offsetof(pysqlite_Cursor, connection), RO},
     {"description", T_OBJECT, offsetof(pysqlite_Cursor, description), RO},
     {"arraysize", T_INT, offsetof(pysqlite_Cursor, arraysize), 0},
-    {"lastrowid", T_OBJECT, offsetof(pysqlite_Cursor, lastrowid), RO},
+    {"lastrowid", T_LONG, offsetof(pysqlite_Cursor, lastrowid), 0},
     {"rowcount", T_LONG, offsetof(pysqlite_Cursor, rowcount), RO},
     {"row_factory", T_OBJECT, offsetof(pysqlite_Cursor, row_factory), 0},
     {NULL}

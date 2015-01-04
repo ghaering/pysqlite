@@ -447,6 +447,24 @@ class CursorTests(unittest.TestCase):
         # Optional DB-API extension.
         self.assertEqual(self.cu.connection, self.cx)
 
+    def CheckLastRowId(self):
+        self.cu.execute("insert into test(name) values ('A')")
+        id1 = self.cu.lastrowid
+
+        self.cu.execute("insert into test(name) values ('A')")
+        id2 = self.cu.lastrowid
+
+        assert id1 != id2
+
+    def CheckLastRowIdComment(self):
+        id1 = self.cu.lastrowid
+
+        self.cu.execute("-- fooo\ninsert into test(name) values ('A')")
+        id2 = self.cu.lastrowid
+        assert id2 != 0 
+        assert id2 is not None 
+        assert id2 != id1
+
     def CheckWrongCursorCallable(self):
         try:
             def f(): pass
