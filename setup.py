@@ -21,9 +21,11 @@
 #    misrepresented as being the original software.
 # 3. This notice may not be removed or altered from any source distribution.
 
-import glob, os, re, sys
-import urllib
-import zipfile
+import glob
+import os
+import re
+import shutil
+import sys
 
 from distutils.core import setup, Extension, Command
 from distutils.command.build import build
@@ -74,7 +76,6 @@ class DocBuilder(Command):
         pass
 
     def run(self):
-        import os, shutil
         try:
             shutil.rmtree("build/doc")
         except OSError:
@@ -117,7 +118,6 @@ def get_setup_args():
         match = version_re.match(line)
         if match:
             PYSQLITE_VERSION = match.groups()[0]
-            PYSQLITE_MINOR_VERSION = ".".join(PYSQLITE_VERSION.split('.')[:2])
             break
     f.close()
 
@@ -132,7 +132,6 @@ def get_setup_args():
                    ("pysqlite2-doc/code",
                         glob.glob("doc/code/*.py"))]
 
-    py_modules = ["sqlite"]
     setup_args = dict(
             name = "pysqlite",
             version = PYSQLITE_VERSION,
