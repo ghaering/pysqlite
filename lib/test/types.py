@@ -329,6 +329,22 @@ class ColNamesTests(unittest.TestCase):
         self.cur.execute("select * from test where 0 = 1")
         self.assert_(self.cur.description[0][0] == "x")
 
+    def CheckCursorDescriptionInsert(self):
+        self.cur.execute("insert into test values (1)")
+        self.assert_(self.cur.description is None)
+
+    def CheckCursorDescriptionCTE(self):
+        if sqlite.sqlite_version_info < (3, 8, 3):
+            # Common Table Expressions not supported
+            return
+
+        self.cur.execute("insert into test values (1)")
+        self.cur.execute("insert into test values (1)")
+        self.cur.execute("with bar as (select sum(x) as colname from test) select * from bar")
+        self.assert_(self.cur.description is not None)
+        self.assertEqual(self.cur.description[0][0], "colname")
+
+
 class ObjectAdaptationTests(unittest.TestCase):
     def cast(obj):
         return float(obj)
