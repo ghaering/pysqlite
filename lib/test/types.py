@@ -407,16 +407,23 @@ class DateTimeTests(unittest.TestCase):
         self.assertEqual(type(ts), datetime.datetime)
         self.assertEqual(ts.year, now.year)
 
-    def CheckDateTimeSubSeconds(self):
+    def CheckDateTimeMicroSeconds(self):
         ts = sqlite.Timestamp(2004, 2, 14, 7, 15, 0, 500000)
         self.cur.execute("insert into test(ts) values (?)", (ts,))
         self.cur.execute("select ts from test")
         ts2 = self.cur.fetchone()[0]
         self.assertEqual(ts, ts2)
 
-    def CheckDateTimeSubSecondsFloatingPoint(self):
+    def CheckDateTimeMicroSecondsFloatingPoint(self):
         ts = sqlite.Timestamp(2004, 2, 14, 7, 15, 0, 510241)
         self.cur.execute("insert into test(ts) values (?)", (ts,))
+        self.cur.execute("select ts from test")
+        ts2 = self.cur.fetchone()[0]
+        self.assertEqual(ts, ts2)
+
+    def CheckDateTimeMiliSeconds(self):
+        ts = sqlite.Timestamp(2004, 2, 14, 7, 15, 0, 500000)
+        self.cur.execute("insert into test(ts) values ('2004-02-14 07:15:00.500')")
         self.cur.execute("select ts from test")
         ts2 = self.cur.fetchone()[0]
         self.assertEqual(ts, ts2)
