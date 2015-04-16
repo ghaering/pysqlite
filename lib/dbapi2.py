@@ -68,7 +68,10 @@ def register_adapters_and_converters():
         timepart_full = timepart.split(".")
         hours, minutes, seconds = map(int, timepart_full[0].split(":"))
         if len(timepart_full) == 2:
-            microseconds = int(timepart_full[1])
+            if len(timepart_full[1]) == 6:
+				microseconds = int(timepart_full[1])
+			else: # default to assuming that timestamp is formatted as required by SQLite docs: https://www.sqlite.org/lang_datefunc.html
+				microseconds = 1000 * int(timepart_full[1])
         else:
             microseconds = 0
 
