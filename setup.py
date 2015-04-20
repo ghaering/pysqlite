@@ -168,7 +168,7 @@ def get_setup_args():
             "Operating System :: Microsoft :: Windows",
             "Operating System :: POSIX",
             "Programming Language :: C",
-            "Programming Language :: Python",
+            "Programming Language :: Python :: 2",
             "Topic :: Database :: Database Engines/Servers",
             "Topic :: Software Development :: Libraries :: Python Modules"],
             cmdclass = {"build_docs": DocBuilder}
