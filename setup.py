@@ -21,8 +21,12 @@
 #    misrepresented as being the original software.
 # 3. This notice may not be removed or altered from any source distribution.
 
-import glob, os, re, sys
+import glob
+import os
+import re
+import shutil
 import subprocess
+import sys
 
 from distutils.core import setup, Extension, Command
 from distutils.command.build import build
@@ -73,7 +77,6 @@ class DocBuilder(Command):
         pass
 
     def run(self):
-        import os, shutil
         try:
             shutil.rmtree("build/doc")
         except OSError:
@@ -81,7 +84,7 @@ class DocBuilder(Command):
         os.makedirs("build/doc")
         rc = os.system("sphinx-build doc/sphinx build/doc")
         if rc != 0:
-            print "Is sphinx installed? If not, try 'sudo easy_install sphinx'."
+            print "Is sphinx installed? If not, try 'sudo pip sphinx'."
 
 class AmalgamationBuilder(build):
     description = "Build a statically built pysqlite using the amalgamtion."
