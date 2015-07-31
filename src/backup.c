@@ -1,6 +1,6 @@
 /* backup.c - the backup type
  *
- * Copyright (C) 2010 Gerhard Häring <gh@ghaering.de>
+ * Copyright (C) 2010-2015 Gerhard Häring <gh@ghaering.de>
  *
  * This file is part of pysqlite.
  *
