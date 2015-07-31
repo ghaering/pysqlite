@@ -65,12 +65,12 @@ def register_adapters_and_converters():
     def convert_timestamp(val):
         datepart, timepart = val.split(" ")
         year, month, day = map(int, datepart.split("-"))
-        timepart_full = timepart.split(".")
-        hours, minutes, seconds = map(int, timepart_full[0].split(":"))
-        if len(timepart_full) == 2:
-            microseconds = int(timepart_full[1])
-        else:
-            microseconds = 0
+        hours_part, minutes_part, seconds_part = timepart.split(":")
+        hours, minutes = int(hours_part), int(minutes_part)
+
+        sec_part, _, sub_sec_part = seconds_part.partition(".")
+        seconds = int(sec_part)
+        microseconds = int(sub_sec_part + "0" * (6 - len(sub_sec_part)))
 
         val = datetime.datetime(year, month, day, hours, minutes, seconds, microseconds)
         return val
