@@ -171,7 +171,9 @@ def get_setup_args():
             "Programming Language :: C",
             "Programming Language :: Python",
             "Topic :: Database :: Database Engines/Servers",
-            "Topic :: Software Development :: Libraries :: Python Modules"],
+            "Topic :: Software Development :: Libraries :: Python Modules",
+            "Programming Language :: Python :: 2 :: Only",
+            ],
             cmdclass = {"build_docs": DocBuilder}
             )
 
