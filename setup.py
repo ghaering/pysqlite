@@ -23,8 +23,6 @@
 
 import glob, os, re, sys
 import subprocess
-import urllib
-import zipfile
 
 from distutils.core import setup, Extension, Command
 from distutils.command.build import build
