@@ -122,29 +122,6 @@ class ProgressTests(unittest.TestCase):
         self.assertTrue(progress_calls)
 
 
-    def CheckOpcodeCount(self):
-        """
-        Test that the opcode argument is respected.
-        """
-        con = sqlite.connect(":memory:")
-        progress_calls = []
-        def progress():
-            progress_calls.append(None)
-            return 0
-        con.set_progress_handler(progress, 1)
-        curs = con.cursor()
-        curs.execute("""
-            create table foo (a, b)
-            """)
-        first_count = len(progress_calls)
-        progress_calls = []
-        con.set_progress_handler(progress, 2)
-        curs.execute("""
-            create table bar (a, b)
-            """)
-        second_count = len(progress_calls)
-        self.assertTrue(first_count > second_count)
-
     def CheckCancelOperation(self):
         """
         Test that returning a non-zero value stops the operation in progress.
