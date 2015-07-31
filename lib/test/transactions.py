@@ -21,8 +21,8 @@
 #    misrepresented as being the original software.
 # 3. This notice may not be removed or altered from any source distribution.
 
-import sys
-import os, unittest
+import os
+import unittest
 import pysqlite2.dbapi2 as sqlite
 
 def get_db_path():

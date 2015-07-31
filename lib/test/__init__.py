@@ -21,20 +21,11 @@
 #    misrepresented as being the original software.
 # 3. This notice may not be removed or altered from any source distribution.
 
-import os, sys
 import unittest
-
-if os.path.exists("extended_setup.py"):
-    print "-" * 75
-    print "You should not run the test suite from the pysqlite build directory."
-    print "This does not work well because the extension module cannot be found."
-    print "Just run the test suite from somewhere else, please!"
-    print "-" * 75
-    sys.exit(1)
+import sys
 
 from pysqlite2.test import dbapi, types, userfunctions, factory, transactions,\
     hooks, regression, dump
-from pysqlite2 import dbapi2 as sqlite
 
 def suite():
     tests = [dbapi.suite(), types.suite(), userfunctions.suite(),
