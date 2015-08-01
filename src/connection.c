@@ -1018,6 +1018,48 @@ static int _progress_handler(void* user_arg)
     return rc;
 }
 
+static PyObject* pysqlite_connection_get_limit(pysqlite_Connection* self, PyObject* args, PyObject* kwargs)
+{
+    int limit_id, new_val;
+
+    static char *kwlist[] = { "limit_id", NULL };
+    int retval;
+
+    if (!pysqlite_check_thread(self) || !pysqlite_check_connection(self)) {
+        return NULL;
+    }
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "i:get_limit",
+                                      kwlist, &limit_id)) {
+        return NULL;
+    }
+
+    retval = sqlite3_limit(self->db, limit_id, -1);
+
+    return PyInt_FromLong(retval);
+}
+
+static PyObject* pysqlite_connection_set_limit(pysqlite_Connection* self, PyObject* args, PyObject* kwargs)
+{
+    int limit_id, new_val;
+
+    static char *kwlist[] = { "limit_id", "new_val", NULL };
+    int retval;
+
+    if (!pysqlite_check_thread(self) || !pysqlite_check_connection(self)) {
+        return NULL;
+    }
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "ii:set_limit",
+                                      kwlist, &limit_id, &new_val)) {
+        return NULL;
+    }
+
+    retval = sqlite3_limit(self->db, limit_id, new_val);
+
+    return PyInt_FromLong(retval);
+}
+
 static PyObject* pysqlite_connection_set_authorizer(pysqlite_Connection* self, PyObject* args, PyObject* kwargs)
 {
     PyObject* authorizer_cb;
@@ -1609,6 +1651,10 @@ static PyMethodDef connection_methods[] = {
         PyDoc_STR("Creates a new function. Non-standard.")},
     {"create_aggregate", (PyCFunction)pysqlite_connection_create_aggregate, METH_VARARGS|METH_KEYWORDS,
         PyDoc_STR("Creates a new aggregate. Non-standard.")},
+    {"set_limit", (PyCFunction)pysqlite_connection_set_limit, METH_VARARGS|METH_KEYWORDS,
+        PyDoc_STR("Sets SQLite limit. Non-standard.")},
+    {"get_limit", (PyCFunction)pysqlite_connection_get_limit, METH_VARARGS|METH_KEYWORDS,
+        PyDoc_STR("Gets SQLite limit. Non-standard.")},
     {"set_authorizer", (PyCFunction)pysqlite_connection_set_authorizer, METH_VARARGS|METH_KEYWORDS,
         PyDoc_STR("Sets authorizer callback. Non-standard.")},
     #ifdef HAVE_LOAD_EXTENSION

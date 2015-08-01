@@ -353,6 +353,24 @@ Connection Objects
    one. All necessary constants are available in the :mod:`sqlite3` module.
 
 
+.. method:: Connection.get_limit(limit_id)
+
+   This routine returns the current value of the limit specified by the
+   constant limit_id.
+
+   Please consult the SQLite documentation about the possible values for the
+   limit_id parameter.
+
+
+.. method:: Connection.set_limit(limit_id, new_value)
+
+   This routine sets a new value for the limit specified by the
+   constant limit_id.
+
+   Please consult the SQLite documentation about the possible values for the
+   limit_id parameter.
+
+
 .. method:: Connection.set_progress_handler(handler, n)
 
    This routine registers a callback. The callback is invoked for every *n*

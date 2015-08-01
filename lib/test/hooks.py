@@ -152,10 +152,31 @@ class ProgressTests(unittest.TestCase):
         con.execute("select 1 union select 2 union select 3").fetchall()
         self.assertEqual(action, 0, "progress handler was not cleared")
 
+class LimitTests(unittest.TestCase):
+    def CheckGetLimit(self):
+        """
+        Test that the get limit method return something useful.
+        """
+        con = sqlite.connect(":memory:")
+        val = con.get_limit(sqlite.SQLITE_LIMIT_VARIABLE_NUMBER)
+        self.assertTrue(val > 0)
+
+    def CheckSetLimit(self):
+        """
+        Test that the set limit method actally changes limits.
+        """
+        con = sqlite.connect(":memory:")
+        oldval = con.get_limit(sqlite.SQLITE_LIMIT_VARIABLE_NUMBER)
+        con.set_limit(sqlite.SQLITE_LIMIT_VARIABLE_NUMBER, oldval - 1)
+        newval = con.get_limit(sqlite.SQLITE_LIMIT_VARIABLE_NUMBER)
+
+        self.assertEqual(newval, oldval - 1)
+
 def suite():
     collation_suite = unittest.makeSuite(CollationTests, "Check")
     progress_suite = unittest.makeSuite(ProgressTests, "Check")
-    return unittest.TestSuite((collation_suite, progress_suite))
+    limit_suite = unittest.makeSuite(LimitTests, "Check")
+    return unittest.TestSuite((collation_suite, progress_suite, limit_suite))
 
 def test():
     runner = unittest.TextTestRunner()
