@@ -21,11 +21,11 @@
 #    misrepresented as being the original software.
 # 3. This notice may not be removed or altered from any source distribution.
 
+import commands
 import glob
 import os
 import re
 import shutil
-import subprocess
 import sys
 
 from distutils.core import setup, Extension, Command
@@ -66,6 +66,22 @@ if sys.platform != "win32":
 else:
     define_macros.append(('MODULE_NAME', '\\"pysqlite2.dbapi2\\"'))
 
+class TestRunner(Command):
+    description = "Runs the unit tests"
+    user_options = []
+
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+
+    def run(self):
+        build_dir = "build/lib.linux-x86_64-%i.%i" % sys.version_info[:2]
+        sys.path.append(build_dir)
+        from pysqlite2 import test
+        test.test()
+
 class DocBuilder(Command):
     description = "Builds the documentation"
     user_options = []
@@ -97,7 +113,7 @@ class MyBuildExt(build_ext):
     amalgamation = False
 
     def _pkgconfig(self, flag, package):
-        output = subprocess.check_output(["pkg-config", flag, package])
+        status, output = commands.getstatusoutput("pkg-config %s %s" % (flag, package))
         return output
 
     def _pkgconfig_include_dirs(self, package):
@@ -198,7 +214,13 @@ def get_setup_args():
             cmdclass = {"build_docs": DocBuilder}
             )
 
-    setup_args["cmdclass"].update({"build_docs": DocBuilder, "build_ext": MyBuildExt, "build_static": AmalgamationBuilder, "cross_bdist_wininst": cross_bdist_wininst.bdist_wininst})
+    setup_args["cmdclass"].update({
+        "build_docs": DocBuilder,
+        "test": TestRunner,
+        "build_ext": MyBuildExt,
+        "build_static": AmalgamationBuilder,
+        "cross_bdist_wininst": cross_bdist_wininst.bdist_wininst
+    })
     return setup_args
 
 def main():
