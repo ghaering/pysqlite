@@ -129,8 +129,9 @@ class MyBuildExt(build_ext):
 
     def build_extension(self, ext):
         if self.amalgamation:
-            ext.define_macros.append(("SQLITE_ENABLE_FTS3", "1"))
-            ext.define_macros.append(("SQLITE_ENABLE_RTREE", "1"))
+            ext.define_macros += [
+                    ("SQLITE_ENABLE_FTS5", "1"),
+                    ("SQLITE_ENABLE_RTREE", "1")]
             ext.sources.append("sqlite3.c")
         try:
             ext.include_dirs = self._pkgconfig_include_dirs("sqlite3")
