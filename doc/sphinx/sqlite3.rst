@@ -471,6 +471,13 @@ A :class:`Cursor` instance has the following attributes and methods:
 
    A SQLite database cursor has the following attributes and methods:
 
+.. method:: Cursor.close()
+
+   Close the cursor now (rather than whenever __del__ is called).
+
+   The cursor will be unusable from this point forward; an Error (or subclass)
+   exception will be raised if any operation is attempted with the cursor.
+
 .. method:: Cursor.execute(sql, [parameters])
 
    Executes an SQL statement. The SQL statement may be parametrized (i. e.
