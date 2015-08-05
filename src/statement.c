@@ -187,9 +187,22 @@ int pysqlite_statement_bind_parameter(pysqlite_Statement* self, int pos, PyObjec
             break;
         case TYPE_UNKNOWN:
             rc = -1;
+            PyErr_Format(pysqlite_InterfaceError, "Parameter %d is of no supported type", pos);
     }
 
 final:
+    switch (rc) {
+        case SQLITE_TOOBIG:
+            PyErr_Format(pysqlite_DatabaseError, "Parameter %d is too big", pos);
+            break;
+        case SQLITE_RANGE:
+            PyErr_Format(pysqlite_DatabaseError, "Parameter index %d is out of range", pos);
+            break;
+        case SQLITE_NOMEM:
+            PyErr_Format(pysqlite_DatabaseError, "SQlite is out of memory for parameter %d", pos);
+            break;
+    }
+
     return rc;
 }
 
@@ -268,7 +281,7 @@ void pysqlite_statement_bind_parameters(pysqlite_Statement* self, PyObject* para
 
             if (rc != SQLITE_OK) {
                 if (!PyErr_Occurred()) {
-                    PyErr_Format(pysqlite_InterfaceError, "Error binding parameter %d - probably unsupported type.", i);
+                    PyErr_Format(pysqlite_InterfaceError, "Unknown error binding parameter %d.", i);
                 }
                 return;
             }
@@ -313,7 +326,7 @@ void pysqlite_statement_bind_parameters(pysqlite_Statement* self, PyObject* para
 
             if (rc != SQLITE_OK) {
                 if (!PyErr_Occurred()) {
-                    PyErr_Format(pysqlite_InterfaceError, "Error binding parameter :%s - probably unsupported type.", binding_name);
+                    PyErr_Format(pysqlite_InterfaceError, "Unknown error binding parameter %s.", binding_name);
                 }
                 return;
            }
