@@ -38,4 +38,4 @@ def suite():
 
 def test():
     runner = unittest.TextTestRunner()
-    runner.run(suite())
+    return runner.run(suite())

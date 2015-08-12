@@ -80,7 +80,9 @@ class TestRunner(Command):
         build_dir = "build/lib.linux-x86_64-%i.%i" % sys.version_info[:2]
         sys.path.append(build_dir)
         from pysqlite2 import test
-        test.test()
+        result = test.test()
+        if result.errors or result.failures:
+            sys.exit(1)
 
 class DocBuilder(Command):
     description = "Builds the documentation"
