@@ -21,12 +21,15 @@
 #    misrepresented as being the original software.
 # 3. This notice may not be removed or altered from any source distribution.
 
+import sys
+if sys.version_info.major > 2:
+    print("pysqlite is not supported on Python 3. When using Python 3, use the sqlite3 module from the standard library.")
+    sys.exit(1)
 import commands
 import glob
 import os
 import re
 import shutil
-import sys
 
 from distutils.core import setup, Extension, Command
 from distutils.command.build import build
@@ -102,7 +105,7 @@ class DocBuilder(Command):
         os.makedirs("build/doc")
         rc = os.system("sphinx-build doc/sphinx build/doc")
         if rc != 0:
-            print "Is sphinx installed? If not, try 'sudo pip sphinx'."
+            sys.stdout.write("Is sphinx installed? If not, try 'sudo pip sphinx'.\n")
 
 class AmalgamationBuilder(build):
     description = "Build a statically built pysqlite using the amalgamtion."
@@ -163,7 +166,7 @@ def get_setup_args():
     f.close()
 
     if not PYSQLITE_VERSION:
-        print "Fatal error: PYSQLITE_VERSION could not be detected!"
+        sys.stdout.write("Fatal error: PYSQLITE_VERSION could not be detected!\n")
         sys.exit(1)
 
     data_files = [("pysqlite2-doc",
