@@ -22,7 +22,7 @@
 # 3. This notice may not be removed or altered from any source distribution.
 
 import sys
-if sys.version_info.major > 2:
+if sys.version_info[0] > 2:
     print("pysqlite is not supported on Python 3. When using Python 3, use the sqlite3 module from the standard library.")
     sys.exit(1)
 import commands
