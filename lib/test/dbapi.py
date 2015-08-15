@@ -859,6 +859,49 @@ class ClosedCurTests(unittest.TestCase):
             except:
                 self.fail("Should have raised a ProgrammingError: " + method_name)
 
+did_rollback = False
+
+class MyConnection(sqlite.Connection):
+    def rollback(self):
+        global did_rollback
+        did_rollback = True
+        sqlite.Connection.rollback(self)
+
+class ContextTests(unittest.TestCase):
+    def setUp(self):
+        global did_rollback
+        self.con = sqlite.connect(":memory:", factory=MyConnection)
+        self.con.execute("create table test(c unique)")
+        did_rollback = False
+
+    def tearDown(self):
+        self.con.close()
+
+    def CheckContextManager(self):
+        """Can the connection be used as a context manager at all?"""
+        with self.con:
+            pass
+
+    def CheckContextManagerCommit(self):
+        """Is a commit called in the context manager?"""
+        with self.con:
+            self.con.execute("insert into test(c) values ('foo')")
+        self.con.rollback()
+        count = self.con.execute("select count(*) from test").fetchone()[0]
+        self.assertEqual(count, 1)
+
+    def CheckContextManagerRollback(self):
+        """Is a rollback called in the context manager?"""
+        global did_rollback
+        self.assertEqual(did_rollback, False)
+        try:
+            with self.con:
+                self.con.execute("insert into test(c) values (4)")
+                self.con.execute("insert into test(c) values (4)")
+        except sqlite.IntegrityError:
+            pass
+        self.assertEqual(did_rollback, True)
+
 def suite():
     module_suite = unittest.makeSuite(ModuleTests, "Check")
     connection_suite = unittest.makeSuite(ConnectionTests, "Check")
@@ -868,7 +911,8 @@ def suite():
     ext_suite = unittest.makeSuite(ExtensionTests, "Check")
     closed_con_suite = unittest.makeSuite(ClosedConTests, "Check")
     closed_cur_suite = unittest.makeSuite(ClosedCurTests, "Check")
-    return unittest.TestSuite((module_suite, connection_suite, cursor_suite, thread_suite, constructor_suite, ext_suite, closed_con_suite, closed_cur_suite))
+    context_suite = unittest.makeSuite(ContextTests, "Check")
+    return unittest.TestSuite((module_suite, connection_suite, cursor_suite, thread_suite, constructor_suite, ext_suite, closed_con_suite, closed_cur_suite, context_suite))
 
 def test():
     runner = unittest.TextTestRunner()
