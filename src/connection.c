@@ -35,6 +35,9 @@
 
 #include "pythread.h"
 
+#define DEPRECATE_TEXTFACTORY_MSG "Using text_factory is deprecated. Make sure you only use Unicode strings or UTF-8 encoded bytestrings. If you want to insert arbitrary data in SQLite, please use the BLOB data type."
+#define DEPRECATE_ITERDUMP_MSG "The iterdump() method is deprecated. It mostly work, but making if work fully and keep the implementation up to date with new SQLite features is too big of a maintenance problem. iterdump will eventually be removed."
+
 #define ACTION_FINALIZE 1
 #define ACTION_RESET 2
 
@@ -1150,6 +1153,32 @@ static PyObject* pysqlite_connection_get_total_changes(pysqlite_Connection* self
     }
 }
 
+static PyObject* pysqlite_connection_get_text_factory(pysqlite_Connection* self, void* unused)
+{
+    if (!pysqlite_check_connection(self)) {
+        return NULL;
+    } else {
+        Py_INCREF(self->text_factory);
+        return self->text_factory;
+    }
+}
+
+static int pysqlite_connection_set_text_factory(pysqlite_Connection* self, PyObject* text_factory)
+{
+    if (!pysqlite_check_connection(self)) {
+        return -1;
+    } else {
+        if (PyErr_WarnEx(PyExc_DeprecationWarning, DEPRECATE_TEXTFACTORY_MSG, 1)) {
+            return -1;
+        }
+
+        Py_XDECREF(self->text_factory);
+        Py_INCREF(text_factory);
+        self->text_factory = text_factory;
+        return 0;
+    }
+}
+
 static int pysqlite_connection_set_isolation_level(pysqlite_Connection* self, PyObject* isolation_level)
 {
     PyObject* res;
@@ -1429,6 +1458,10 @@ pysqlite_connection_iterdump(pysqlite_Connection* self, PyObject* args)
     PyObject* module_dict;
     PyObject* pyfn_iterdump;
 
+    if (PyErr_WarnEx(PyExc_DeprecationWarning, DEPRECATE_ITERDUMP_MSG, 1)) {
+        return NULL;
+    }
+
     if (!pysqlite_check_connection(self)) {
         goto finally;
     }
@@ -1580,6 +1613,7 @@ PyDoc_STR("SQLite database connection object.");
 static PyGetSetDef connection_getset[] = {
     {"isolation_level",  (getter)pysqlite_connection_get_isolation_level, (setter)pysqlite_connection_set_isolation_level},
     {"total_changes",  (getter)pysqlite_connection_get_total_changes, (setter)0},
+    {"text_factory",  (getter)pysqlite_connection_get_text_factory, (setter)pysqlite_connection_set_text_factory},
     {NULL}
 };
 
@@ -1646,7 +1680,6 @@ static struct PyMemberDef connection_members[] =
     {"ProgrammingError", T_OBJECT, offsetof(pysqlite_Connection, ProgrammingError), RO},
     {"NotSupportedError", T_OBJECT, offsetof(pysqlite_Connection, NotSupportedError), RO},
     {"row_factory", T_OBJECT, offsetof(pysqlite_Connection, row_factory)},
-    {"text_factory", T_OBJECT, offsetof(pysqlite_Connection, text_factory)},
     {NULL}
 };
 

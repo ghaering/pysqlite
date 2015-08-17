@@ -29,6 +29,8 @@
 #include "microprotocols.h"
 #include "row.h"
 
+#define DEPRECATE_ADAPTERS_MSG "Converters and adapters are deprecated. Please use only supported SQLite types. Any type mapping should happen in layer above this module."
+
 #ifdef PYSQLITE_EXPERIMENTAL
 #include "backup.h"
 #endif
@@ -153,6 +155,11 @@ static PyObject* module_register_adapter(PyObject* self, PyObject* args)
         return NULL;
     }
 
+
+    if (PyErr_WarnEx(PyExc_DeprecationWarning, DEPRECATE_ADAPTERS_MSG, 1)) {
+        return NULL;
+    }
+
     /* a basic type is adapted; there's a performance optimization if that's not the case
      * (99 % of all usages) */
     if (type == &PyInt_Type || type == &PyLong_Type || type == &PyFloat_Type
@@ -181,6 +188,10 @@ static PyObject* module_register_converter(PyObject* self, PyObject* args)
     PyObject* retval = NULL;
 
     if (!PyArg_ParseTuple(args, "SO", &orig_name, &callable)) {
+        return NULL;
+    }
+
+    if (PyErr_WarnEx(PyExc_DeprecationWarning, DEPRECATE_ADAPTERS_MSG, 1)) {
         return NULL;
     }
 
