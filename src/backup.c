@@ -23,7 +23,6 @@
 
 #include "module.h"
 #include "backup.h"
-#include "sqlitecompat.h"
 
 void pysqlite_backup_dealloc(pysqlite_Backup* self)
 {

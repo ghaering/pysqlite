@@ -26,7 +26,6 @@
 #include "connection.h"
 #include "microprotocols.h"
 #include "prepare_protocol.h"
-#include "sqlitecompat.h"
 
 /* prototypes */
 static int pysqlite_check_remaining_sql(const char* tail);
@@ -354,21 +353,11 @@ int pysqlite_statement_recompile(pysqlite_Statement* self, PyObject* params)
     Py_END_ALLOW_THREADS
 
     if (rc == SQLITE_OK) {
-        /* The efficient sqlite3_transfer_bindings is only available in SQLite
-         * version 3.2.2 or later. For older SQLite releases, that might not
-         * even define SQLITE_VERSION_NUMBER, we do it the manual way.
-         */
-        #ifdef SQLITE_VERSION_NUMBER
-        #if SQLITE_VERSION_NUMBER >= 3002002
         /* The check for the number of parameters is necessary to not trigger a
          * bug in certain SQLite versions (experienced in 3.2.8 and 3.3.4). */
         if (sqlite3_bind_parameter_count(self->st) > 0) {
             (void)sqlite3_transfer_bindings(self->st, new_st);
         }
-        #endif
-        #else
-        statement_bind_parameters(self, params);
-        #endif
 
         (void)sqlite3_finalize(self->st);
         self->st = new_st;

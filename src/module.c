@@ -33,10 +33,6 @@
 #include "backup.h"
 #endif
 
-#if SQLITE_VERSION_NUMBER >= 3003003
-#define HAVE_SHARED_CACHE
-#endif
-
 /* static objects at module-level */
 
 PyObject* pysqlite_Error, *pysqlite_Warning, *pysqlite_InterfaceError, *pysqlite_DatabaseError,

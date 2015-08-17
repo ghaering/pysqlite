@@ -24,7 +24,6 @@
 #include "cursor.h"
 #include "module.h"
 #include "util.h"
-#include "sqlitecompat.h"
 
 /* used to decide wether to call PyInt_FromLong or PyLong_FromLongLong */
 #ifndef INT32_MIN
@@ -766,12 +765,8 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
 error:
     /* just to be sure (implicit ROLLBACKs with ON CONFLICT ROLLBACK/OR
      * ROLLBACK could have happened */
-    #ifdef SQLITE_VERSION_NUMBER
-    #if SQLITE_VERSION_NUMBER >= 3002002
     if (self->connection && self->connection->db)
         self->connection->inTransaction = !sqlite3_get_autocommit(self->connection->db);
-    #endif
-    #endif
 
     Py_XDECREF(operation_bytestr);
     Py_XDECREF(parameters);
