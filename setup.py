@@ -25,6 +25,10 @@ import sys
 if sys.version_info[0] > 2:
     print("pysqlite is not supported on Python 3. When using Python 3, use the sqlite3 module from the standard library.")
     sys.exit(1)
+elif sys.version_info[:2] != (2, 7):
+    print("Only Python 2.7 is supported.")
+    sys.exit(1)
+
 import commands
 import glob
 import os
