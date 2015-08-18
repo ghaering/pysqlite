@@ -87,7 +87,6 @@ class RegressionTests(unittest.TestCase):
     def CheckOnConflictRollback(self):
         con = sqlite.connect(":memory:")
         con.execute("create table foo(x, unique(x) on conflict rollback)")
-        con.commit()
         con.execute("insert into foo(x) values (1)")
         try:
             con.execute("insert into foo(x) values (1)")

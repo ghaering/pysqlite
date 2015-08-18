@@ -147,7 +147,6 @@ class TransactionTests(unittest.TestCase):
         con = sqlite.connect(":memory:")
         cur = con.cursor()
         cur.execute("create table test(x)")
-        con.commit()
         cur.execute("insert into test(x) values (5)")
         cur.execute("select 1 union select 2 union select 3")
 
@@ -167,7 +166,6 @@ class SpecialCommandTests(unittest.TestCase):
 
     def CheckDropTable(self):
         self.cur.execute("create table test(i)")
-        self.con.commit()
         self.cur.execute("insert into test(i) values (5)")
         self.cur.execute("drop table test")
 
@@ -180,10 +178,37 @@ class SpecialCommandTests(unittest.TestCase):
         self.cur.close()
         self.con.close()
 
+class TransactionalDDL(unittest.TestCase):
+    def setUp(self):
+        self.con = sqlite.connect(":memory:")
+
+    def CheckDdlDoesNotAutostartTransaction(self):
+        """
+        For backwards compatibility reasons, DDL statements should not
+        implicitly start a transaction.
+        """
+        self.con.execute("create table test(i)")
+        self.con.rollback()
+        self.con.execute("select * from test")
+
+    def CheckTransactionalDDL(self):
+        """
+        You can achieve transactional DDL by issuing a BEGIN statement manually.
+        """
+        self.con.execute("begin")
+        self.con.execute("create table test(i)")
+        self.con.rollback()
+        with self.assertRaises(sqlite.OperationalError):
+            self.con.execute("select * from test")
+
+    def tearDown(self):
+        self.con.close()
+
 def suite():
     default_suite = unittest.makeSuite(TransactionTests, "Check")
     special_command_suite = unittest.makeSuite(SpecialCommandTests, "Check")
-    return unittest.TestSuite((default_suite, special_command_suite))
+    ddl_suite = unittest.makeSuite(TransactionalDDL, "Check")
+    return unittest.TestSuite((default_suite, special_command_suite, ddl_suite))
 
 def test():
     runner = unittest.TextTestRunner()

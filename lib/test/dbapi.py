@@ -88,7 +88,6 @@ class ConnectionTests(unittest.TestCase):
         self.cx = sqlite.connect(":memory:")
         cu = self.cx.cursor()
         cu.execute("create table test(id integer primary key, name text)")
-        self.cx.commit()
         cu.execute("insert into test(name) values (?)", ("foo",))
 
     def tearDown(self):
@@ -146,7 +145,6 @@ class CursorTests(unittest.TestCase):
         self.cx = sqlite.connect(":memory:")
         self.cu = self.cx.cursor()
         self.cu.execute("create table test(id integer primary key, name text, income number)")
-        self.cx.commit()
         self.cu.execute("insert into test(name) values (?)", ("foo",))
 
     def tearDown(self):
@@ -478,7 +476,6 @@ class ThreadTests(unittest.TestCase):
         self.con = sqlite.connect(":memory:")
         self.cur = self.con.cursor()
         self.cur.execute("create table test(id integer primary key, name text, bin binary, ratio number, ts timestamp)")
-        self.con.commit()
 
     def tearDown(self):
         self.cur.close()
@@ -709,7 +706,6 @@ class ExtensionTests(unittest.TestCase):
     def CheckConnectionExecutemany(self):
         con = sqlite.connect(":memory:")
         con.execute("create table test(foo)")
-        con.commit()
         con.executemany("insert into test(foo) values (?)", [(3,), (4,)])
         result = con.execute("select foo from test order by foo").fetchall()
         self.assertEqual(result[0][0], 3, "Basic test of Connection.executemany")
@@ -882,7 +878,6 @@ class ContextTests(unittest.TestCase):
         global did_rollback
         self.con = sqlite.connect(":memory:", factory=MyConnection)
         self.con.execute("create table test(c unique)")
-        self.con.commit()
         did_rollback = False
 
     def tearDown(self):
