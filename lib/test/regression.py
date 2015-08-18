@@ -282,6 +282,39 @@ class RegressionTests(unittest.TestCase):
         except sqlite.ProgrammingError:
             pass
 
+    def CheckCommitCursorReset(self):
+        """
+        See http://bugs.python.org/issueXXXX
+
+        Connection.commit() did reset cursors, which made pysqlite to return
+        rows multiple times when fetched from cursors after commit.
+        """
+        con = sqlite.connect(":memory:")
+        con.executescript("""
+        create table t(c);
+        create table t2(c);
+        insert into t values(0);
+        insert into t values(1);
+        insert into t values(2);
+        """)
+
+        cur = con.cursor()
+        counter = 0
+        for idx, row in enumerate(con.execute("select c from t")):
+            con.execute("insert into t2(c) values (?)", (idx,))
+            con.commit()
+
+            if counter == 0:
+                self.assertEqual(row[0], 0)
+            elif counter == 1:
+                self.assertEqual(row[0], 1)
+            elif counter == 2:
+                self.assertEqual(row[0], 2)
+            else:
+                self.fail("should have returned exactly three rows")
+
+            counter += 1
+
 def suite():
     regression_suite = unittest.makeSuite(RegressionTests, "Check")
     return unittest.TestSuite((regression_suite,))
