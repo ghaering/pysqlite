@@ -156,6 +156,12 @@ class RowFactoryTests(unittest.TestCase):
         self.assertEqual(list(reversed(row)), list(reversed(as_tuple)))
         self.assertIsInstance(row, Sequence)
 
+    def CheckRowUnicodeIndex(self):
+        """Checks if we can use Unicode strings as column index."""
+        self.con.row_factory = sqlite.Row
+        row = self.con.execute("select 5 as a").fetchone()
+        row[u"a"]
+
     def tearDown(self):
         self.con.close()
 

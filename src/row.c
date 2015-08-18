@@ -98,7 +98,7 @@ PyObject* pysqlite_row_subscript(pysqlite_Row* self, PyObject* idx)
         item = PyTuple_GetItem(self->data, _idx);
         Py_XINCREF(item);
         return item;
-    } else if (PyString_Check(idx)) {
+    } else if (PyString_Check(idx) || PyUnicode_Check(idx)) {
         key = PyString_AsString(idx);
 
         nitems = PyTuple_Size(self->description);
