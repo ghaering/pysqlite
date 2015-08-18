@@ -638,41 +638,19 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
             goto error;
         }
 
-        /* Keep trying the SQL statement until the schema stops changing. */
-        while (1) {
-            /* Actually execute the SQL statement. */
-            rc = pysqlite_step(self->statement->st, self->connection);
-            if (rc == SQLITE_DONE ||  rc == SQLITE_ROW) {
-                /* If it worked, let's get out of the loop */
-                break;
-            }
-            /* Something went wrong.  Re-set the statement and try again. */
-            rc = pysqlite_statement_reset(self->statement);
-            if (rc == SQLITE_SCHEMA) {
-                /* If this was a result of the schema changing, let's try
-                   again. */
-                rc = pysqlite_statement_recompile(self->statement, parameters);
-                if (rc == SQLITE_OK) {
-                    continue;
+        rc = pysqlite_step(self->statement->st, self->connection);
+        if (rc != SQLITE_DONE && rc != SQLITE_ROW) {
+            if (PyErr_Occurred()) {
+                /* there was an error that occurred in a user-defined callback */
+                if (_enable_callback_tracebacks) {
+                    PyErr_Print();
                 } else {
-                    /* If the database gave us an error, promote it to Python. */
-                    (void)pysqlite_statement_reset(self->statement);
-                    _pysqlite_seterror(self->connection->db, NULL);
-                    goto error;
+                    PyErr_Clear();
                 }
-            } else {
-                if (PyErr_Occurred()) {
-                    /* there was an error that occurred in a user-defined callback */
-                    if (_enable_callback_tracebacks) {
-                        PyErr_Print();
-                    } else {
-                        PyErr_Clear();
-                    }
-                }
-                (void)pysqlite_statement_reset(self->statement);
-                _pysqlite_seterror(self->connection->db, NULL);
-                goto error;
             }
+            (void)pysqlite_statement_reset(self->statement);
+            _pysqlite_seterror(self->connection->db, NULL);
+            goto error;
         }
 
         if (pysqlite_build_row_cast_map(self) != 0) {
@@ -823,7 +801,7 @@ PyObject* pysqlite_cursor_executescript(pysqlite_Cursor* self, PyObject* args)
 
     while (1) {
         Py_BEGIN_ALLOW_THREADS
-        rc = sqlite3_prepare(self->connection->db,
+        rc = sqlite3_prepare_v2(self->connection->db,
                              script_cstr,
                              -1,
                              &statement,
