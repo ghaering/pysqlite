@@ -145,7 +145,6 @@ int pysqlite_connection_init(pysqlite_Connection* self, PyObject* args, PyObject
     self->statement_cache->decref_factory = 0;
     Py_DECREF(self);
 
-    self->inTransaction = 0;
     self->detect_types = detect_types;
     self->timeout = timeout;
     (void)sqlite3_busy_timeout(self->db, (int)(timeout*1000));
@@ -407,9 +406,7 @@ PyObject* _pysqlite_connection_begin(pysqlite_Connection* self)
     }
 
     rc = pysqlite_step(statement, self);
-    if (rc == SQLITE_DONE) {
-        self->inTransaction = 1;
-    } else {
+    if (rc != SQLITE_DONE) {
         _pysqlite_seterror(self->db, statement);
     }
 
@@ -440,7 +437,7 @@ PyObject* pysqlite_connection_commit(pysqlite_Connection* self, PyObject* args)
         return NULL;
     }
 
-    if (self->inTransaction) {
+    if (!sqlite3_get_autocommit(self->db)) {
         Py_BEGIN_ALLOW_THREADS
         rc = sqlite3_prepare_v2(self->db, "COMMIT", -1, &statement, &tail);
         Py_END_ALLOW_THREADS
@@ -450,9 +447,7 @@ PyObject* pysqlite_connection_commit(pysqlite_Connection* self, PyObject* args)
         }
 
         rc = pysqlite_step(statement, self);
-        if (rc == SQLITE_DONE) {
-            self->inTransaction = 0;
-        } else {
+        if (rc != SQLITE_DONE) {
             _pysqlite_seterror(self->db, statement);
         }
 
@@ -484,7 +479,7 @@ PyObject* pysqlite_connection_rollback(pysqlite_Connection* self, PyObject* args
         return NULL;
     }
 
-    if (self->inTransaction) {
+    if (!sqlite3_get_autocommit(self->db)) {
         pysqlite_do_all_statements(self, ACTION_RESET, 1);
 
         Py_BEGIN_ALLOW_THREADS
@@ -496,9 +491,7 @@ PyObject* pysqlite_connection_rollback(pysqlite_Connection* self, PyObject* args
         }
 
         rc = pysqlite_step(statement, self);
-        if (rc == SQLITE_DONE) {
-            self->inTransaction = 0;
-        } else {
+        if (rc != SQLITE_DONE) {
             _pysqlite_seterror(self->db, statement);
         }
 
@@ -1203,8 +1196,6 @@ static int pysqlite_connection_set_isolation_level(pysqlite_Connection* self, Py
             return -1;
         }
         Py_DECREF(res);
-
-        self->inTransaction = 0;
     } else {
         Py_INCREF(isolation_level);
         self->isolation_level = isolation_level;
