@@ -22,7 +22,6 @@
 # 3. This notice may not be removed or altered from any source distribution.
 
 import unittest
-import sys
 try:
     import threading
 except ImportError:
