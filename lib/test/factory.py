@@ -64,22 +64,6 @@ class CursorFactoryTests(unittest.TestCase):
                                    MyCursor),
                         "cursor is not instance of MyCursor")
 
-class RowFactoryTestsBackwardsCompat(unittest.TestCase):
-    def setUp(self):
-        self.con = sqlite.connect(":memory:")
-
-    def CheckIsProducedByFactory(self):
-        cur = self.con.cursor(factory=MyCursor)
-        cur.execute("select 4+5 as foo")
-        row = cur.fetchone()
-        self.assertTrue(isinstance(row,
-                                   dict),
-                        "row is not instance of dict")
-        cur.close()
-
-    def tearDown(self):
-        self.con.close()
-
 class RowFactoryTests(unittest.TestCase):
     def setUp(self):
         self.con = sqlite.connect(":memory:")
@@ -192,10 +176,9 @@ class TextFactoryTests(unittest.TestCase):
 def suite():
     connection_suite = unittest.makeSuite(ConnectionFactoryTests, "Check")
     cursor_suite = unittest.makeSuite(CursorFactoryTests, "Check")
-    row_suite_compat = unittest.makeSuite(RowFactoryTestsBackwardsCompat, "Check")
     row_suite = unittest.makeSuite(RowFactoryTests, "Check")
     text_suite = unittest.makeSuite(TextFactoryTests, "Check")
-    return unittest.TestSuite((connection_suite, cursor_suite, row_suite_compat, row_suite, text_suite))
+    return unittest.TestSuite((connection_suite, cursor_suite, row_suite, text_suite))
 
 def test():
     runner = unittest.TextTestRunner()

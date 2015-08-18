@@ -107,9 +107,6 @@ static int pysqlite_cursor_init(pysqlite_Cursor* self, PyObject* args, PyObject*
 
     self->rowcount = -1L;
 
-    Py_INCREF(Py_None);
-    self->row_factory = Py_None;
-
     if (!pysqlite_check_thread(self->connection)) {
         return -1;
     }
@@ -137,7 +134,6 @@ static void pysqlite_cursor_dealloc(pysqlite_Cursor* self)
     Py_XDECREF(self->row_cast_map);
     Py_XDECREF(self->description);
     Py_XDECREF(self->lastrowid);
-    Py_XDECREF(self->row_factory);
     Py_XDECREF(self->next_row);
 
     if (self->in_weakreflist != NULL) {
@@ -915,8 +911,8 @@ PyObject* pysqlite_cursor_iternext(pysqlite_Cursor *self)
     next_row_tuple = self->next_row;
     self->next_row = NULL;
 
-    if (self->row_factory != Py_None) {
-        next_row = PyObject_CallFunction(self->row_factory, "OO", self, next_row_tuple);
+    if (self->connection->row_factory != Py_None) {
+        next_row = PyObject_CallFunction(self->connection->row_factory, "OO", self, next_row_tuple);
         Py_DECREF(next_row_tuple);
     } else {
         next_row = next_row_tuple;
@@ -1077,7 +1073,6 @@ static struct PyMemberDef cursor_members[] =
     {"arraysize", T_INT, offsetof(pysqlite_Cursor, arraysize), 0},
     {"lastrowid", T_OBJECT, offsetof(pysqlite_Cursor, lastrowid), RO},
     {"rowcount", T_LONG, offsetof(pysqlite_Cursor, rowcount), RO},
-    {"row_factory", T_OBJECT, offsetof(pysqlite_Cursor, row_factory), 0},
     {NULL}
 };
 

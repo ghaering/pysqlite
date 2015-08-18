@@ -38,7 +38,6 @@ typedef struct
     int arraysize;
     PyObject* lastrowid;
     long rowcount;
-    PyObject* row_factory;
     pysqlite_Statement* statement;
     int closed;
     int reset;
