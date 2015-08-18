@@ -113,10 +113,6 @@ class TransactionTests(unittest.TestCase):
         self.assertEqual(len(res), 1)
 
     def CheckRaiseTimeout(self):
-        if sqlite.sqlite_version_info < (3, 2, 2):
-            # This will fail (hang) on earlier versions of sqlite.
-            # Determine exact version it was fixed. 3.2.1 hangs.
-            return
         self.cur1.execute("create table test(i)")
         self.cur1.execute("insert into test(i) values (5)")
         try:
@@ -132,10 +128,6 @@ class TransactionTests(unittest.TestCase):
         This tests the improved concurrency with pysqlite 2.3.4. You needed
         to roll back con2 before you could commit con1.
         """
-        if sqlite.sqlite_version_info < (3, 2, 2):
-            # This will fail (hang) on earlier versions of sqlite.
-            # Determine exact version it was fixed. 3.2.1 hangs.
-            return
         self.cur1.execute("create table test(i)")
         self.cur1.execute("insert into test(i) values (5)")
         try:

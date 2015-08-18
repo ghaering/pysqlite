@@ -259,10 +259,6 @@ class CursorTests(unittest.TestCase):
         self.assertEqual(row[0], "foo")
 
     def CheckExecuteDictMapping_Mapping(self):
-        # Test only works with Python 2.5 or later
-        if sys.version_info < (2, 5, 0):
-            return
-
         class D(dict):
             def __missing__(self, key):
                 return "foo"
