@@ -35,6 +35,7 @@ class SqliteTypeTests(unittest.TestCase):
         self.con = sqlite.connect(":memory:")
         self.cur = self.con.cursor()
         self.cur.execute("create table test(i integer, s varchar, f number, b blob)")
+        self.con.commit()
 
     def tearDown(self):
         self.cur.close()
@@ -141,6 +142,7 @@ class DeclTypesTests(unittest.TestCase):
         self.con = sqlite.connect(":memory:", detect_types=sqlite.PARSE_DECLTYPES)
         self.cur = self.con.cursor()
         self.cur.execute("create table test(i int, s str, f float, b bool, u unicode, foo foo, bin blob, n1 number, n2 number(5))")
+        self.con.commit()
 
         # override float, make them always return the same number
         sqlite.converters["FLOAT"] = lambda x: 47.2
@@ -279,6 +281,7 @@ class ColNamesTests(unittest.TestCase):
         self.con = sqlite.connect(":memory:", detect_types=sqlite.PARSE_COLNAMES)
         self.cur = self.con.cursor()
         self.cur.execute("create table test(x foo)")
+        self.con.commit()
 
         sqlite.converters["FOO"] = lambda x: "[%s]" % x
         sqlite.converters["BAR"] = lambda x: "<%s>" % x
@@ -379,6 +382,7 @@ class DateTimeTests(unittest.TestCase):
         self.con = sqlite.connect(":memory:", detect_types=sqlite.PARSE_DECLTYPES)
         self.cur = self.con.cursor()
         self.cur.execute("create table test(d date, ts timestamp)")
+        self.con.commit()
 
     def tearDown(self):
         self.cur.close()

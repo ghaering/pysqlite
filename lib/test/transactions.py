@@ -53,16 +53,9 @@ class TransactionTests(unittest.TestCase):
         except OSError:
             pass
 
-    def CheckDMLdoesAutoCommitBefore(self):
-        self.cur1.execute("create table test(i)")
-        self.cur1.execute("insert into test(i) values (5)")
-        self.cur1.execute("create table test2(j)")
-        self.cur2.execute("select i from test")
-        res = self.cur2.fetchall()
-        self.assertEqual(len(res), 1)
-
     def CheckInsertStartsTransaction(self):
         self.cur1.execute("create table test(i)")
+        self.con1.commit()
         self.cur1.execute("insert into test(i) values (5)")
         self.cur2.execute("select i from test")
         res = self.cur2.fetchall()
@@ -70,6 +63,7 @@ class TransactionTests(unittest.TestCase):
 
     def CheckUpdateStartsTransaction(self):
         self.cur1.execute("create table test(i)")
+        self.con1.commit()
         self.cur1.execute("insert into test(i) values (5)")
         self.con1.commit()
         self.cur1.execute("update test set i=6")
@@ -79,6 +73,7 @@ class TransactionTests(unittest.TestCase):
 
     def CheckDeleteStartsTransaction(self):
         self.cur1.execute("create table test(i)")
+        self.con1.commit()
         self.cur1.execute("insert into test(i) values (5)")
         self.con1.commit()
         self.cur1.execute("delete from test")
@@ -88,6 +83,7 @@ class TransactionTests(unittest.TestCase):
 
     def CheckReplaceStartsTransaction(self):
         self.cur1.execute("create table test(i)")
+        self.con1.commit()
         self.cur1.execute("insert into test(i) values (5)")
         self.con1.commit()
         self.cur1.execute("replace into test(i) values (6)")
@@ -98,6 +94,7 @@ class TransactionTests(unittest.TestCase):
 
     def CheckToggleAutoCommit(self):
         self.cur1.execute("create table test(i)")
+        self.con1.commit()
         self.cur1.execute("insert into test(i) values (5)")
         self.con1.isolation_level = None
         self.assertEqual(self.con1.isolation_level, None)
@@ -114,6 +111,7 @@ class TransactionTests(unittest.TestCase):
 
     def CheckRaiseTimeout(self):
         self.cur1.execute("create table test(i)")
+        self.con1.commit()
         self.cur1.execute("insert into test(i) values (5)")
         try:
             self.cur2.execute("insert into test(i) values (5)")
@@ -129,6 +127,7 @@ class TransactionTests(unittest.TestCase):
         to roll back con2 before you could commit con1.
         """
         self.cur1.execute("create table test(i)")
+        self.con1.commit()
         self.cur1.execute("insert into test(i) values (5)")
         try:
             self.cur2.execute("insert into test(i) values (5)")
@@ -148,6 +147,7 @@ class TransactionTests(unittest.TestCase):
         con = sqlite.connect(":memory:")
         cur = con.cursor()
         cur.execute("create table test(x)")
+        con.commit()
         cur.execute("insert into test(x) values (5)")
         cur.execute("select 1 union select 2 union select 3")
 
@@ -165,13 +165,9 @@ class SpecialCommandTests(unittest.TestCase):
         self.con = sqlite.connect(":memory:")
         self.cur = self.con.cursor()
 
-    def CheckVacuum(self):
-        self.cur.execute("create table test(i)")
-        self.cur.execute("insert into test(i) values (5)")
-        self.cur.execute("vacuum")
-
     def CheckDropTable(self):
         self.cur.execute("create table test(i)")
+        self.con.commit()
         self.cur.execute("insert into test(i) values (5)")
         self.cur.execute("drop table test")
 

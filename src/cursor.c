@@ -37,44 +37,6 @@ PyObject* pysqlite_cursor_iternext(pysqlite_Cursor* self);
 
 static char* errmsg_fetch_across_rollback = "Cursor needed to be reset because of commit/rollback and can no longer be fetched from.";
 
-static pysqlite_StatementKind detect_statement_type(char* statement)
-{
-    char buf[20];
-    char* src;
-    char* dst;
-
-    src = statement;
-    /* skip over whitepace */
-    while (*src == '\r' || *src == '\n' || *src == ' ' || *src == '\t') {
-        src++;
-    }
-
-    if (*src == 0)
-        return STATEMENT_INVALID;
-
-    dst = buf;
-    *dst = 0;
-    while (Py_ISALPHA(*src) && dst - buf < sizeof(buf) - 2) {
-        *dst++ = Py_TOLOWER(*src++);
-    }
-
-    *dst = 0;
-
-    if (!strcmp(buf, "select")) {
-        return STATEMENT_SELECT;
-    } else if (!strcmp(buf, "insert")) {
-        return STATEMENT_INSERT;
-    } else if (!strcmp(buf, "update")) {
-        return STATEMENT_UPDATE;
-    } else if (!strcmp(buf, "delete")) {
-        return STATEMENT_DELETE;
-    } else if (!strcmp(buf, "replace")) {
-        return STATEMENT_REPLACE;
-    } else {
-        return STATEMENT_OTHER;
-    }
-}
-
 static int pysqlite_cursor_init(pysqlite_Cursor* self, PyObject* args, PyObject* kwargs)
 {
     pysqlite_Connection* connection;
@@ -454,7 +416,6 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
     PyObject* func_args;
     PyObject* result;
     int numcols;
-    int statement_type;
     PyObject* descriptor;
     PyObject* second_argument = NULL;
     int allow_8bit_chars;
@@ -550,7 +511,7 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
     Py_DECREF(self->description);
     Py_INCREF(Py_None);
     self->description = Py_None;
-    self->rowcount = -1L;
+    self->rowcount = 0L;
 
     func_args = PyTuple_New(1);
     if (!func_args) {
@@ -589,39 +550,13 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
     pysqlite_statement_reset(self->statement);
     pysqlite_statement_mark_dirty(self->statement);
 
-    statement_type = detect_statement_type(operation_cstr);
-    if (self->connection->begin_statement) {
-        switch (statement_type) {
-            case STATEMENT_UPDATE:
-            case STATEMENT_DELETE:
-            case STATEMENT_INSERT:
-            case STATEMENT_REPLACE:
-                if (sqlite3_get_autocommit(self->connection->db)) {
-                    result = _pysqlite_connection_begin(self->connection);
-                    if (!result) {
-                        goto error;
-                    }
-                    Py_DECREF(result);
-                }
-                break;
-            case STATEMENT_OTHER:
-                /* it's a DDL statement or something similar
-                   - we better COMMIT first so it works for all cases */
-                if (!sqlite3_get_autocommit(self->connection->db)) {
-                    result = pysqlite_connection_commit(self->connection, NULL);
-                    if (!result) {
-                        goto error;
-                    }
-                    Py_DECREF(result);
-                }
-                break;
-            case STATEMENT_SELECT:
-                if (multiple) {
-                    PyErr_SetString(pysqlite_ProgrammingError,
-                                "You cannot execute SELECT statements in executemany().");
-                    goto error;
-                }
-                break;
+    if (self->connection->begin_statement && !sqlite3_stmt_readonly(self->statement->st)) {
+        if (sqlite3_get_autocommit(self->connection->db)) {
+            result = _pysqlite_connection_begin(self->connection);
+            if (!result) {
+                goto error;
+            }
+            Py_DECREF(result);
         }
     }
 
@@ -658,7 +593,7 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
             goto error;
         }
 
-        if (rc == SQLITE_ROW || (rc == SQLITE_DONE && statement_type == STATEMENT_SELECT)) {
+        if (rc == SQLITE_ROW || rc == SQLITE_DONE) {
             if (self->description == Py_None) {
                 Py_BEGIN_ALLOW_THREADS
                 numcols = sqlite3_column_count(self->statement->st);
@@ -686,6 +621,21 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
             }
         }
 
+        if (!sqlite3_stmt_readonly(self->statement->st)) {
+            self->rowcount += (long)sqlite3_changes(self->connection->db);
+        } else {
+            self->rowcount= -1;
+        }
+
+        Py_DECREF(self->lastrowid);
+        if (!multiple) {
+            sqlite_int64 lastrowid;
+            Py_BEGIN_ALLOW_THREADS
+            lastrowid = sqlite3_last_insert_rowid(self->connection->db);
+            Py_END_ALLOW_THREADS
+            self->lastrowid = _pysqlite_long_from_int64(lastrowid);
+        }
+
         if (rc == SQLITE_ROW) {
             if (multiple) {
                 PyErr_SetString(pysqlite_ProgrammingError, "executemany() can only execute DML statements.");
@@ -696,29 +646,6 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
         } else if (rc == SQLITE_DONE && !multiple) {
             pysqlite_statement_reset(self->statement);
             Py_CLEAR(self->statement);
-        }
-
-        switch (statement_type) {
-            case STATEMENT_UPDATE:
-            case STATEMENT_DELETE:
-            case STATEMENT_INSERT:
-            case STATEMENT_REPLACE:
-                if (self->rowcount == -1L) {
-                    self->rowcount = 0L;
-                }
-                self->rowcount += (long)sqlite3_changes(self->connection->db);
-        }
-
-        Py_DECREF(self->lastrowid);
-        if (!multiple && statement_type == STATEMENT_INSERT) {
-            sqlite_int64 lastrowid;
-            Py_BEGIN_ALLOW_THREADS
-            lastrowid = sqlite3_last_insert_rowid(self->connection->db);
-            Py_END_ALLOW_THREADS
-            self->lastrowid = _pysqlite_long_from_int64(lastrowid);
-        } else {
-            Py_INCREF(Py_None);
-            self->lastrowid = Py_None;
         }
 
         if (multiple) {

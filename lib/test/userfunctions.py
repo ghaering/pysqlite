@@ -269,6 +269,7 @@ class AggregateTests(unittest.TestCase):
                 b blob
                 )
             """)
+        self.con.commit()
         cur.execute("insert into test(t, i, f, n, b) values (?, ?, ?, ?, ?)",
             ("foo", 5, 3.14, None, buffer("blob"),))
 

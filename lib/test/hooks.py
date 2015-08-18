@@ -136,6 +136,7 @@ class ProgressTests(unittest.TestCase):
         con.execute("""
             create table foo(a, b)
             """)
+        con.commit()
         self.assertTrue(progress_calls)
 
 
