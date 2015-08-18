@@ -21,6 +21,7 @@
 #    misrepresented as being the original software.
 # 3. This notice may not be removed or altered from any source distribution.
 
+import collections
 import datetime
 import time
 
@@ -51,6 +52,7 @@ version_info = tuple([int(x) for x in version.split(".")])
 sqlite_version_info = tuple([int(x) for x in sqlite_version.split(".")])
 
 Binary = buffer
+collections.Sequence.register(Row)
 
 def register_adapters_and_converters():
     def adapt_date(val):
@@ -65,12 +67,12 @@ def register_adapters_and_converters():
     def convert_timestamp(val):
         datepart, timepart = val.split(" ")
         year, month, day = map(int, datepart.split("-"))
-        hours_part, minutes_part, seconds_part = timepart.split(":")
-        hours, minutes = int(hours_part), int(minutes_part)
-
-        sec_part, _, sub_sec_part = seconds_part.partition(".")
-        seconds = int(sec_part)
-        microseconds = int(sub_sec_part + "0" * (6 - len(sub_sec_part)))
+        timepart_full = timepart.split(".")
+        hours, minutes, seconds = map(int, timepart_full[0].split(":"))
+        if len(timepart_full) == 2:
+            microseconds = int('{:0<6.6}'.format(timepart_full[1].decode()))
+        else:
+            microseconds = 0
 
         val = datetime.datetime(year, month, day, hours, minutes, seconds, microseconds)
         return val

@@ -23,7 +23,10 @@
 
 import unittest
 import sys
-import threading
+try:
+    import threading
+except ImportError:
+    threading = None
 import pysqlite2.dbapi2 as sqlite
 
 class ModuleTests(unittest.TestCase):
@@ -41,8 +44,8 @@ class ModuleTests(unittest.TestCase):
                          sqlite.paramstyle)
 
     def CheckWarning(self):
-        self.assert_(issubclass(sqlite.Warning, StandardError),
-                     "Warning is not a subclass of StandardError")
+        self.assertTrue(issubclass(sqlite.Warning, StandardError),
+                        "Warning is not a subclass of StandardError")
 
     def CheckError(self):
         self.assertTrue(issubclass(sqlite.Error, StandardError),
@@ -164,8 +167,8 @@ class CursorTests(unittest.TestCase):
     def CheckExecuteTooMuchSql(self):
         try:
             self.cu.execute("select 5+4; select 4+5")
-            self.fail("should have raised a ProgrammingError")
-        except sqlite.ProgrammingError:
+            self.fail("should have raised a Warning")
+        except sqlite.Warning:
             return
         except:
             self.fail("raised wrong exception")
@@ -199,6 +202,13 @@ class CursorTests(unittest.TestCase):
 
     def CheckExecuteArgString(self):
         self.cu.execute("insert into test(name) values (?)", ("Hugo",))
+
+    def CheckExecuteArgStringWithZeroByte(self):
+        self.cu.execute("insert into test(name) values (?)", ("Hu\x00go",))
+
+        self.cu.execute("select name from test where id=?", (self.cu.lastrowid,))
+        row = self.cu.fetchone()
+        self.assertEqual(row[0], "Hu\x00go")
 
     def CheckExecuteWrongNoOfArgs1(self):
         # too many parameters
@@ -465,6 +475,7 @@ class CursorTests(unittest.TestCase):
         except TypeError:
             pass
 
+@unittest.skipUnless(threading, 'This test requires threading.')
 class ThreadTests(unittest.TestCase):
     def setUp(self):
         self.con = sqlite.connect(":memory:")

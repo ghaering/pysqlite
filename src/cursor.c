@@ -54,8 +54,8 @@ static pysqlite_StatementKind detect_statement_type(char* statement)
 
     dst = buf;
     *dst = 0;
-    while (isalpha(*src) && dst - buf < sizeof(buf) - 2) {
-        *dst++ = tolower(*src++);
+    while (Py_ISALPHA(*src) && dst - buf < sizeof(buf) - 2) {
+        *dst++ = Py_TOLOWER(*src++);
     }
 
     *dst = 0;
@@ -234,8 +234,7 @@ int pysqlite_build_row_cast_map(pysqlite_Cursor* self)
             if (converter != Py_None) {
                 Py_DECREF(converter);
             }
-            Py_XDECREF(self->row_cast_map);
-            self->row_cast_map = NULL;
+            Py_CLEAR(self->row_cast_map);
 
             return -1;
         }
@@ -263,26 +262,30 @@ PyObject* _pysqlite_build_column_name(const char* colname)
     }
 }
 
-static PyObject* pysqlite_unicode_from_string(const char* val_str, Py_ssize_t nbytes, int optimize)
+static PyObject* pysqlite_unicode_from_string(const char* val_str, Py_ssize_t size, int optimize)
 {
+    const char* check;
+    Py_ssize_t pos;
     int is_ascii = 0;
-    int i;
 
     if (optimize) {
         is_ascii = 1;
 
-        for (i = 0; i < nbytes; i++) {
-            if (val_str[i] & 0x80) {
+        check = val_str;
+        for (pos = 0; pos < size; pos++) {
+            if (*check & 0x80) {
                 is_ascii = 0;
                 break;
             }
+
+            check++;
         }
     }
 
     if (is_ascii) {
-        return PyString_FromStringAndSize(val_str, nbytes);
+        return PyString_FromStringAndSize(val_str, size);
     } else {
-        return PyUnicode_DecodeUTF8(val_str, nbytes, NULL);
+        return PyUnicode_DecodeUTF8(val_str, size, NULL);
     }
 }
 
@@ -298,7 +301,6 @@ PyObject* _pysqlite_fetch_one_row(pysqlite_Cursor* self)
     PyObject* row;
     PyObject* item = NULL;
     int coltype;
-    PY_LONG_LONG intval;
     PyObject* converter;
     PyObject* converted;
     Py_ssize_t nbytes;
@@ -323,8 +325,6 @@ PyObject* _pysqlite_fetch_one_row(pysqlite_Cursor* self)
     }
 
     for (i = 0; i < numcols; i++) {
-        nbytes = sqlite3_column_bytes(self->statement->st, i);
-
         if (self->connection->detect_types) {
             converter = PyList_GetItem(self->row_cast_map, i);
             if (!converter) {
@@ -335,24 +335,20 @@ PyObject* _pysqlite_fetch_one_row(pysqlite_Cursor* self)
         }
 
         if (converter != Py_None) {
-            if (sqlite3_column_type(self->statement->st, i) == SQLITE_NULL) {
+            nbytes = sqlite3_column_bytes(self->statement->st, i);
+            val_str = (const char*)sqlite3_column_blob(self->statement->st, i);
+            if (!val_str) {
                 Py_INCREF(Py_None);
                 converted = Py_None;
             } else {
-                val_str = (const char*)sqlite3_column_blob(self->statement->st, i);
-                if (!val_str) {
-                    Py_INCREF(Py_None);
-                    converted = Py_None;
-                } else {
-                    item = PyString_FromStringAndSize(val_str, nbytes);
-                    if (!item) {
-                        return NULL;
-                    }
-                    converted = PyObject_CallFunction(converter, "O", item);
-                    Py_DECREF(item);
-                    if (!converted) {
-                        break;
-                    }
+                item = PyString_FromStringAndSize(val_str, nbytes);
+                if (!item) {
+                    return NULL;
+                }
+                converted = PyObject_CallFunction(converter, "O", item);
+                Py_DECREF(item);
+                if (!converted) {
+                    break;
                 }
             }
         } else {
@@ -363,16 +359,12 @@ PyObject* _pysqlite_fetch_one_row(pysqlite_Cursor* self)
                 Py_INCREF(Py_None);
                 converted = Py_None;
             } else if (coltype == SQLITE_INTEGER) {
-                intval = sqlite3_column_int64(self->statement->st, i);
-                if (intval < INT32_MIN || intval > INT32_MAX) {
-                    converted = PyLong_FromLongLong(intval);
-                } else {
-                    converted = PyInt_FromLong((long)intval);
-                }
+                converted = _pysqlite_long_from_int64(sqlite3_column_int64(self->statement->st, i));
             } else if (coltype == SQLITE_FLOAT) {
                 converted = PyFloat_FromDouble(sqlite3_column_double(self->statement->st, i));
             } else if (coltype == SQLITE_TEXT) {
                 val_str = (const char*)sqlite3_column_text(self->statement->st, i);
+                nbytes = sqlite3_column_bytes(self->statement->st, i);
                 if ((self->connection->text_factory == (PyObject*)&PyUnicode_Type)
                     || (self->connection->text_factory == pysqlite_OptimizedUnicode)) {
 
@@ -391,7 +383,7 @@ PyObject* _pysqlite_fetch_one_row(pysqlite_Cursor* self)
                 } else if (self->connection->text_factory == (PyObject*)&PyString_Type) {
                     converted = PyString_FromStringAndSize(val_str, nbytes);
                 } else {
-                    converted = PyObject_CallFunction(self->connection->text_factory, "s", val_str);
+                    converted = PyObject_CallFunction(self->connection->text_factory, "s#", val_str, nbytes);
                 }
             } else {
                 /* coltype == SQLITE_BLOB */
@@ -462,7 +454,6 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
     PyObject* func_args;
     PyObject* result;
     int numcols;
-    PY_LONG_LONG lastrowid;
     int statement_type;
     PyObject* descriptor;
     PyObject* second_argument = NULL;
@@ -479,8 +470,7 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
     allow_8bit_chars = ((self->connection->text_factory != (PyObject*)&PyUnicode_Type) &&
         (self->connection->text_factory != pysqlite_OptimizedUnicode));
 
-    Py_XDECREF(self->next_row);
-    self->next_row = NULL;
+    Py_CLEAR(self->next_row);
 
     if (multiple) {
         /* executemany() */
@@ -743,10 +733,11 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
 
         Py_DECREF(self->lastrowid);
         if (!multiple && statement_type == STATEMENT_INSERT) {
+            sqlite_int64 lastrowid;
             Py_BEGIN_ALLOW_THREADS
             lastrowid = sqlite3_last_insert_rowid(self->connection->db);
             Py_END_ALLOW_THREADS
-            self->lastrowid = PyInt_FromLong((long)lastrowid);
+            self->lastrowid = _pysqlite_long_from_int64(lastrowid);
         } else {
             Py_INCREF(Py_None);
             self->lastrowid = Py_None;
@@ -902,8 +893,7 @@ PyObject* pysqlite_cursor_iternext(pysqlite_Cursor *self)
     if (!self->next_row) {
          if (self->statement) {
             (void)pysqlite_statement_reset(self->statement);
-            Py_DECREF(self->statement);
-            self->statement = NULL;
+            Py_CLEAR(self->statement);
         }
         return NULL;
     }

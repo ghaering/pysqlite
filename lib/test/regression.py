@@ -159,7 +159,8 @@ class RegressionTests(unittest.TestCase):
 
     def CheckCursorConstructorCallCheck(self):
         """
-        Verifies that cursor methods check wether base class __init__ was called.
+        Verifies that cursor methods check whether base class __init__ was
+        called.
         """
         class Cursor(sqlite.Cursor):
             def __init__(self, con):
@@ -177,7 +178,8 @@ class RegressionTests(unittest.TestCase):
 
     def CheckConnectionConstructorCallCheck(self):
         """
-        Verifies that connection methods check wether base class __init__ was called.
+        Verifies that connection methods check whether base class __init__ was
+        called.
         """
         class Connection(sqlite.Connection):
             def __init__(self, name):
@@ -232,8 +234,7 @@ class RegressionTests(unittest.TestCase):
         Verifies that running a PRAGMA statement that does an autocommit does
         work. This did not work in 2.5.3/2.5.4.
         """
-        con = sqlite.connect(":memory:")
-        cur = con.cursor()
+        cur = self.con.cursor()
         cur.execute("create table foo(bar)")
         cur.execute("insert into foo(bar) values (5)")
 
@@ -253,11 +254,17 @@ class RegressionTests(unittest.TestCase):
             def __hash__(self):
                 raise TypeError()
         var = NotHashable()
-        con = sqlite.connect(":memory:")
-        self.assertRaises(TypeError, con.create_function, var)
-        self.assertRaises(TypeError, con.create_aggregate, var)
-        self.assertRaises(TypeError, con.set_authorizer, var)
-        self.assertRaises(TypeError, con.set_progress_handler, var)
+        self.assertRaises(TypeError, self.con.create_function, var)
+        self.assertRaises(TypeError, self.con.create_aggregate, var)
+        self.assertRaises(TypeError, self.con.set_authorizer, var)
+        self.assertRaises(TypeError, self.con.set_progress_handler, var)
+
+    def CheckConnectionCall(self):
+        """
+        Call a connection with a non-string SQL request: check error handling
+        of the statement constructor.
+        """
+        self.assertRaises(sqlite.Warning, self.con, 1)
 
     def CheckRecursiveCursorUse(self):
         """
@@ -276,11 +283,9 @@ class RegressionTests(unittest.TestCase):
             cur.execute("insert into a (bar) values (?)", (1,))
             yield 1
 
-        try:
-            cur.executemany("insert into b (baz) values (?)", ((i,) for i in foo()))
-            self.fail("should have raised ProgrammingError")
-        except sqlite.ProgrammingError:
-            pass
+        with self.assertRaises(sqlite.ProgrammingError):
+            cur.executemany("insert into b (baz) values (?)",
+                            ((i,) for i in foo()))
 
     def CheckCommitCursorReset(self):
         """
@@ -314,6 +319,12 @@ class RegressionTests(unittest.TestCase):
                 self.fail("should have returned exactly three rows")
 
             counter += 1
+
+    def CheckInvalidIsolationLevelType(self):
+        # isolation level is a string, not an integer
+        self.assertRaises(TypeError,
+                          sqlite.connect, ":memory:", isolation_level=123)
+
 
 def suite():
     regression_suite = unittest.makeSuite(RegressionTests, "Check")
