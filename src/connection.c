@@ -36,7 +36,6 @@
 #include "pythread.h"
 
 #define DEPRECATE_TEXTFACTORY_MSG "Using text_factory is deprecated. Make sure you only use Unicode strings or UTF-8 encoded bytestrings. If you want to insert arbitrary data in SQLite, please use the BLOB data type."
-#define DEPRECATE_ITERDUMP_MSG "The iterdump() method is deprecated. It mostly work, but making if work fully and keep the implementation up to date with new SQLite features is too big of a maintenance problem. iterdump will eventually be removed."
 
 #define ACTION_FINALIZE 1
 #define ACTION_RESET 2
@@ -1474,10 +1473,6 @@ pysqlite_connection_iterdump(pysqlite_Connection* self, PyObject* args)
     PyObject* module = NULL;
     PyObject* module_dict;
     PyObject* pyfn_iterdump;
-
-    if (PyErr_WarnEx(PyExc_DeprecationWarning, DEPRECATE_ITERDUMP_MSG, 1)) {
-        return NULL;
-    }
 
     if (!pysqlite_check_connection(self)) {
         goto finally;
