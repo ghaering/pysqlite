@@ -119,7 +119,10 @@ int pysqlite_connection_init(pysqlite_Connection* self, PyObject* args, PyObject
         Py_INCREF(isolation_level);
     }
     self->isolation_level = NULL;
-    pysqlite_connection_set_isolation_level(self, isolation_level);
+    if (pysqlite_connection_set_isolation_level(self, isolation_level) < 0) {
+        Py_DECREF(isolation_level);
+        return -1;
+    }
     Py_DECREF(isolation_level);
 
     self->statement_cache = (pysqlite_Cache*)PyObject_CallFunction((PyObject*)&pysqlite_CacheType, "Oi", self, cached_statements);
@@ -556,7 +559,6 @@ PyObject* _pysqlite_build_py_params(sqlite3_context *context, int argc, sqlite3_
     sqlite3_value* cur_value;
     PyObject* cur_py_value;
     const char* val_str;
-    PY_LONG_LONG val_int;
     Py_ssize_t buflen;
     void* raw_buffer;
 
@@ -722,7 +724,6 @@ error:
 void _pysqlite_final_callback(sqlite3_context* context)
 {
     PyObject* function_result;
-    PyObject* aggregate_class;
     PyObject** aggregate_instance;
     int ok;
 
@@ -731,8 +732,6 @@ void _pysqlite_final_callback(sqlite3_context* context)
 
     threadstate = PyGILState_Ensure();
 #endif
-
-    aggregate_class = (PyObject*)sqlite3_user_data(context);
 
     aggregate_instance = (PyObject**)sqlite3_aggregate_context(context, sizeof(PyObject*));
     if (!*aggregate_instance) {
@@ -1238,6 +1237,10 @@ PyObject* pysqlite_connection_call(pysqlite_Connection* self, PyObject* args, Py
         return NULL;
     }
 
+    if (!_PyArg_NoKeywords("Connection()", kwargs)) {
+        return NULL;
+    }
+
     if (!PyArg_ParseTuple(args, "O", &sql)) {
         return NULL;
     }
@@ -1261,7 +1264,8 @@ PyObject* pysqlite_connection_call(pysqlite_Connection* self, PyObject* args, Py
         if (rc == PYSQLITE_TOO_MUCH_SQL) {
             PyErr_SetString(pysqlite_Warning, "You can only execute one statement at a time.");
         } else if (rc == PYSQLITE_SQL_WRONG_TYPE) {
-            PyErr_SetString(pysqlite_Warning, "SQL is of wrong type. Must be string or unicode.");
+            if (!PyErr_Occurred() || PyErr_ExceptionMatches(PyExc_TypeError))
+                PyErr_SetString(pysqlite_Warning, "SQL is of wrong type. Must be string or unicode.");
         } else {
             (void)pysqlite_statement_reset(statement);
             _pysqlite_seterror(self->db, NULL);
@@ -1287,7 +1291,7 @@ error:
     return (PyObject*)statement;
 }
 
-PyObject* pysqlite_connection_execute(pysqlite_Connection* self, PyObject* args, PyObject* kwargs)
+PyObject* pysqlite_connection_execute(pysqlite_Connection* self, PyObject* args)
 {
     PyObject* cursor = 0;
     PyObject* result = 0;
@@ -1316,7 +1320,7 @@ error:
     return cursor;
 }
 
-PyObject* pysqlite_connection_executemany(pysqlite_Connection* self, PyObject* args, PyObject* kwargs)
+PyObject* pysqlite_connection_executemany(pysqlite_Connection* self, PyObject* args)
 {
     PyObject* cursor = 0;
     PyObject* result = 0;
@@ -1345,7 +1349,7 @@ error:
     return cursor;
 }
 
-PyObject* pysqlite_connection_executescript(pysqlite_Connection* self, PyObject* args, PyObject* kwargs)
+PyObject* pysqlite_connection_executescript(pysqlite_Connection* self, PyObject* args)
 {
     PyObject* cursor = 0;
     PyObject* result = 0;
