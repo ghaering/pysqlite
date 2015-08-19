@@ -1,6 +1,71 @@
 pysqlite Changelog
 ==================
 
+Version 2.8.0
+-------------
+
+(released on August 19th 2015)
+
+NEW FEATURES
+
+- No new features, but tons of bugfixes. These mean that things now work that
+  didn't before:
+- Transactional DDL now works
+- You can use SAVEPOINTs now
+
+
+BUILD PROCESS
+
+- Python 2.7.x is now required. If trying to use it with Python 3, print a
+  useful error message.  Integrated all fixes from the sqlite3 module in Python
+  2.7.10.
+
+
+MAJOR IMPROVEMENTS
+
+- Completety got rid of statement parsing. We now use SQLite functions to
+  determine if a statement modifies the database or not. If a statement
+  modifies the database, then we implicitly start a transaction. For backwards
+  compatibility reasons, we do NOT implicitly start a transaction if we
+  encounter a DDL statement.
+
+  You can, however, now have transactional DDL if you want to:
+
+    cur = con.cursor()
+    cur.execute("begin")
+    cur.execute("create table foo(bar)")
+    con.rollback()
+
+  This also means that people can now finally use SAVEPOINTS.
+
+- Use sqlite3_get_autocommit() to determine if we are within a transaction
+  instead of trying to be smart.
+
+- Switch to v2 statement API. This simplified the code and will increase
+  stability.
+
+MINOR IMPROVEMENTS
+
+- You can use unicode strings as index for Row objects.
+
+
+BUGFIXES
+
+- Fixed a regression: statements should not be reset after a commit.
+
+
+GENERAL CLEANUP AND DEPRECATIONS
+
+- Since december 2005, row_factory is a feature of the Connection class instead
+  of the Cursor class. It was kept in the Cursor class for backwards
+  compatibility. Now it was time to finally remove it from the Cursor class.
+- DEPRECATE converters and adapters.
+- DEPRECATE text_factory.
+- Remove compatibility workarounds for old Python versions.
+- Remove workarounds for old SQLite versions.
+- Remove apsw related code.
+
+
 Version 2.7.0
 -------------
 
