@@ -325,7 +325,6 @@ PyObject* pysqlite_connection_backup(pysqlite_Connection* self, PyObject* args, 
 
 PyObject* pysqlite_connection_close(pysqlite_Connection* self, PyObject* args)
 {
-    PyObject* ret;
     int rc;
 
     if (!pysqlite_check_thread(self)) {
@@ -944,7 +943,7 @@ static int _progress_handler(void* user_arg)
 
 static PyObject* pysqlite_connection_get_limit(pysqlite_Connection* self, PyObject* args, PyObject* kwargs)
 {
-    int limit_id, new_val;
+    int limit_id;
 
     static char *kwlist[] = { "limit_id", NULL };
     int retval;
