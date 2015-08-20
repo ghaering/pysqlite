@@ -60,8 +60,6 @@ int pysqlite_connection_init(pysqlite_Connection* self, PyObject* args, PyObject
     int cached_statements = 100;
     double timeout = 5.0;
     int rc;
-    PyObject* class_attr = NULL;
-    PyObject* class_attr_str = NULL;
     PyObject* database_utf8;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|diOiOi", kwlist,
@@ -211,8 +209,6 @@ void pysqlite_do_all_statements(pysqlite_Connection* self, int action)
 
 void pysqlite_connection_dealloc(pysqlite_Connection* self)
 {
-    PyObject* ret = NULL;
-
     Py_XDECREF(self->statement_cache);
 
     /* Clean up if user has not called .close() explicitly. */
