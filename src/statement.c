@@ -95,9 +95,9 @@ int pysqlite_statement_create(pysqlite_Statement* self, pysqlite_Connection* con
                 continue;
         }
 
-        self->is_ddl = (strncasecmp(p, "create", 6) == 0)
-                    || (strncasecmp(p, "drop", 4) == 0)
-                    || (strncasecmp(p, "reindex", 7) == 0); 
+        self->is_ddl = (PyOS_strnicmp(p, "create", 6) == 0)
+                    || (PyOS_strnicmp(p, "drop", 4) == 0)
+                    || (PyOS_strnicmp(p, "reindex", 7) == 0); 
         break;
     }
 
