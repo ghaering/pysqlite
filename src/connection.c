@@ -696,7 +696,7 @@ error:
 
 void _pysqlite_final_callback(sqlite3_context* context)
 {
-    PyObject* function_result;
+    PyObject* function_result = 0;
     PyObject** aggregate_instance;
     int ok;
 
@@ -715,12 +715,10 @@ void _pysqlite_final_callback(sqlite3_context* context)
     }
 
     function_result = PyObject_CallMethod(*aggregate_instance, "finalize", "");
-    Py_DECREF(*aggregate_instance);
 
     ok = 0;
     if (function_result) {
         ok = _pysqlite_set_result(context, function_result) == 0;
-        Py_DECREF(function_result);
     }
     if (!ok) {
         if (_enable_callback_tracebacks) {
