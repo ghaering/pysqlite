@@ -1,6 +1,6 @@
 /* cursor.c - the cursor type
  *
- * Copyright (C) 2004-2015 Gerhard Häring <gh@ghaering.de>
+ * Copyright (C) 2004-2015 Gerhard Hï¿½ring <gh@ghaering.de>
  *
  * This file is part of pysqlite.
  *
@@ -403,16 +403,16 @@ static int check_cursor(pysqlite_Cursor* cur)
 
 PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject* args)
 {
-    PyObject* operation;
+    PyObject* operation = NULL;
     PyObject* parameters_list = NULL;
     PyObject* parameters_iter = NULL;
     PyObject* parameters = NULL;
     int i;
     int rc;
-    PyObject* func_args;
-    PyObject* result;
+    PyObject* func_args = NULL;
+    PyObject* result = NULL;
     int numcols;
-    PyObject* descriptor;
+    PyObject* descriptor = NULL;
     PyObject* second_argument = NULL;
     int allow_8bit_chars;
 
@@ -513,7 +513,6 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
     }
 
     self->statement = (pysqlite_Statement*)pysqlite_cache_get(self->connection->statement_cache, func_args);
-    Py_DECREF(func_args);
 
     if (!self->statement) {
         goto error;
@@ -614,8 +613,8 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
             self->rowcount= -1;
         }
 
-        Py_DECREF(self->lastrowid);
         if (!multiple) {
+            Py_DECREF(self->lastrowid);
             sqlite_int64 lastrowid;
             Py_BEGIN_ALLOW_THREADS
             lastrowid = sqlite3_last_insert_rowid(self->connection->db);
@@ -642,6 +641,7 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
     }
 
 error:
+    Py_XDECREF(func_args);
     Py_XDECREF(parameters);
     Py_XDECREF(parameters_iter);
     Py_XDECREF(parameters_list);
