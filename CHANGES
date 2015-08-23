@@ -1,6 +1,23 @@
 pysqlite Changelog
 ==================
 
+Version 2.8.1
+-------------
+
+(released on August 23rd 2015)
+
+BUG FIXES
+
+- Fixed multiple refcount problems.
+
+IMPROVEMENTS
+
+- Added versionchanged about changed transaction behaviour wrt DDL statements
+  to documentation.
+- I was informed by Roger Binns that FTS5 is not stable yet. The amalgamation
+  is now built with FTS3 and FTS4 instead.
+
+
 Version 2.8.0
 -------------
 
