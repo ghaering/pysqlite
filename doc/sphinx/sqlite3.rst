@@ -832,9 +832,11 @@ Controlling Transactions
 
 By default, the :mod:`sqlite3` module opens transactions implicitly before a
 Data Modification Language (DML)  statement (i.e.
-``INSERT``/``UPDATE``/``DELETE``/``REPLACE``), and commits transactions
-implicitly before a non-DML, non-query statement (i. e.
-anything other than ``SELECT`` or the aforementioned).
+``INSERT``/``UPDATE``/``DELETE``/``REPLACE``).
+
+ .. versionchanged:: 2.8.0
+     pysqlite used to implicitly commit an open transaction before DDL statements.
+     This is no longer the case.
 
 So if you are within a transaction and issue a command like ``CREATE TABLE
 ...``, ``VACUUM``, ``PRAGMA``, the :mod:`sqlite3` module will commit implicitly
@@ -908,4 +910,3 @@ threads. If you still try to do so, you will get an exception at runtime.
 
 The only exception is calling the :meth:`~Connection.interrupt` method, which
 only makes sense to call from a different thread.
-
