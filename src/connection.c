@@ -50,7 +50,7 @@ static void _pysqlite_drop_unused_cursor_references(pysqlite_Connection* self);
 
 int pysqlite_connection_init(pysqlite_Connection* self, PyObject* args, PyObject* kwargs)
 {
-    static char *kwlist[] = {"database", "timeout", "detect_types", "isolation_level", "check_same_thread", "factory", "cached_statements", NULL, NULL};
+    static char *kwlist[] = {"database", "timeout", "detect_types", "isolation_level", "check_same_thread", "factory", "cached_statements", "flags", NULL, NULL};
 
     PyObject* database;
     int detect_types = 0;
@@ -59,11 +59,12 @@ int pysqlite_connection_init(pysqlite_Connection* self, PyObject* args, PyObject
     int check_same_thread = 1;
     int cached_statements = 100;
     double timeout = 5.0;
+    int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
     int rc;
     PyObject* database_utf8;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|diOiOi", kwlist,
-                                     &database, &timeout, &detect_types, &isolation_level, &check_same_thread, &factory, &cached_statements))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|diOiOii", kwlist,
+                                     &database, &timeout, &detect_types, &isolation_level, &check_same_thread, &factory, &cached_statements, &flags))
     {
         return -1;
     }
@@ -94,7 +95,7 @@ int pysqlite_connection_init(pysqlite_Connection* self, PyObject* args, PyObject
         }
 
         Py_BEGIN_ALLOW_THREADS
-        rc = sqlite3_open(PyString_AsString(database_utf8), &self->db);
+        rc = sqlite3_open_v2(PyString_AsString(database_utf8), &self->db, flags, NULL);
         Py_END_ALLOW_THREADS
 
         Py_DECREF(database_utf8);

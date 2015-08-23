@@ -140,6 +140,11 @@ class ConnectionTests(unittest.TestCase):
         self.assertEqual(self.cx.ProgrammingError, sqlite.ProgrammingError)
         self.assertEqual(self.cx.NotSupportedError, sqlite.NotSupportedError)
 
+    def CheckOpenFlags(self):
+        con = sqlite.connect(":memory:", flags=sqlite.SQLITE_OPEN_READONLY)
+        # exception will be raised because of readonly database
+        self.assertRaises(sqlite.OperationalError, con.execute, "create table test(foo)")
+
 class CursorTests(unittest.TestCase):
     def setUp(self):
         self.cx = sqlite.connect(":memory:")

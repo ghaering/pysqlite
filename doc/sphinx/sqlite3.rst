@@ -136,7 +136,7 @@ Module functions and constants
    first blank for the column name: the column name would simply be "x".
 
 
-.. function:: connect(database[, timeout, isolation_level, detect_types, factory])
+.. function:: connect(database[, timeout, isolation_level, detect_types, factory, flags])
 
    Opens a connection to the SQLite database file *database*. You can use
    ``":memory:"`` to open a database connection to a database that resides in RAM
@@ -171,6 +171,12 @@ Module functions and constants
    overhead. If you want to explicitly set the number of statements that are cached
    for the connection, you can set the *cached_statements* parameter. The currently
    implemented default is to cache 100 statements.
+
+   The *flags* parameter can be set to change the behaviour of the wrapped
+   sqlite3_open_v2 call. It defaults to *SQLITE_OPEN_READWRITE |
+   SQLITE_OPEN_CREATE*. Please consult the SQLite documentation for the
+   possible values: https://www.sqlite.org/c3ref/open.html
+
 
 
 .. function:: register_converter(typename, callable)
