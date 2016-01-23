@@ -29,6 +29,8 @@
 #include "prepare_protocol.h"
 #include "util.h"
 
+#include "blob.h"
+
 #ifdef PYSQLITE_EXPERIMENTAL
 #include "backup.h"
 #endif
@@ -319,6 +321,46 @@ PyObject* pysqlite_connection_backup(pysqlite_Connection* self, PyObject* args, 
     return (PyObject*)backup;
 }
 #endif
+
+PyObject* pysqlite_connection_blob(pysqlite_Connection* self, PyObject* args, PyObject* kwargs)
+{
+    static char *kwlist[] = {"dbname", "table", "column", "row", "flags", NULL, NULL};
+    int rc;
+    const char *dbname, *table, *column;
+    sqlite3_int64 row;
+    int flags = 0;
+    sqlite3_blob* blob;
+    pysqlite_Blob *pyblob=0;
+
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "sssL|i", kwlist,
+                                     &dbname, &table, &column, &row, &flags)) {
+        return NULL;
+    }
+
+    Py_BEGIN_ALLOW_THREADS
+    rc = sqlite3_blob_open(self->db, dbname, table, column, row, flags, &blob);
+    Py_END_ALLOW_THREADS
+
+    if (rc != SQLITE_OK) {
+        _pysqlite_seterror(self->db, NULL);
+        return NULL;
+    }
+
+    pyblob = PyObject_New(pysqlite_Blob, &pysqlite_BlobType);
+    if (!pyblob){
+        Py_BEGIN_ALLOW_THREADS
+        sqlite3_blob_close(blob);
+        Py_END_ALLOW_THREADS
+        return NULL;
+    }
+
+    // TODO: validate return value
+    // TODO: add to connection weakref list.
+    pysqlite_blob_init(pyblob, self, blob);
+
+    return (PyObject*)pyblob;
+}
 
 PyObject* pysqlite_connection_close(pysqlite_Connection* self, PyObject* args)
 {
@@ -1601,6 +1643,8 @@ static PyMethodDef connection_methods[] = {
     {"backup", (PyCFunction)pysqlite_connection_backup, METH_VARARGS|METH_KEYWORDS,
         PyDoc_STR("Backup database.")},
     #endif
+    {"blob", (PyCFunction)pysqlite_connection_blob, METH_VARARGS|METH_KEYWORDS,
+        PyDoc_STR("return a blob object")},
     {"cursor", (PyCFunction)pysqlite_connection_cursor, METH_VARARGS|METH_KEYWORDS,
         PyDoc_STR("Return a cursor for the connection.")},
     {"close", (PyCFunction)pysqlite_connection_close, METH_NOARGS,
