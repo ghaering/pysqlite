@@ -26,24 +26,54 @@ static void pysqlite_blob_dealloc(pysqlite_Blob* self)
         Py_END_ALLOW_THREADS
     }
 
+    self->blob = NULL;
+
     if (self->in_weakreflist != NULL) {
         PyObject_ClearWeakRefs((PyObject*)self);
     }
+    //TODO: remove from connection blob list
 
     self->ob_type->tp_free((PyObject*)self);
 }
 
 
-PyObject* pysqlite_blob_test(pysqlite_Blob *self, PyObject* args){
+/*
+ * Checks if a blob object is usable (i. e. not closed).
+ *
+ * 0 => error; 1 => ok
+ */
+int pysqlite_check_blob(pysqlite_Blob* blob)
+{
+    if (!blob->blob) {
+        PyErr_SetString(pysqlite_ProgrammingError, "Cannot operate on a closed blob.");
+        return 0;
+    } else {
+        return 1;
+    }
+}
+
+
+PyObject* pysqlite_blob_test(pysqlite_Blob *self){
     printf("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n");
     Py_INCREF(Py_None);
     return Py_None;
 }
 
 
+PyObject* pysqlite_blob_length(pysqlite_Blob *self){
+    if (!pysqlite_check_blob(self))
+        return NULL;
+
+    //TODO: consider using PyLong
+    return PyInt_FromLong(sqlite3_blob_bytes(self->blob));
+};
+
+
 static PyMethodDef blob_methods[] = {
     {"test", (PyCFunction)pysqlite_blob_test, METH_NOARGS,
         PyDoc_STR("test")},
+    {"length", (PyCFunction)pysqlite_blob_length, METH_NOARGS,
+        PyDoc_STR("return blob length")},
     {NULL, NULL}
 };
 
