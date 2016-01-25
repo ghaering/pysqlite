@@ -57,11 +57,21 @@ int pysqlite_check_blob(pysqlite_Blob* blob)
 }
 
 
-PyObject* pysqlite_blob_test(pysqlite_Blob *self){
-    printf("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n");
-    Py_INCREF(Py_None);
-    return Py_None;
-}
+PyObject* pysqlite_blob_close(pysqlite_Blob *self){
+    if (!pysqlite_check_blob(self) || !pysqlite_check_connection(self->connection) || !pysqlite_check_thread(self->connection)){
+        return NULL;
+    }
+    /* close the blob */
+    if (self->blob) {
+        Py_BEGIN_ALLOW_THREADS
+        sqlite3_blob_close(self->blob);
+        Py_END_ALLOW_THREADS
+    }
+
+    self->blob = NULL;
+
+    Py_RETURN_NONE;
+};
 
 
 PyObject* pysqlite_blob_length(pysqlite_Blob *self){
@@ -73,7 +83,6 @@ PyObject* pysqlite_blob_length(pysqlite_Blob *self){
     blob_length = sqlite3_blob_bytes(self->blob);
     Py_END_ALLOW_THREADS
 
-    //TODO: consider using PyLong
     return PyInt_FromLong(blob_length);
 };
 
@@ -93,7 +102,10 @@ PyObject* pysqlite_blob_read(pysqlite_Blob *self, PyObject *args){
         return NULL;
     }
     //TODO: make this multithreaded and safe!
+    Py_BEGIN_ALLOW_THREADS
     blob_length = sqlite3_blob_bytes(self->blob);
+    Py_END_ALLOW_THREADS
+
     if (read_length < 0) {
         // same as file read.
         read_length = blob_length;
@@ -110,7 +122,10 @@ PyObject* pysqlite_blob_read(pysqlite_Blob *self, PyObject *args){
     }
     raw_buffer = PyBytes_AS_STRING(buffer);
 
+    Py_BEGIN_ALLOW_THREADS
     rc = sqlite3_blob_read(self->blob, raw_buffer, read_length, self->offset);
+    Py_END_ALLOW_THREADS
+
     if (rc != SQLITE_OK){
         Py_DECREF(buffer);
         _pysqlite_seterror(self->connection->db, NULL);
@@ -124,13 +139,42 @@ PyObject* pysqlite_blob_read(pysqlite_Blob *self, PyObject *args){
 };
 
 
+PyObject* pysqlite_blob_write(pysqlite_Blob *self, PyObject *data){
+    Py_ssize_t data_size;
+    char *data_buffer;
+    int rc;
+
+    if (PyBytes_AsStringAndSize(data, &data_buffer, &data_size)){
+        return NULL;
+    }
+
+    if (!pysqlite_check_blob(self) || !pysqlite_check_connection(self->connection) || !pysqlite_check_thread(self->connection)){
+        return NULL;
+    }
+
+    //TODO: throw better error on data bigger then blob.
+
+    Py_BEGIN_ALLOW_THREADS
+    rc = sqlite3_blob_write(self->blob, data_buffer, data_size, self->offset);
+    Py_END_ALLOW_THREADS
+    if (rc != SQLITE_OK) {
+        _pysqlite_seterror(self->connection->db, NULL);
+        return NULL;
+    }
+
+    self->offset += (int)data_size;
+    Py_RETURN_NONE;
+}
+
 static PyMethodDef blob_methods[] = {
-    {"test", (PyCFunction)pysqlite_blob_test, METH_NOARGS,
-        PyDoc_STR("test")},
     {"length", (PyCFunction)pysqlite_blob_length, METH_NOARGS,
         PyDoc_STR("return blob length")},
     {"read", (PyCFunction)pysqlite_blob_read, METH_VARARGS,
-        PyDoc_STR("return blob length")},
+        PyDoc_STR("read data from blob")},
+    {"write", (PyCFunction)pysqlite_blob_write, METH_O,
+        PyDoc_STR("write data to blob")},
+    {"close", (PyCFunction)pysqlite_blob_close, METH_NOARGS,
+        PyDoc_STR("close blob")},
     {NULL, NULL}
 };
 
