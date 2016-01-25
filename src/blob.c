@@ -1,4 +1,5 @@
 #include "blob.h"
+#include "util.h"
 
 
 int pysqlite_blob_init(pysqlite_Blob *self, pysqlite_Connection* connection, sqlite3_blob *blob)
@@ -9,6 +10,9 @@ int pysqlite_blob_init(pysqlite_Blob *self, pysqlite_Connection* connection, sql
     self->in_weakreflist = NULL;
     self->blob = blob;
 
+    if (!pysqlite_check_thread(self->connection)){
+        return -1;
+    }
     // TODO: register blob
     //if (!pysqlite_connection_register_cursor(connection, (PyObject*)self)) {
     //    return -1;
@@ -61,11 +65,62 @@ PyObject* pysqlite_blob_test(pysqlite_Blob *self){
 
 
 PyObject* pysqlite_blob_length(pysqlite_Blob *self){
-    if (!pysqlite_check_blob(self))
+    int blob_length;
+    if (!pysqlite_check_blob(self) || !pysqlite_check_connection(self->connection) || !pysqlite_check_thread(self->connection)){
         return NULL;
+    }
+    Py_BEGIN_ALLOW_THREADS
+    blob_length = sqlite3_blob_bytes(self->blob);
+    Py_END_ALLOW_THREADS
 
     //TODO: consider using PyLong
-    return PyInt_FromLong(sqlite3_blob_bytes(self->blob));
+    return PyInt_FromLong(blob_length);
+};
+
+
+PyObject* pysqlite_blob_read(pysqlite_Blob *self, PyObject *args){
+    int read_length = -1;
+    int blob_length = 0;
+    PyObject* buffer;
+    char* raw_buffer;
+    int rc;
+
+    if (!pysqlite_check_blob(self) || !pysqlite_check_connection(self->connection) || !pysqlite_check_thread(self->connection)){
+        return NULL;
+    }
+
+    if (!PyArg_ParseTuple(args, "|i", &read_length)) {
+        return NULL;
+    }
+    //TODO: make this multithreaded and safe!
+    blob_length = sqlite3_blob_bytes(self->blob);
+    if (read_length < 0) {
+        // same as file read.
+        read_length = blob_length;
+    }
+    
+    // making sure we don't read more then blob size
+    if (self->offset + read_length > blob_length){
+        read_length = blob_length - self->offset;
+    }
+
+    buffer = PyBytes_FromStringAndSize(NULL, read_length);
+    if (!buffer) {
+        return NULL;
+    }
+    raw_buffer = PyBytes_AS_STRING(buffer);
+
+    rc = sqlite3_blob_read(self->blob, raw_buffer, read_length, self->offset);
+    if (rc != SQLITE_OK){
+        Py_DECREF(buffer);
+        _pysqlite_seterror(self->connection->db, NULL);
+        return NULL;
+    }
+
+    // update offset.
+    self->offset += read_length;
+    
+    return buffer;
 };
 
 
@@ -73,6 +128,8 @@ static PyMethodDef blob_methods[] = {
     {"test", (PyCFunction)pysqlite_blob_test, METH_NOARGS,
         PyDoc_STR("test")},
     {"length", (PyCFunction)pysqlite_blob_length, METH_NOARGS,
+        PyDoc_STR("return blob length")},
+    {"read", (PyCFunction)pysqlite_blob_read, METH_VARARGS,
         PyDoc_STR("return blob length")},
     {NULL, NULL}
 };
