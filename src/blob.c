@@ -94,13 +94,15 @@ PyObject* pysqlite_blob_read(pysqlite_Blob *self, PyObject *args){
     char* raw_buffer;
     int rc;
 
+    if (!PyArg_ParseTuple(args, "|i", &read_length)) {
+        return NULL;
+    }
+
     if (!pysqlite_check_blob(self) || !pysqlite_check_connection(self->connection) || !pysqlite_check_thread(self->connection)){
         return NULL;
     }
 
-    if (!PyArg_ParseTuple(args, "|i", &read_length)) {
-        return NULL;
-    }
+
     //TODO: make this multithreaded and safe!
     Py_BEGIN_ALLOW_THREADS
     blob_length = sqlite3_blob_bytes(self->blob);
@@ -166,6 +168,45 @@ PyObject* pysqlite_blob_write(pysqlite_Blob *self, PyObject *data){
     Py_RETURN_NONE;
 }
 
+
+PyObject* pysqlite_blob_seek(pysqlite_Blob *self, PyObject *args){
+    int blob_length, offset, from_what=0;
+
+    if(!PyArg_ParseTuple(args, "i|i", &offset, &from_what)){
+        return NULL;
+    }
+
+
+    if (!pysqlite_check_blob(self) || !pysqlite_check_connection(self->connection) || !pysqlite_check_thread(self->connection)){
+        return NULL;
+    }
+
+    Py_BEGIN_ALLOW_THREADS
+    blob_length = sqlite3_blob_bytes(self->blob);
+    Py_END_ALLOW_THREADS
+
+    switch(from_what){
+        case 0: //realtive to file begin
+            break;
+        case 1: //realtive to current position
+            offset = self->offset + offset;
+            break;
+        case 2: //realtive to blob end
+            offset = blob_length + offset;
+            break;
+        default:
+            return PyErr_Format(PyExc_ValueError, "from_what should be 0, 1 or 2");
+    }
+
+    if (offset < 0 || offset > blob_length){
+        return PyErr_Format(PyExc_ValueError, "offset out of blob range");
+    }
+
+    self->offset = offset;
+    Py_RETURN_NONE;
+};
+
+
 static PyMethodDef blob_methods[] = {
     {"length", (PyCFunction)pysqlite_blob_length, METH_NOARGS,
         PyDoc_STR("return blob length")},
@@ -175,6 +216,8 @@ static PyMethodDef blob_methods[] = {
         PyDoc_STR("write data to blob")},
     {"close", (PyCFunction)pysqlite_blob_close, METH_NOARGS,
         PyDoc_STR("close blob")},
+    {"seek", (PyCFunction)pysqlite_blob_seek, METH_VARARGS,
+        PyDoc_STR("change blob current offset")},
     {NULL, NULL}
 };
 
