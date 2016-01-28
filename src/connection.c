@@ -324,17 +324,17 @@ PyObject* pysqlite_connection_backup(pysqlite_Connection* self, PyObject* args, 
 
 PyObject* pysqlite_connection_blob(pysqlite_Connection* self, PyObject* args, PyObject* kwargs)
 {
-    static char *kwlist[] = {"dbname", "table", "column", "row", "flags", NULL, NULL};
+    static char *kwlist[] = {"table", "column", "row", "flags", "dbname", NULL, NULL};
     int rc;
-    const char *dbname, *table, *column;
+    const char *dbname = "main", *table, *column;
     sqlite3_int64 row;
     int flags = 0;
     sqlite3_blob* blob;
     pysqlite_Blob *pyblob=0;
 
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "sssL|i", kwlist,
-                                     &dbname, &table, &column, &row, &flags)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "ssL|is", kwlist,
+                                     &table, &column, &row, &flags, &dbname)) {
         return NULL;
     }
 
