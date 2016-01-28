@@ -48,8 +48,11 @@ static void pysqlite_blob_dealloc(pysqlite_Blob* self)
  */
 int pysqlite_check_blob(pysqlite_Blob* blob)
 {
+
     if (!blob->blob) {
         PyErr_SetString(pysqlite_ProgrammingError, "Cannot operate on a closed blob.");
+        return 0;
+    } else if (!pysqlite_check_connection(blob->connection) || !pysqlite_check_thread(blob->connection)) {
         return 0;
     } else {
         return 1;
@@ -58,7 +61,7 @@ int pysqlite_check_blob(pysqlite_Blob* blob)
 
 
 PyObject* pysqlite_blob_close(pysqlite_Blob *self){
-    if (!pysqlite_check_blob(self) || !pysqlite_check_connection(self->connection) || !pysqlite_check_thread(self->connection)){
+    if (!pysqlite_check_blob(self)){
         return NULL;
     }
     /* close the blob */
@@ -76,7 +79,7 @@ PyObject* pysqlite_blob_close(pysqlite_Blob *self){
 
 PyObject* pysqlite_blob_length(pysqlite_Blob *self){
     int blob_length;
-    if (!pysqlite_check_blob(self) || !pysqlite_check_connection(self->connection) || !pysqlite_check_thread(self->connection)){
+    if (!pysqlite_check_blob(self)){
         return NULL;
     }
     Py_BEGIN_ALLOW_THREADS
@@ -98,7 +101,7 @@ PyObject* pysqlite_blob_read(pysqlite_Blob *self, PyObject *args){
         return NULL;
     }
 
-    if (!pysqlite_check_blob(self) || !pysqlite_check_connection(self->connection) || !pysqlite_check_thread(self->connection)){
+    if (!pysqlite_check_blob(self)){
         return NULL;
     }
 
@@ -150,7 +153,7 @@ PyObject* pysqlite_blob_write(pysqlite_Blob *self, PyObject *data){
         return NULL;
     }
 
-    if (!pysqlite_check_blob(self) || !pysqlite_check_connection(self->connection) || !pysqlite_check_thread(self->connection)){
+    if (!pysqlite_check_blob(self)){
         return NULL;
     }
 
@@ -177,7 +180,7 @@ PyObject* pysqlite_blob_seek(pysqlite_Blob *self, PyObject *args){
     }
 
 
-    if (!pysqlite_check_blob(self) || !pysqlite_check_connection(self->connection) || !pysqlite_check_thread(self->connection)){
+    if (!pysqlite_check_blob(self)){
         return NULL;
     }
 
@@ -186,7 +189,7 @@ PyObject* pysqlite_blob_seek(pysqlite_Blob *self, PyObject *args){
     Py_END_ALLOW_THREADS
 
     switch(from_what){
-        case 0: //realtive to file begin
+        case 0: //realtive to blob begin
             break;
         case 1: //realtive to current position
             offset = self->offset + offset;
@@ -207,6 +210,41 @@ PyObject* pysqlite_blob_seek(pysqlite_Blob *self, PyObject *args){
 };
 
 
+PyObject* pysqlite_blob_tell(pysqlite_Blob *self){
+    if (!pysqlite_check_blob(self)){
+        return NULL;
+    }
+
+    return PyInt_FromLong(self->offset);
+}
+
+
+PyObject* pysqlite_blob_enter(pysqlite_Blob *self){
+    if (!pysqlite_check_blob(self)){
+        return NULL;
+    }
+
+    Py_INCREF(self);
+    return (PyObject *)self;
+}
+
+
+PyObject* pysqlite_blob_exit(pysqlite_Blob *self, PyObject *args){
+    PyObject *res;
+    if (!pysqlite_check_blob(self)){
+        return NULL;
+    }
+
+    res = pysqlite_blob_close(self);
+    Py_XDECREF(res);
+    if (!res) {
+        return NULL;
+    }
+
+    Py_RETURN_FALSE;
+}
+
+
 static PyMethodDef blob_methods[] = {
     {"length", (PyCFunction)pysqlite_blob_length, METH_NOARGS,
         PyDoc_STR("return blob length")},
@@ -218,6 +256,12 @@ static PyMethodDef blob_methods[] = {
         PyDoc_STR("close blob")},
     {"seek", (PyCFunction)pysqlite_blob_seek, METH_VARARGS,
         PyDoc_STR("change blob current offset")},
+    {"tell", (PyCFunction)pysqlite_blob_tell, METH_NOARGS,
+        PyDoc_STR("return blob current offset")},
+    {"__enter__", (PyCFunction)pysqlite_blob_enter, METH_NOARGS,
+        PyDoc_STR("blob context manager enter")},
+    {"__exit__", (PyCFunction)pysqlite_blob_exit, METH_VARARGS,
+        PyDoc_STR("blob context manager exit")},
     {NULL, NULL}
 };
 
