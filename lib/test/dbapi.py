@@ -480,8 +480,10 @@ class BlobTests(unittest.TestCase):
     def setUp(self):
         self.cx = sqlite.connect(":memory:")
         self.cx.execute("create table test(id integer primary key, blob_col blob)")
-        self.cx.execute("insert into test(blob_col) values (zeroblob(100))")
+        self.blob_data = "a" * 100
+        self.cx.execute("insert into test(blob_col) values (?)", (self.blob_data, ))
         self.blob = self.cx.blob("test", "blob_col", 1, 1)
+        self.second_data = "b" * 100
 
     def tearDown(self):
         self.blob.close()
@@ -526,10 +528,36 @@ class BlobTests(unittest.TestCase):
         except Exception:
             self.fail("should have raised a ValueError")
 
+    def CheckBlobRead(self):
+        self.assertEqual(self.blob.read(), self.blob_data)
+
+    def CheckBlobReadSize(self):
+        self.assertEqual(len(self.blob.read(10)), 10)
+
+    def CheckBlobReadAdvanceOffset(self):
+        self.blob.read(10)
+        self.assertEqual(self.blob.tell(), 10)
+
+    def CheckBlobReadStartAtOffset(self):
+        self.blob.seek(10)
+        self.blob.write(self.second_data[:10])
+        self.blob.seek(10)
+        self.assertEqual(self.blob.read(10), self.second_data[:10])
+
     def CheckBlobWrite(self):
-        data = "a"*100
-        self.blob.write(data)
-        self.assertEqual(str(self.cx.execute("select blob_col from test").fetchone()[0]), data)
+        self.blob.write(self.second_data)
+        self.assertEqual(str(self.cx.execute("select blob_col from test").fetchone()[0]), self.second_data)
+
+    def CheckBlobWriteAtOffset(self):
+        self.blob.seek(50)
+        self.blob.write(self.second_data[:50])
+        self.assertEqual(str(self.cx.execute("select blob_col from test").fetchone()[0]),
+                         self.blob_data[:50] + self.second_data[:50])
+
+    def CheckBlobWriteMoveOffset(self):
+        self.blob.write(self.second_data[:50])
+        self.assertEqual(self.blob.tell(), 50)
+
 
 @unittest.skipUnless(threading, 'This test requires threading.')
 class ThreadTests(unittest.TestCase):
