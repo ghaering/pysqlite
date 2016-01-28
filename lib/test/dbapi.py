@@ -481,7 +481,7 @@ class BlobTests(unittest.TestCase):
         self.cx = sqlite.connect(":memory:")
         self.cx.execute("create table test(id integer primary key, blob_col blob)")
         self.cx.execute("insert into test(blob_col) values (zeroblob(100))")
-        self.blob = self.cx.blob("test", "blob_col", 1)
+        self.blob = self.cx.blob("test", "blob_col", 1, 1)
 
     def tearDown(self):
         self.blob.close()
@@ -508,8 +508,28 @@ class BlobTests(unittest.TestCase):
         self.blob.seek(-10,2)
         self.assertEqual(self.blob.tell(), 90)
 
+    def CheckBlobSeekOverBlobSize(self):
+        try:
+            self.blob.seek(1000)
+            self.fail("should have raised a ValueError")
+        except ValueError:
+            pass
+        except Exception:
+            self.fail("should have raised a ValueError")
 
+    def CheckBlobSeekUnderBlobSize(self):
+        try:
+            self.blob.seek(-10)
+            self.fail("should have raised a ValueError")
+        except ValueError:
+            pass
+        except Exception:
+            self.fail("should have raised a ValueError")
 
+    def CheckBlobWrite(self):
+        data = "a"*100
+        self.blob.write(data)
+        self.assertEqual(str(self.cx.execute("select blob_col from test").fetchone()[0]), data)
 
 @unittest.skipUnless(threading, 'This test requires threading.')
 class ThreadTests(unittest.TestCase):
