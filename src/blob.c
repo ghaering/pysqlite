@@ -7,16 +7,11 @@ int pysqlite_blob_init(pysqlite_Blob *self, pysqlite_Connection* connection, sql
     Py_INCREF(connection);
     self->connection = connection;
     self->offset=0;
-    self->in_weakreflist = NULL;
     self->blob = blob;
 
     if (!pysqlite_check_thread(self->connection)){
         return -1;
     }
-    // TODO: register blob
-    //if (!pysqlite_connection_register_cursor(connection, (PyObject*)self)) {
-    //    return -1;
-    //}
     return 0;
 }
 
@@ -31,11 +26,6 @@ static void pysqlite_blob_dealloc(pysqlite_Blob* self)
     }
 
     self->blob = NULL;
-
-    if (self->in_weakreflist != NULL) {
-        PyObject_ClearWeakRefs((PyObject*)self);
-    }
-    //TODO: remove from connection blob list
 
     self->ob_type->tp_free((PyObject*)self);
 }

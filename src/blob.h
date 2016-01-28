@@ -10,7 +10,6 @@ typedef struct
     pysqlite_Connection* connection;
     sqlite3_blob *blob;
     unsigned int offset;
-    PyObject* in_weakreflist; /* List of weak references */
 } pysqlite_Blob;
 
 extern PyTypeObject pysqlite_BlobType;
