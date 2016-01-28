@@ -475,6 +475,42 @@ class CursorTests(unittest.TestCase):
         except TypeError:
             pass
 
+
+class BlobTests(unittest.TestCase):
+    def setUp(self):
+        self.cx = sqlite.connect(":memory:")
+        self.cx.execute("create table test(id integer primary key, blob_col blob)")
+        self.cx.execute("insert into test(blob_col) values (zeroblob(100))")
+        self.blob = self.cx.blob("test", "blob_col", 1)
+
+    def tearDown(self):
+        self.blob.close()
+        self.cx.close()
+
+    def CheckLength(self):
+        self.assertEqual(self.blob.length(), 100)
+
+    def CheckTell(self):
+        self.assertEqual(self.blob.tell(), 0)
+
+    def CheckSeekFromBlobStart(self):
+        self.blob.seek(10)
+        self.assertEqual(self.blob.tell(), 10)
+        self.blob.seek(10, 0)
+        self.assertEqual(self.blob.tell(), 10)
+
+    def CheckSeekFromCurrentPosition(self):
+        self.blob.seek(10,1)
+        self.blob.seek(10,1)
+        self.assertEqual(self.blob.tell(), 20)
+
+    def CheckSeekFromBlobEnd(self):
+        self.blob.seek(-10,2)
+        self.assertEqual(self.blob.tell(), 90)
+
+
+
+
 @unittest.skipUnless(threading, 'This test requires threading.')
 class ThreadTests(unittest.TestCase):
     def setUp(self):
@@ -917,13 +953,14 @@ def suite():
     module_suite = unittest.makeSuite(ModuleTests, "Check")
     connection_suite = unittest.makeSuite(ConnectionTests, "Check")
     cursor_suite = unittest.makeSuite(CursorTests, "Check")
+    blob_suite = unittest.makeSuite(BlobTests, "Check")
     thread_suite = unittest.makeSuite(ThreadTests, "Check")
     constructor_suite = unittest.makeSuite(ConstructorTests, "Check")
     ext_suite = unittest.makeSuite(ExtensionTests, "Check")
     closed_con_suite = unittest.makeSuite(ClosedConTests, "Check")
     closed_cur_suite = unittest.makeSuite(ClosedCurTests, "Check")
     context_suite = unittest.makeSuite(ContextTests, "Check")
-    return unittest.TestSuite((module_suite, connection_suite, cursor_suite, thread_suite, constructor_suite, ext_suite, closed_con_suite, closed_cur_suite, context_suite))
+    return unittest.TestSuite((module_suite, connection_suite, cursor_suite, blob_suite, thread_suite, constructor_suite, ext_suite, closed_con_suite, closed_cur_suite, context_suite))
 
 def test():
     runner = unittest.TextTestRunner()
