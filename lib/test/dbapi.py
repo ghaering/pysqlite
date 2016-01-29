@@ -983,6 +983,100 @@ class ClosedCurTests(unittest.TestCase):
             except:
                 self.fail("Should have raised a ProgrammingError: " + method_name)
 
+
+class ClosedBlobTests(unittest.TestCase):
+    def setUp(self):
+        self.cx = sqlite.connect(":memory:")
+        self.cx.execute("create table test(id integer primary key, blob_col blob)")
+        self.cx.execute("insert into test(blob_col) values (zeroblob(100))")
+
+    def tearDown(self):
+        self.cx.close()
+
+    def CheckClosedRead(self):
+        self.blob = self.cx.blob("test", "blob_col", 1)
+        self.blob.close()
+        try:
+            self.blob.read()
+            self.fail("Should have raised a ProgrammingError")
+        except sqlite.ProgrammingError:
+            pass
+        except Exception:
+            self.fail("Should have raised a ProgrammingError")
+
+    def CheckClosedWrite(self):
+        self.blob = self.cx.blob("test", "blob_col", 1)
+        self.blob.close()
+        try:
+            self.blob.write("aaaaaaaaa")
+            self.fail("Should have raised a ProgrammingError")
+        except sqlite.ProgrammingError:
+            pass
+        except Exception:
+            self.fail("Should have raised a ProgrammingError")
+
+    def CheckClosedSeek(self):
+        self.blob = self.cx.blob("test", "blob_col", 1)
+        self.blob.close()
+        try:
+            self.blob.seek(10)
+            self.fail("Should have raised a ProgrammingError")
+        except sqlite.ProgrammingError:
+            pass
+        except Exception:
+            self.fail("Should have raised a ProgrammingError")
+
+    def CheckClosedTell(self):
+        self.blob = self.cx.blob("test", "blob_col", 1)
+        self.blob.close()
+        try:
+            self.blob.tell()
+            self.fail("Should have raised a ProgrammingError")
+        except sqlite.ProgrammingError:
+            pass
+        except Exception:
+            self.fail("Should have raised a ProgrammingError")
+
+    def CheckClosedClose(self):
+        self.blob = self.cx.blob("test", "blob_col", 1)
+        self.blob.close()
+        try:
+            self.blob.close()
+            self.fail("Should have raised a ProgrammingError")
+        except sqlite.ProgrammingError:
+            pass
+        except Exception:
+            self.fail("Should have raised a ProgrammingError")
+
+
+class BlobContextManagerTests(unittest.TestCase):
+    def setUp(self):
+        self.cx = sqlite.connect(":memory:")
+        self.cx.execute("create table test(id integer primary key, blob_col blob)")
+        self.cx.execute("insert into test(blob_col) values (zeroblob(100))")
+
+    def tearDown(self):
+        self.cx.close()
+
+    def CheckContextExecute(self):
+        data = "a" * 100
+        with self.cx.blob("test", "blob_col", 1, 1) as blob:
+            blob.write("a" * 100)
+        self.assertEqual(str(self.cx.execute("select blob_col from test").fetchone()[0]), data)
+
+    def CheckContextCloseBlob(self):
+        with self.cx.blob("test", "blob_col", 1) as blob:
+            blob.seek(10)
+        try:
+            blob.close()
+            self.fail("Should have raised a ProgrammingError")
+        except sqlite.ProgrammingError:
+            pass
+        except Exception:
+            self.fail("Should have raised a ProgrammingError")
+
+
+
 did_rollback = False
 
 class MyConnection(sqlite.Connection):
@@ -1036,8 +1130,12 @@ def suite():
     ext_suite = unittest.makeSuite(ExtensionTests, "Check")
     closed_con_suite = unittest.makeSuite(ClosedConTests, "Check")
     closed_cur_suite = unittest.makeSuite(ClosedCurTests, "Check")
+    closed_blob_suite = unittest.makeSuite(ClosedBlobTests, "Check")
+    blob_context_manager_suite = unittest.makeSuite(BlobContextManagerTests, "Check")
     context_suite = unittest.makeSuite(ContextTests, "Check")
-    return unittest.TestSuite((module_suite, connection_suite, cursor_suite, blob_suite, thread_suite, constructor_suite, ext_suite, closed_con_suite, closed_cur_suite, context_suite))
+    return unittest.TestSuite((module_suite, connection_suite, cursor_suite, blob_suite, thread_suite,
+                               constructor_suite, ext_suite, closed_con_suite, closed_cur_suite, closed_blob_suite,
+                               blob_context_manager_suite, context_suite))
 
 def test():
     runner = unittest.TextTestRunner()
