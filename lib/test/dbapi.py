@@ -554,9 +554,38 @@ class BlobTests(unittest.TestCase):
         self.assertEqual(str(self.cx.execute("select blob_col from test").fetchone()[0]),
                          self.blob_data[:50] + self.second_data[:50])
 
-    def CheckBlobWriteMoveOffset(self):
+    def CheckBlobWriteAdvanceOffset(self):
         self.blob.write(self.second_data[:50])
         self.assertEqual(self.blob.tell(), 50)
+
+    def CheckBlobWriteMoreThenBlobSize(self):
+        try:
+            self.blob.write("a" * 1000)
+            self.fail("should have raised a sqlite.OperationalError")
+        except sqlite.OperationalError:
+            pass
+        except Exception:
+            self.fail("should have raised a sqlite.OperationalError")
+
+    def CheckBlobReadAfterRowChange(self):
+        self.cx.execute("UPDATE test SET blob_col='aaaa' where id=1")
+        try:
+            self.blob.read()
+            self.fail("should have raised a sqlite.OperationalError")
+        except sqlite.OperationalError:
+            pass
+        except Exception:
+            self.fail("should have raised a sqlite.OperationalError")
+
+    def CheckBlobWriteAfterRowChange(self):
+        self.cx.execute("UPDATE test SET blob_col='aaaa' where id=1")
+        try:
+            self.blob.write("aaa")
+            self.fail("should have raised a sqlite.OperationalError")
+        except sqlite.OperationalError:
+            pass
+        except Exception:
+            self.fail("should have raised a sqlite.OperationalError")
 
 
 @unittest.skipUnless(threading, 'This test requires threading.')
