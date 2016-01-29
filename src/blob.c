@@ -123,7 +123,12 @@ PyObject* pysqlite_blob_read(pysqlite_Blob *self, PyObject *args){
 
     if (rc != SQLITE_OK){
         Py_DECREF(buffer);
-        _pysqlite_seterror(self->connection->db, NULL);
+        // For some reasone after modifieng blob the error is not set on the connection db.
+        if (rc == SQLITE_ABORT){
+            PyErr_SetString(pysqlite_OperationalError, "Cannot operate on modified blob");
+        } else {
+            _pysqlite_seterror(self->connection->db, NULL);
+        }
         return NULL;
     }
 
@@ -153,7 +158,12 @@ PyObject* pysqlite_blob_write(pysqlite_Blob *self, PyObject *data){
     rc = sqlite3_blob_write(self->blob, data_buffer, data_size, self->offset);
     Py_END_ALLOW_THREADS
     if (rc != SQLITE_OK) {
-        _pysqlite_seterror(self->connection->db, NULL);
+        // For some reasone after modifieng blob the error is not set on the connection db.
+        if (rc == SQLITE_ABORT){
+            PyErr_SetString(pysqlite_OperationalError, "Cannot operate on modified blob");
+        } else {
+            _pysqlite_seterror(self->connection->db, NULL);
+        }
         return NULL;
     }
 
