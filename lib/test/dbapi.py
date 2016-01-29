@@ -887,6 +887,20 @@ class ClosedConTests(unittest.TestCase):
         except:
             self.fail("Should have raised a ProgrammingError")
 
+    def CheckClosedBlobRead(self):
+        con = sqlite.connect(":memory:")
+        con.execute("create table test(id integer primary key, blob_col blob)")
+        con.execute("insert into test(blob_col) values (zeroblob(100))")
+        blob = con.blob("test", "blob_col", 1)
+        con.close()
+        try:
+            blob.read()
+            self.fail("Should have raised a ProgrammingError")
+        except sqlite.ProgrammingError:
+            pass
+        except:
+            self.fail("Should have raised a ProgrammingError")
+
     def CheckClosedCreateFunction(self):
         con = sqlite.connect(":memory:")
         con.close()

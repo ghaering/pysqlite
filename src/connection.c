@@ -78,6 +78,7 @@ int pysqlite_connection_init(pysqlite_Connection* self, PyObject* args, PyObject
     self->statement_cache = NULL;
     self->statements = NULL;
     self->cursors = NULL;
+    self->blobs = NULL;
 
     Py_INCREF(Py_None);
     self->row_factory = Py_None;
@@ -134,10 +135,12 @@ int pysqlite_connection_init(pysqlite_Connection* self, PyObject* args, PyObject
     self->created_statements = 0;
     self->created_cursors = 0;
 
-    /* Create lists of weak references to statements/cursors */
+    /* Create lists of weak references to statements/cursors/blobs */
     self->statements = PyList_New(0);
     self->cursors = PyList_New(0);
-    if (!self->statements || !self->cursors) {
+    self->blobs = PyList_New(0);
+
+    if (!self->statements || !self->cursors || !self->blobs) {
         return -1;
     }
 
@@ -231,6 +234,7 @@ void pysqlite_connection_dealloc(pysqlite_Connection* self)
     Py_XDECREF(self->collations);
     Py_XDECREF(self->statements);
     Py_XDECREF(self->cursors);
+    Py_XDECREF(self->blobs);
 
     self->ob_type->tp_free((PyObject*)self);
 }
@@ -331,6 +335,7 @@ PyObject* pysqlite_connection_blob(pysqlite_Connection* self, PyObject* args, Py
     int flags = 0;
     sqlite3_blob* blob;
     pysqlite_Blob *pyblob=0;
+    PyObject *weakref;
 
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "ssL|is", kwlist,
@@ -349,18 +354,53 @@ PyObject* pysqlite_connection_blob(pysqlite_Connection* self, PyObject* args, Py
 
     pyblob = PyObject_New(pysqlite_Blob, &pysqlite_BlobType);
     if (!pyblob){
-        Py_BEGIN_ALLOW_THREADS
-        sqlite3_blob_close(blob);
-        Py_END_ALLOW_THREADS
-        return NULL;
+        goto error;
     }
 
-    // TODO: validate return value
-    // TODO: add to connection weakref list.
-    pysqlite_blob_init(pyblob, self, blob);
+    rc = pysqlite_blob_init(pyblob, self, blob);
+    if (rc) {
+        Py_CLEAR(pyblob);
+        goto error;
+    }
+
+    // Add our blob to connection blobs list
+    weakref=PyWeakref_NewRef((PyObject*)pyblob, NULL);
+    if (!weakref){
+        Py_CLEAR(pyblob);
+        goto error;
+    }
+    if (PyList_Append(self->blobs, weakref) != 0) {
+        Py_CLEAR(pyblob);
+        Py_CLEAR(weakref);
+        goto error;
+    }
+    Py_DECREF(weakref);
 
     return (PyObject*)pyblob;
+
+error:
+    Py_BEGIN_ALLOW_THREADS
+    sqlite3_blob_close(blob);
+    Py_END_ALLOW_THREADS
+    return NULL;
 }
+
+
+void pysqlite_close_all_blobs(pysqlite_Connection* self)
+{
+    int i;
+    PyObject* weakref;
+    PyObject* blob;
+
+    for (i = 0; i < PyList_Size(self->blobs); i++) {
+        weakref = PyList_GetItem(self->blobs, i);
+        blob = PyWeakref_GetObject(weakref);
+        if (blob != Py_None) {
+            pysqlite_blob_close((pysqlite_Blob*)blob);
+        }
+    }
+}
+
 
 PyObject* pysqlite_connection_close(pysqlite_Connection* self, PyObject* args)
 {
@@ -371,6 +411,8 @@ PyObject* pysqlite_connection_close(pysqlite_Connection* self, PyObject* args)
     }
 
     pysqlite_do_all_statements(self, ACTION_FINALIZE);
+
+    pysqlite_close_all_blobs(self);
 
     if (self->db) {
         Py_BEGIN_ALLOW_THREADS

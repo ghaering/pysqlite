@@ -8,12 +8,28 @@ int pysqlite_blob_init(pysqlite_Blob *self, pysqlite_Connection* connection, sql
     self->connection = connection;
     self->offset=0;
     self->blob = blob;
+    self->in_weakreflist = NULL;
 
     if (!pysqlite_check_thread(self->connection)){
         return -1;
     }
     return 0;
 }
+
+static void remove_blob_from_connection_blob_list(pysqlite_Blob* self)
+{
+    Py_ssize_t i;
+
+    for(i=0;i<PyList_GET_SIZE(self->connection->blobs);i++)
+    {
+      if(PyWeakref_GetObject(PyList_GET_ITEM(self->connection->blobs, i))==(PyObject *)self)
+        {
+          PyList_SetSlice(self->connection->blobs, i, i+1, NULL);
+          break;
+        }
+    }
+}
+
 
 
 static void pysqlite_blob_dealloc(pysqlite_Blob* self)
@@ -24,6 +40,14 @@ static void pysqlite_blob_dealloc(pysqlite_Blob* self)
         sqlite3_blob_close(self->blob);
         Py_END_ALLOW_THREADS
     }
+
+    // remove from connection weaklist
+    remove_blob_from_connection_blob_list(self);
+    if (self->in_weakreflist != NULL) {
+        PyObject_ClearWeakRefs((PyObject*)self);
+    }
+
+    Py_XDECREF(self->connection);
 
     self->blob = NULL;
 
@@ -62,6 +86,12 @@ PyObject* pysqlite_blob_close(pysqlite_Blob *self){
     }
 
     self->blob = NULL;
+
+    // remove from connection weaklist
+    remove_blob_from_connection_blob_list(self);
+    if (self->in_weakreflist != NULL) {
+        PyObject_ClearWeakRefs((PyObject*)self);
+    }
 
     Py_RETURN_NONE;
 };
@@ -286,12 +316,12 @@ PyTypeObject pysqlite_BlobType = {
         0,                                              /* tp_getattro */
         0,                                              /* tp_setattro */
         0,                                              /* tp_as_buffer */
-        Py_TPFLAGS_DEFAULT,                             /* tp_flags */
+        Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_WEAKREFS,    /* tp_flags */
         0,                                              /* tp_doc */
         0,                                              /* tp_traverse */
         0,                                              /* tp_clear */
         0,                                              /* tp_richcompare */
-        0,                                              /* tp_weaklistoffset */
+        offsetof(pysqlite_Blob, in_weakreflist),        /* tp_weaklistoffset */
         0,                                              /* tp_iter */
         0,                                              /* tp_iternext */
         blob_methods,                                   /* tp_methods */
