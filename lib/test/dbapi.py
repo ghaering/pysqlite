@@ -587,6 +587,42 @@ class BlobTests(unittest.TestCase):
         except Exception:
             self.fail("should have raised a sqlite.OperationalError")
 
+    def CheckBlobOpenWithBadDb(self):
+        try:
+            self.cx.blob("test", "blob_col", 1, 1, dbname="notexisintg")
+            self.fail("should have raised a sqlite.OperationalError")
+        except sqlite.OperationalError:
+            pass
+        except Exception:
+            self.fail("should have raised a sqlite.OperationalError")
+
+    def CheckBlobOpenWithBadTable(self):
+        try:
+            self.cx.blob("notexisintg", "blob_col", 1, 1)
+            self.fail("should have raised a sqlite.OperationalError")
+        except sqlite.OperationalError:
+            pass
+        except Exception:
+            self.fail("should have raised a sqlite.OperationalError")
+
+    def CheckBlobOpenWithBadColumn(self):
+        try:
+            self.cx.blob("test", "notexisting", 1, 1)
+            self.fail("should have raised a sqlite.OperationalError")
+        except sqlite.OperationalError:
+            pass
+        except Exception:
+            self.fail("should have raised a sqlite.OperationalError")
+
+    def CheckBlobOpenWithBadRow(self):
+        try:
+            self.cx.blob("test", "blob_col", 2, 1)
+            self.fail("should have raised a sqlite.OperationalError")
+        except sqlite.OperationalError:
+            pass
+        except Exception:
+            self.fail("should have raised a sqlite.OperationalError")
+
 
 @unittest.skipUnless(threading, 'This test requires threading.')
 class ThreadTests(unittest.TestCase):
