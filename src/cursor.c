@@ -61,6 +61,9 @@ static int pysqlite_cursor_init(pysqlite_Cursor* self, PyObject* args, PyObject*
     self->description = Py_None;
 
     Py_INCREF(Py_None);
+    self->decltypes = Py_None;
+
+    Py_INCREF(Py_None);
     self->lastrowid= Py_None;
 
     self->arraysize = 1;
@@ -93,6 +96,7 @@ static void pysqlite_cursor_dealloc(pysqlite_Cursor* self)
     Py_XDECREF(self->connection);
     Py_XDECREF(self->row_cast_map);
     Py_XDECREF(self->description);
+    Py_XDECREF(self->decltypes);
     Py_XDECREF(self->lastrowid);
     Py_XDECREF(self->next_row);
 
@@ -117,6 +121,46 @@ PyObject* _pysqlite_get_converter(PyObject* key)
     Py_DECREF(upcase_key);
 
     return retval;
+}
+
+
+int pysqlite_build_decltypes(pysqlite_Cursor* self){
+    int i, numcols;
+    const char* decltype;
+    const char* pos;
+    PyObject* py_decltype;
+
+    if(!self->connection->detect_types & PARSE_DECLTYPES){
+        return 0;
+    }
+
+    numcols = sqlite3_column_count(self->statement->st);
+    Py_XDECREF(self->decltypes);
+    self->decltypes = PyTuple_New(numcols);
+    if (!self->decltypes) {
+        return -1;
+    }
+
+    for (i = 0; i < sqlite3_column_count(self->statement->st); i++) {
+        decltype = sqlite3_column_decltype(self->statement->st, i);
+        for (pos = decltype;;pos++) {
+            /* Converter names are split at '(' and blanks.
+             * This allows 'INTEGER NOT NULL' to be treated as 'INTEGER' and
+             * 'NUMBER(10)' to be treated as 'NUMBER', for example.
+             * In other words, it will work as people expect it to work.*/
+            if (*pos == ' ' || *pos == '(' || *pos == 0) {
+                py_decltype = PyString_FromStringAndSize(decltype, pos - decltype);
+                if (!py_decltype) {
+                    return -1;
+                }
+                break;
+            }
+        }
+
+        PyTuple_SetItem(self->decltypes, i, py_decltype);
+
+    }
+    return 0;
 }
 
 int pysqlite_build_row_cast_map(pysqlite_Cursor* self)
@@ -574,6 +618,11 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
             goto error;
         }
 
+        if (pysqlite_build_decltypes(self) != 0) {
+            PyErr_SetString(pysqlite_OperationalError, "Error while building decltypes");
+            goto error;
+        }
+
         if (pysqlite_build_row_cast_map(self) != 0) {
             PyErr_SetString(pysqlite_OperationalError, "Error while building row_cast_map");
             goto error;
@@ -596,7 +645,7 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
                         goto error;
                     }
                     PyTuple_SetItem(descriptor, 0, _pysqlite_build_column_name(sqlite3_column_name(self->statement->st, i)));
-                    Py_INCREF(Py_None); PyTuple_SetItem(descriptor, 1, Py_None);
+                    PyTuple_SetItem(descriptor, 1, PyInt_FromLong((long) sqlite3_column_type(self->statement->st, i)));
                     Py_INCREF(Py_None); PyTuple_SetItem(descriptor, 2, Py_None);
                     Py_INCREF(Py_None); PyTuple_SetItem(descriptor, 3, Py_None);
                     Py_INCREF(Py_None); PyTuple_SetItem(descriptor, 4, Py_None);
@@ -946,6 +995,7 @@ static struct PyMemberDef cursor_members[] =
 {
     {"connection", T_OBJECT, offsetof(pysqlite_Cursor, connection), RO},
     {"description", T_OBJECT, offsetof(pysqlite_Cursor, description), RO},
+    {"decltypes", T_OBJECT, offsetof(pysqlite_Cursor, decltypes), RO},
     {"arraysize", T_INT, offsetof(pysqlite_Cursor, arraysize), 0},
     {"lastrowid", T_OBJECT, offsetof(pysqlite_Cursor, lastrowid), RO},
     {"rowcount", T_LONG, offsetof(pysqlite_Cursor, rowcount), RO},
