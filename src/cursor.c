@@ -920,6 +920,39 @@ PyObject* pysqlite_cursor_close(pysqlite_Cursor* self, PyObject* args)
     return Py_None;
 }
 
+/* Called when the cursor is used as a context manager. Returns itself as a
+ * convenience to the caller. */
+static PyObject *
+pysqlite_cursor_enter(pysqlite_Cursor* self, PyObject* args)
+{
+    Py_INCREF(self);
+    return (PyObject*)self;
+}
+
+/** Called when the connection is used as a context manager. Ensures that
+ *  pysqlite_cursor_close(..) is called when the context is left.
+ *  Closing cursors is important to remove read locks from the DB. */
+static PyObject *
+pysqlite_cursor_exit(pysqlite_Cursor* self, PyObject* args)
+{
+    PyObject* exc_type, *exc_value, *exc_tb;
+    PyObject* result;
+
+    if (!PyArg_ParseTuple(args, "OOO", &exc_type, &exc_value, &exc_tb)) {
+        return NULL;
+    }
+
+    result = PyObject_CallMethod((PyObject*)self, "close", "");
+    if (!result) {
+        return NULL;
+    }
+    Py_DECREF(result);
+
+    /* returning false from __exit__ means 'do not swallow any exceptions' */
+    Py_INCREF(Py_False);
+    return Py_False;
+}
+
 static PyMethodDef cursor_methods[] = {
     {"execute", (PyCFunction)pysqlite_cursor_execute, METH_VARARGS,
         PyDoc_STR("Executes a SQL statement.")},
@@ -939,6 +972,10 @@ static PyMethodDef cursor_methods[] = {
         PyDoc_STR("Required by DB-API. Does nothing in pysqlite.")},
     {"setoutputsize", (PyCFunction)pysqlite_noop, METH_VARARGS,
         PyDoc_STR("Required by DB-API. Does nothing in pysqlite.")},
+    {"__enter__", (PyCFunction)pysqlite_cursor_enter, METH_NOARGS,
+        PyDoc_STR("For cursor as context manager. Non-standard.")},
+    {"__exit__",  (PyCFunction)pysqlite_cursor_exit,  METH_VARARGS,
+        PyDoc_STR("For cursor as context manager. Non-standard.")},
     {NULL, NULL}
 };
 
