@@ -1,6 +1,17 @@
 pysqlite Changelog
 ==================
 
+Version 2.8.2
+-------------
+
+(released on March 26th 2016)
+
+- Make sure pysqlite compiles with Visual Studio, which does not support C99
+- Switch to sqlite3_open_v2. The flags parameter is now exposed. You can use it
+  to modify the behaviour of the opened database connection, for example
+  opening a database file in read-only mode or enable URI mode.
+
+
 Version 2.8.1
 -------------
 
