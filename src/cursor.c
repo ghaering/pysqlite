@@ -580,11 +580,9 @@ PyObject* _pysqlite_query_execute(pysqlite_Cursor* self, int multiple, PyObject*
         }
 
         if (rc == SQLITE_ROW || rc == SQLITE_DONE) {
-            if (self->description == Py_None) {
-                Py_BEGIN_ALLOW_THREADS
-                numcols = sqlite3_column_count(self->statement->st);
-                Py_END_ALLOW_THREADS
+            numcols = sqlite3_column_count(self->statement->st);
 
+            if (self->description == Py_None && numcols > 0) {
                 Py_DECREF(self->description);
                 self->description = PyTuple_New(numcols);
                 if (!self->description) {

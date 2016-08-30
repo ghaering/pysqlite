@@ -1,7 +1,7 @@
 #-*- coding: ISO-8859-1 -*-
 # pysqlite2/test/regression.py: pysqlite regression tests
 #
-# Copyright (C) 2006-2015 Gerhard Häring <gh@ghaering.de>
+# Copyright (C) 2006-2015 Gerhard Hï¿½ring <gh@ghaering.de>
 #
 # This file is part of pysqlite.
 #
@@ -331,6 +331,19 @@ class RegressionTests(unittest.TestCase):
         cur = con.cursor()
         self.assertRaises(ValueError, cur.execute, " \0select 2")
         self.assertRaises(ValueError, cur.execute, "select 2\0")
+
+    def CheckNonSelectCursorDescription(self):
+        # https://github.com/ghaering/pysqlite/issues/104
+        con = sqlite.connect(":memory:")
+        cur = con.cursor()
+        cur.execute("create table test as select 1 foo")
+        self.assertEqual(cur.description, None)
+        cur.execute("delete from test")
+        self.assertEqual(cur.description, None)
+        cur.execute("insert into test values (1)")
+        self.assertEqual(cur.description, None)
+        cur.execute("update test set foo=2")
+        self.assertEqual(cur.description, None)
 
 def suite():
     regression_suite = unittest.makeSuite(RegressionTests, "Check")
