@@ -1,6 +1,14 @@
 pysqlite Changelog
 ==================
 
+Version 2.8.3
+-------------
+
+(released on August 30th 2016)
+
+- Fixed bug where cursor.description was an emtpy tuple instead of None for
+  non-SELECT statements
+
 Version 2.8.2
 -------------
 
