@@ -29,7 +29,7 @@ elif sys.version_info[:2] != (2, 7):
     print("Only Python 2.7 is supported.")
     sys.exit(1)
 
-import commands
+import subprocess
 import glob
 import os
 import re
@@ -68,7 +68,13 @@ pysqlite is an interface to the SQLite 3.x embedded relational database engine.
 It is almost fully compliant with the Python database API version 2.0 also
 exposes the unique features of SQLite."""
 
-if sys.platform != "win32":
+try:
+    subprocess.check_output(["uname", "-a"])
+    unixShell = True
+except:
+    unixShell = False
+
+if unixShell:
     define_macros.append(('MODULE_NAME', '"pysqlite2.dbapi2"'))
 else:
     define_macros.append(('MODULE_NAME', '\\"pysqlite2.dbapi2\\"'))
@@ -122,8 +128,7 @@ class MyBuildExt(build_ext):
     amalgamation = False
 
     def _pkgconfig(self, flag, package):
-        status, output = commands.getstatusoutput("pkg-config %s %s" % (flag, package))
-        return output
+        return subprocess.check_output(["pkg-config", flag, package])
 
     def _pkgconfig_include_dirs(self, package):
         return [x.strip() for x in 
