@@ -241,6 +241,13 @@ Connection Objects
    :class:`sqlite3.Cursor`.
 
 
+.. method:: Connection.blob(table, column, row, flags=0, dbname="main")
+
+   On success a :class:`Blob` handle to the blob located in row 'row', 
+   column 'column', table 'table' in database 'dbname' will be returned.
+   The flags represent the blob mode. 0 for read-only otherwise read-write.
+
+
 .. method:: Connection.commit()
 
    This method commits the current transaction. If you don't call this method,
@@ -659,6 +666,60 @@ Now we plug :class:`Row` in::
     RHAT
     100.0
     35.14
+
+
+.. _sqlite3-blob-objects:
+
+Blob Objects
+--------------
+
+.. class:: Blob
+
+A :class:`Blob` instance has the following attributes and methods:
+
+   A SQLite database blob has the following attributes and methods:
+
+.. method:: Blob.close()
+
+   Close the blob now (rather than whenever __del__ is called).
+
+   The blob will be unusable from this point forward; an Error (or subclass)
+   exception will be raised if any operation is attempted with the blob.
+
+.. method:: Blob.length()
+
+   Return the blob size.
+
+.. method:: Blob.read([length])
+
+   Read lnegth bytes of data from the blob at the current offset position. If the
+   end of the blob is reached we will return the data up to end of file. When 
+   length is not specified or negative we will read up to end of blob.
+
+.. method:: Blob.write(data)
+
+   Write data to the blob at the current offset. This function cannot changed blob
+   length. If data write will result in writing to more then blob current size an 
+   error will be raised.
+
+.. method:: Blob.tell()
+
+   Return the current offset of the blob.
+
+.. method:: Blob.seek(offset, [whence])
+
+   Set the blob offset. The whence argument is optional and defaults to os.SEEK_SET 
+   or 0 (absolute blob positioning); other values are os.SEEK_CUR or 1 (seek 
+   relative to the current position) and os.SEEK_END or 2 (seek relative to the blob’s end).
+
+
+:class:`Blob` example:
+
+   .. literalinclude:: ../includes/sqlite3/blob.py
+
+A :class:`Blob` can also be used with context manager:
+
+   .. literalinclude:: ../includes/sqlite3/blob_with.py
 
 
 .. _sqlite3-types:
