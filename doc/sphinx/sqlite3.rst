@@ -588,9 +588,20 @@ A :class:`Cursor` instance has the following attributes and methods:
 
 .. attribute:: Cursor.description
 
-   This read-only attribute provides the column names of the last query. To
-   remain compatible with the Python DB API, it returns a 7-tuple for each
-   column where the last six items of each tuple are :const:`None`.
+   This read-only attribute provides the column names of the last query, and
+   the SQLite datatype. To remain compatible with the Python DB API, it returns
+   a 7-tuple for each column where the last five items of each tuple are
+   :const:`None`. Please consult the SQLite documentation for datatype
+   values and information on the handling of column datatypes:
+   http://www.sqlite.org/c3ref/c_blob.html
+   http://www.sqlite.org/c3ref/column_blob.html
+
+   It is set for ``SELECT`` statements without any matching rows as well.
+
+.. attribute:: Cursor.decltypes
+
+   If the :const:`PARSE_DECLTYPES` flag is set, this read-only attribute provides
+   the declared column types of the last query. Otherwise, it is :const:`None`.
 
    It is set for ``SELECT`` statements without any matching rows as well.
 
