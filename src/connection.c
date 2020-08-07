@@ -805,24 +805,39 @@ static void _pysqlite_drop_unused_cursor_references(pysqlite_Connection* self)
 
 PyObject* pysqlite_connection_create_function(pysqlite_Connection* self, PyObject* args, PyObject* kwargs)
 {
-    static char *kwlist[] = {"name", "narg", "func", NULL, NULL};
+    static char *kwlist[] = {"name", "narg", "func", "deterministic", NULL, NULL};
 
     PyObject* func;
     char* name;
     int narg;
     int rc;
+    int deterministic = 0;
+    int eTextRep = SQLITE_UTF8;
 
     if (!pysqlite_check_thread(self) || !pysqlite_check_connection(self)) {
         return NULL;
     }
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "siO", kwlist,
-                                     &name, &narg, &func))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "siO|p", kwlist,
+                                     &name, &narg, &func, &deterministic))
     {
         return NULL;
     }
 
-    rc = sqlite3_create_function(self->db, name, narg, SQLITE_UTF8, (void*)func, _pysqlite_func_callback, NULL, NULL);
+#ifndef SQLITE_DETERMINISTIC
+#define SQLITE_DETERMINISTIC 0x800
+#endif
+
+    if (deterministic) {
+      if (sqlite3_libversion() < 3008003) {
+        PyErr_SetString(pysqlite_OperationalError, "deterministic not supported in this version of SQLite, need 3.8.3 or higher");
+        return NULL;
+      }
+
+      eTextRep = eTextRep | SQLITE_DETERMINISTIC;
+    }
+
+    rc = sqlite3_create_function(self->db, name, narg, eTextRep, (void*)func, _pysqlite_func_callback, NULL, NULL);
 
     if (rc != SQLITE_OK) {
         /* Workaround for SQLite bug: no error code or string is available here */

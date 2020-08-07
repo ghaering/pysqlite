@@ -280,12 +280,17 @@ Connection Objects
    given.
 
 
-.. method:: Connection.create_function(name, num_params, func)
+.. method:: Connection.create_function(name, num_params, func, [deterministic])
 
    Creates a user-defined function that you can later use from within SQL
    statements under the function name *name*. *num_params* is the number of
    parameters the function accepts, and *func* is a Python callable that is called
    as the SQL function.
+
+   *deterministic* defaults to :const:`False`, when set to :const:`True` this
+   indicates the function always returns the same output for any given
+   input. This allows SQLite to use the function in indices and
+   avoid redundantly evaluating the function when executing queries.
 
    The function can return any of the types supported by SQLite: unicode, str, int,
    long, float, buffer and None.
