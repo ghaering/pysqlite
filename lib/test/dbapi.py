@@ -475,6 +475,18 @@ class CursorTests(unittest.TestCase):
         except TypeError:
             pass
 
+    def CheckCursorAsContext(self):
+        with self.cx.cursor() as cu:
+            cu.execute("select name from test")
+        try:
+            # this should fail as the cursor is closed already
+            # due to the context-manager with statement
+            cu.execute("select name from test")
+        except sqlite.ProgrammingError:
+            return
+        self.fail("expected a ProgrammingError")
+
+        
 @unittest.skipUnless(threading, 'This test requires threading.')
 class ThreadTests(unittest.TestCase):
     def setUp(self):
