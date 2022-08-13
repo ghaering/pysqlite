@@ -252,7 +252,7 @@ static PyObject* pysqlite_unicode_from_string(const char* val_str, Py_ssize_t si
 /*
  * Returns a row from the currently active SQLite statement
  *
- * Precondidition:
+ * Precondition:
  * - sqlite3_step() has been called before and it returned SQLITE_ROW.
  */
 PyObject* _pysqlite_fetch_one_row(pysqlite_Cursor* self)
