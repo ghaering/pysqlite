@@ -34,6 +34,7 @@ typedef struct
     PyObject_HEAD
     pysqlite_Connection* connection;
     PyObject* description;
+    PyObject* decltypes;
     PyObject* row_cast_map;
     int arraysize;
     PyObject* lastrowid;
