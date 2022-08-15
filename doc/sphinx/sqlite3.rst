@@ -484,6 +484,14 @@ A :class:`Cursor` instance has the following attributes and methods:
    The cursor will be unusable from this point forward; an Error (or subclass)
    exception will be raised if any operation is attempted with the cursor.
 
+   Note that an open cursor keeps a read lock on the database
+   (https://www.sqlite.org/opcode.html).  If you are using the same database
+   from multiple threads or processes, with some of those attempting to write
+   to the database, it is important to close open cursors as soon as possible
+   to allow write access.
+
+   See also :meth:`__enter__` below.
+   
 .. method:: Cursor.execute(sql, [parameters])
 
    Executes an SQL statement. The SQL statement may be parametrized (i. e.
@@ -594,6 +602,17 @@ A :class:`Cursor` instance has the following attributes and methods:
 
    It is set for ``SELECT`` statements without any matching rows as well.
 
+.. method:: Cursor.__enter__()
+	    
+   Non-standard method. Implements the context manager interface so a cursor
+   can be used in a ``with`` - statement. Exiting a cursor context will close
+   the cursor.
+
+.. method:: Cursor.__exit__()
+
+   See :meth:`__enter__` above.
+
+   
 .. _sqlite3-row-objects:
 
 Row Objects
