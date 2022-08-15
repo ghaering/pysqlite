@@ -28,6 +28,7 @@
 #include "prepare_protocol.h"
 #include "microprotocols.h"
 #include "row.h"
+#include "blob.h"
 
 #define DEPRECATE_ADAPTERS_MSG "Converters and adapters are deprecated. Please use only supported SQLite types. Any type mapping should happen in layer above this module."
 
@@ -296,6 +297,7 @@ PyMODINIT_FUNC init_sqlite(void)
         #ifdef PYSQLITE_EXPERIMENTAL
         (pysqlite_backup_setup_types() < 0) ||
         #endif
+        (pysqlite_blob_setup_types() < 0) ||
         (pysqlite_prepare_protocol_setup_types() < 0)
        ) {
         return;
